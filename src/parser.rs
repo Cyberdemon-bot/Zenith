@@ -94,11 +94,11 @@ impl<'a> Parser<'a>
             TokenType::WHILE => self.parse_while_statement(),
             TokenType::FOR => self.parse_for_statement(),
             TokenType::BREAK => {
-                self.next_token(); // nuốt từ khóa
+                self.next_token(); 
                 Some(Statement::Break)
             }
             TokenType::CONTINUE => {
-                self.next_token(); // nuốt từ khóa
+                self.next_token(); 
                 Some(Statement::Continue)
             }
             _ => self.parse_expression_statement(),
