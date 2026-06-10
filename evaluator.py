@@ -104,6 +104,11 @@ class Evaluator:
             if "Let" in node:
                 let_data = node["Let"]
                 val = self.eval(let_data["value"], env)
+                array_size_expr = let_data.get("array_size")
+                if array_size_expr is not None and isinstance(val, list):
+                    size = self.eval(array_size_expr, env)
+                    if len(val) < size:
+                        val = val + [0] * (size - len(val))
                 env.store[let_data["name"]] = val
                 return None
 
@@ -185,8 +190,6 @@ class Evaluator:
 
             if "Array" in node:
                 array_data = node["Array"]
-                if len(array_data["elements"]) == 0:
-                    return [0] * array_data["size"]
                 return [self.eval(el, env) for el in array_data["elements"]]
 
             if "Index" in node:

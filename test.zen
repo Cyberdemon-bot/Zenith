@@ -1,7 +1,7 @@
 let GLOBAL_GRAPH_VALIDATED: bool = false;
 let TOTAL_ROUTES_FOUND: int = 0;
 let SYSTEM_STABILITY_INDEX: float = 999.99;
-let GLOBAL_PATH_WEIGHTS: int[] = [16]; 
+let GLOBAL_PATH_WEIGHTS: int[16] = []; 
 
 def compute_catalan_recursive(n: int) -> int {
     if n <= 1 {

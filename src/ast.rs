@@ -39,6 +39,7 @@ pub struct LetStatement<'a>
 {
     pub name: &'a str,
     pub value_type: &'a str,
+    pub array_size: Option<Expression<'a>>,
     pub value: Expression<'a>
 }
 

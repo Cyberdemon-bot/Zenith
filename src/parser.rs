@@ -123,6 +123,15 @@ impl<'a> Parser<'a>
         };
         self.next_token();
 
+        let mut array_size = None;
+        if self.peektok.token_type == TokenType::LBRACKET 
+        {
+            self.next_token(); 
+            self.next_token(); 
+            array_size = Some(self.parse_expression(Precedence::LOWEST)?);
+            if !self.expect_peek_type(TokenType::RBRACKET) { return None; }
+        }
+
         if !self.expect_peek_type(TokenType::EQ) { return None; }
         self.next_token();
 
@@ -132,7 +141,7 @@ impl<'a> Parser<'a>
             self.next_token();
         }
 
-        Some(Statement::Let(LetStatement { name, value_type, value }))
+        Some(Statement::Let(LetStatement { name, value_type, array_size, value }))
     }
 
     fn parse_function_statement(&mut self) -> Option<Statement<'a>> 
@@ -452,36 +461,7 @@ impl<'a> Parser<'a>
 
     fn parse_array_literal(&mut self) -> Option<Expression<'a>> 
     {
-        let mut elements = Vec::new();
-        if self.peektok.token_type == TokenType::RBRACKET 
-        {
-            self.next_token();
-            return Some(Expression::Array(ArrayLiteral { elements, size: 0 }));
-        }
-
-        self.next_token();
-        let first_expr = self.parse_expression(Precedence::LOWEST)?;
-        elements.push(first_expr.clone());
-
-        let mut has_comma = false;
-        while self.peektok.token_type == TokenType::COMMA {
-            has_comma = true;
-            self.next_token();
-            if self.peektok.token_type == TokenType::RBRACKET { break; }
-            self.next_token();
-            elements.push(self.parse_expression(Precedence::LOWEST)?);
-        }
-
-        if !self.expect_peek_type(TokenType::RBRACKET) { return None; }
-
-        if elements.len() == 1 && !has_comma 
-        {
-            if let Expression::Integer(size_val) = first_expr 
-            {
-                return Some(Expression::Array(ArrayLiteral { elements: Vec::new(), size: size_val as usize }));
-            }
-        }
-
+        let elements = self.parse_expression_list(TokenType::RBRACKET)?;
         let size = elements.len();
         Some(Expression::Array(ArrayLiteral { elements, size }))
     }

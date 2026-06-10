@@ -43,19 +43,7 @@ impl<'a> TokenType<'a>
             "continue" => TokenType::CONTINUE,
             "break" => TokenType::BREAK,
             "int" | "float" | "str" | "bool" | "void" => TokenType::TYPE(ident),
-            _ => {
-                if ident.ends_with("[]")
-                {
-                    let base = &ident[..ident.len() - 2];
-                    match base {
-                        "int" | "float" | "str" | "bool" | "void" => {
-                            return TokenType::TYPE(ident);
-                        }
-                        _ => {}
-                    }
-                }
-                TokenType::IDENT(ident)
-            }
+            _ => TokenType::IDENT(ident),
         }
     }
 

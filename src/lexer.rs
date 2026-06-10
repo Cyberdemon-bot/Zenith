@@ -148,19 +148,7 @@ impl<'a> Lexer<'a>
                 break;
             }
         }
-
-        let mut end_pos = self.pos;
-        if self.curr_char == Some('[')
-        {
-            if self.source[self.pos..].starts_with("[]")
-            {
-                self.read_char();
-                self.read_char();
-                end_pos = self.pos;
-            }
-        }
-
-        &self.source[start_pos..end_pos]
+        &self.source[start_pos..self.pos]
     }
 
     pub fn next_token(&mut self) -> Token<'a> {
