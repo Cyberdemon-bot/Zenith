@@ -1,0 +1,84 @@
+def kiem_tra_toan_dien(arr: int[], n: int) -> int {
+    let i: int = 0;
+    let dem_nguyen_to: int = 0;
+
+    // 1. Kiểm tra vòng lặp for và biểu thức logic phức tạp trong if
+    for (let j: int = 0; j < n; j++) {
+        let val: int = arr[j];
+        
+        if val <= 1 {
+            continue;
+        }
+        
+        let la_nguyen_to: bool = true;
+        let k: int = 2;
+        
+        // 2. Kiểm tra vòng lặp while lồng nhau và toán tử nhân chia lũy thừa
+        while k * k <= val {
+            if val % k == 0 {
+                la_nguyen_to = false;
+                break;
+            }
+            k++;
+        }
+
+        if la_nguyen_to == true {
+            dem_nguyen_to += 1;
+        }
+    }
+
+    // 3. Kiểm tra xử lý số thực float, toán tử prefix và gán mở rộng
+    let ket_qua_phu: float = -3.14 * 2.0;
+    ket_qua_phu *= 1.5;
+
+    return dem_nguyen_to;
+}
+
+def tim_so_lon_thu_hai(data: int[], size: int) -> int {
+    if size < 2 {
+        return -1;
+    }
+
+    let max1: int = data[0];
+    let max2: int = -999999; 
+    let idx: int = 1;
+
+    while idx < size {
+        let current: int = data[idx];
+        
+        if current > max1 {
+            max2 = max1;
+            max1 = current;
+        } else {
+            if current > max2 {
+                if current != max1 {
+                    max2 = current;
+                }
+            }
+        }
+        idx++;
+    }
+
+    return max2;
+}
+
+def main() -> int {
+    let n: int = 7;
+    let mang_test: int[] = [7]; // Khởi tạo mảng tĩnh có kích thước là 7
+
+    mang_test[0] = 12;
+    mang_test[1] = 5;
+    mang_test[2] = 7;
+    mang_test[3] = 23;
+    mang_test[4] = 2;
+    mang_test[5] = 23;
+    mang_test[6] = 19;
+
+    // Gọi hàm lồng nhau làm tham số (CallExpression)
+    let so_nguyen_to: int = kiem_tra_toan_dien(mang_test, n);
+    let lon_thu_hai: int = tim_so_lon_thu_hai(mang_test, n);
+
+    let ket_qua_cuoi: int = so_nguyen_to + lon_thu_hai;
+    
+    return ket_qua_cuoi;
+}

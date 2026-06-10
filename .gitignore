@@ -1,0 +1,14 @@
+/target
+/target
+**/*.rs.bk
+
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+
+ast.json
+.DS_Store
+Thumbs.db
