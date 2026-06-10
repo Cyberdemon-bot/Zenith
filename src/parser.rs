@@ -227,7 +227,6 @@ impl<'a> Parser<'a>
 
     fn parse_for_statement(&mut self) -> Option<Statement<'a>> 
     {
-        if !self.expect_peek_type(TokenType::LPAREN) { return None; }
         if !self.expect_peek_type(TokenType::LET) { return None; }
         
         let var_declaration = match self.parse_let_statement()? 
@@ -243,7 +242,6 @@ impl<'a> Parser<'a>
         self.next_token();
         let action = self.parse_expression(Precedence::LOWEST)?;
 
-        if !self.expect_peek_type(TokenType::RPAREN) { return None; }
         if !self.expect_peek_type(TokenType::LBRACE) { return None; }
         let body = self.parse_block_statement();
 
@@ -497,7 +495,13 @@ impl<'a> Parser<'a>
         } 
         else 
         {
-            self.errors.push(format!("Expected next token to be {:?}, got {:?}", tt, self.peektok.token_type));
+            let line = self.peektok.line_no;
+            let pos = self.peektok.position;
+
+            self.errors.push(format!(
+                "Invalid Synctax [line {}, col {}]: Expected next token to be {:?}, but got {:?}", 
+                line, pos, tt, self.peektok.token_type
+            ));
             false
         }
     }

@@ -1,84 +1,104 @@
-def kiem_tra_toan_dien(arr: int[], n: int) -> int {
-    let i: int = 0;
-    let dem_nguyen_to: int = 0;
+let GLOBAL_GRAPH_VALIDATED: bool = false;
+let TOTAL_ROUTES_FOUND: int = 0;
+let SYSTEM_STABILITY_INDEX: float = 999.99;
+let GLOBAL_PATH_WEIGHTS: int[] = [16]; 
 
-    // 1. Kiểm tra vòng lặp for và biểu thức logic phức tạp trong if
-    for (let j: int = 0; j < n; j++) {
-        let val: int = arr[j];
-        
-        if val <= 1 {
-            continue;
-        }
-        
-        let la_nguyen_to: bool = true;
-        let k: int = 2;
-        
-        // 2. Kiểm tra vòng lặp while lồng nhau và toán tử nhân chia lũy thừa
-        while k * k <= val {
-            if val % k == 0 {
-                la_nguyen_to = false;
-                break;
-            }
-            k++;
-        }
-
-        if la_nguyen_to == true {
-            dem_nguyen_to += 1;
-        }
+def compute_catalan_recursive(n: int) -> int {
+    if n <= 1 {
+        return 1;
     }
-
-    // 3. Kiểm tra xử lý số thực float, toán tử prefix và gán mở rộng
-    let ket_qua_phu: float = -3.14 * 2.0;
-    ket_qua_phu *= 1.5;
-
-    return dem_nguyen_to;
+    let sum: int = 0;
+    for let i: int = 0; i < n; i++ {
+        let left_tree: int = compute_catalan_recursive(i);
+        let right_tree: int = compute_catalan_recursive(n - 1 - i);
+        sum += left_tree * right_tree;
+    }
+    return sum;
 }
 
-def tim_so_lon_thu_hai(data: int[], size: int) -> int {
-    if size < 2 {
-        return -1;
+def verify_graph_partition(nodes: int, check_value: int) -> bool {
+    let catalan_bound: int = compute_catalan_recursive(nodes);
+    if check_value < catalan_bound {
+        SYSTEM_STABILITY_INDEX -= 45.50;
+        return true;
     }
+    SYSTEM_STABILITY_INDEX += 12.25;
+    return false;
+}
 
-    let max1: int = data[0];
-    let max2: int = -999999; 
-    let idx: int = 1;
-
-    while idx < size {
-        let current: int = data[idx];
-        
-        if current > max1 {
-            max2 = max1;
-            max1 = current;
-        } else {
-            if current > max2 {
-                if current != max1 {
-                    max2 = current;
+def execute_floyd_warshall_kernel(size: int, infinity: int) -> int {
+    for let k: int = 0; k < size; k++ {
+        for let i: int = 0; i < size; i++ {
+            let j: int = 0;
+            while j < size {
+                let ik_idx: int = i * size + k;
+                let kj_idx: int = k * size + j;
+                let ij_idx: int = i * size + j;
+                
+                let path_ik: int = GLOBAL_PATH_WEIGHTS[ik_idx];
+                let path_kj: int = GLOBAL_PATH_WEIGHTS[kj_idx];
+                let path_ij: int = GLOBAL_PATH_WEIGHTS[ij_idx];
+                
+                if path_ik != infinity {
+                    if path_kj != infinity {
+                        let potential_shortest: int = path_ik + path_kj;
+                        if potential_shortest < path_ij {
+                            GLOBAL_PATH_WEIGHTS[ij_idx] = potential_shortest;
+                            TOTAL_ROUTES_FOUND++;
+                        }
+                    }
                 }
+                j++;
             }
         }
-        idx++;
     }
-
-    return max2;
+    
+    let total_weight_sum: int = 0;
+    for let scan: int = 0; scan < size * size; scan++ {
+        if GLOBAL_PATH_WEIGHTS[scan] != infinity {
+            if scan % 2 == 0 {
+                total_weight_sum += GLOBAL_PATH_WEIGHTS[scan];
+            } else {
+                total_weight_sum -= GLOBAL_PATH_WEIGHTS[scan];
+            }
+        }
+    }
+    return total_weight_sum;
 }
 
 def main() -> int {
-    let n: int = 7;
-    let mang_test: int[] = [7]; // Khởi tạo mảng tĩnh có kích thước là 7
-
-    mang_test[0] = 12;
-    mang_test[1] = 5;
-    mang_test[2] = 7;
-    mang_test[3] = 23;
-    mang_test[4] = 2;
-    mang_test[5] = 23;
-    mang_test[6] = 19;
-
-    // Gọi hàm lồng nhau làm tham số (CallExpression)
-    let so_nguyen_to: int = kiem_tra_toan_dien(mang_test, n);
-    let lon_thu_hai: int = tim_so_lon_thu_hai(mang_test, n);
-
-    let ket_qua_cuoi: int = so_nguyen_to + lon_thu_hai;
+    let num_nodes: int = 4;
+    let inf_marker: int = 9999;
     
-    return ket_qua_cuoi;
+    for let init_idx: int = 0; init_idx < 16; init_idx++ {
+        GLOBAL_PATH_WEIGHTS[init_idx] = inf_marker;
+    }
+    
+    for let d: int = 0; d < num_nodes; d++ {
+        let self_loop: int = d * num_nodes + d;
+        GLOBAL_PATH_WEIGHTS[self_loop] = 0;
+    }
+    
+    GLOBAL_PATH_WEIGHTS[0 * num_nodes + 1] = 5;
+    GLOBAL_PATH_WEIGHTS[0 * num_nodes + 3] = 10;
+    GLOBAL_PATH_WEIGHTS[1 * num_nodes + 2] = 3;
+    GLOBAL_PATH_WEIGHTS[2 * num_nodes + 3] = 1;
+    
+    let graph_metric: int = execute_floyd_warshall_kernel(num_nodes, inf_marker);
+    
+    let balance_check: int = graph_metric;
+    if balance_check < 0 {
+        balance_check = -balance_check;
+    }
+    
+    GLOBAL_GRAPH_VALIDATED = verify_graph_partition(num_nodes, balance_check);
+    
+    let final_system_signature: int = graph_metric + TOTAL_ROUTES_FOUND;
+    if GLOBAL_GRAPH_VALIDATED == true {
+        final_system_signature *= 3;
+    } else {
+        final_system_signature /= 2;
+    }
+    
+    return final_system_signature;
 }
