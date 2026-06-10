@@ -39,7 +39,7 @@ pub struct LetStatement<'a>
 {
     pub name: &'a str,
     pub value_type: &'a str,
-    pub array_size: Option<Expression<'a>>,
+    pub array_size: Option<Vec<Expression<'a>>>,
     pub value: Expression<'a>
 }
 
@@ -60,6 +60,7 @@ pub struct FunctionParameter<'a>
 {
     pub name: &'a str,
     pub value_type: &'a str,
+    pub array_size: Option<Vec<Expression<'a>>>,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq)]

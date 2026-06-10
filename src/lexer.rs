@@ -266,6 +266,11 @@ impl<'a> Lexer<'a>
                     self.read_char();
                     self.new_token(TokenType::LTE)
                 } 
+                else if self.peek_char() == Some('<') 
+                {
+                    self.read_char();
+                    self.new_token(TokenType::LSHIFT)
+                } 
                 else 
                 {
                     self.new_token(TokenType::LT)
@@ -276,6 +281,11 @@ impl<'a> Lexer<'a>
                 {
                     self.read_char();
                     self.new_token(TokenType::GTE)
+                } 
+                else if self.peek_char() == Some('>') 
+                {
+                    self.read_char();
+                    self.new_token(TokenType::RSHIFT)
                 } 
                 else 
                 {
@@ -295,6 +305,30 @@ impl<'a> Lexer<'a>
             Some(':') => self.new_token(TokenType::COLON),
             Some(';') => self.new_token(TokenType::SEMICOLON),
             Some(',') => self.new_token(TokenType::COMMA),
+            Some('^') => self.new_token(TokenType::BITXOR),
+            Some('~') => self.new_token(TokenType::BITNOT),
+            Some('|') => {
+                if self.peek_char() == Some('|') 
+                {
+                    self.read_char();
+                    self.new_token(TokenType::OR)
+                } 
+                else 
+                {
+                    self.new_token(TokenType::BITOR)
+                }
+            }
+            Some('&') => {
+                if self.peek_char() == Some('&') 
+                {
+                    self.read_char();
+                    self.new_token(TokenType::AND)
+                } 
+                else 
+                {
+                    self.new_token(TokenType::BITAND)
+                }
+            }
             None => self.new_token(TokenType::EOF),
             Some(ch) => {
                 if ch.is_alphabetic() || ch == '_' {
@@ -306,7 +340,8 @@ impl<'a> Lexer<'a>
                         line_no: self.line_no,
                         position: self.pos,
                     }; 
-                } else if ch.is_ascii_digit() 
+                } 
+                else if ch.is_ascii_digit() 
                 {
                     return self.read_number();
                 } 

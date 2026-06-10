@@ -11,14 +11,20 @@ macro_rules! f {
 pub enum Precedence
 {
     LOWEST = 0,
-    EQUALS = 1,
-    LESSGREATER = 2,
-    SUM = 3,
-    PRODUCT = 4,
-    EXPONENT = 5,
-    PREFIX = 6,
-    CALL = 7,
-    INDEX = 8
+    OR = 1,  
+    AND = 2,  
+    BITOR = 3,       
+    BITXOR = 4,      
+    BITAND = 5,      
+    EQUALS = 6,    
+    LESSGREATER = 7, 
+    BITSHIFT = 8,   
+    SUM = 9,  
+    PRODUCT = 10,  
+    EXPONENT = 11,  
+    PREFIX = 12,  
+    CALL = 13,  
+    INDEX = 14
 }
 
 impl TokenType<'_>
@@ -34,6 +40,12 @@ impl TokenType<'_>
             TokenType::LPAREN => Precedence::CALL,
             TokenType::LBRACKET => Precedence::INDEX,
             TokenType::PLUSPLUS | TokenType::MINUSMINUS => Precedence::INDEX,
+            TokenType::AND => Precedence::AND,
+            TokenType::OR => Precedence::OR,
+            TokenType::BITAND => Precedence::BITAND,
+            TokenType::BITOR => Precedence::BITOR,
+            TokenType::BITXOR => Precedence::BITXOR,
+            TokenType::LSHIFT | TokenType::RSHIFT => Precedence::BITSHIFT,
             _ => Precedence::LOWEST,
         }
     }
@@ -100,7 +112,8 @@ impl<'a> Parser<'a>
             TokenType::CONTINUE => {
                 self.next_token(); 
                 Some(Statement::Continue)
-            }
+            },
+            TokenType::LBRACE => Some(Statement::Block(self.parse_block_statement())),
             _ => self.parse_expression_statement(),
         }
     }
@@ -126,10 +139,15 @@ impl<'a> Parser<'a>
         let mut array_size = None;
         if self.peektok.token_type == TokenType::LBRACKET 
         {
-            self.next_token(); 
-            self.next_token(); 
-            array_size = Some(self.parse_expression(Precedence::LOWEST)?);
-            if !self.expect_peek_type(TokenType::RBRACKET) { return None; }
+            let mut dimensions = Vec::new();
+            while self.peektok.token_type == TokenType::LBRACKET 
+            {
+                self.next_token(); 
+                self.next_token(); 
+                dimensions.push(self.parse_expression(Precedence::LOWEST)?);
+                if !self.expect_peek_type(TokenType::RBRACKET) { return None; }
+            }
+            array_size = Some(dimensions);
         }
 
         if !self.expect_peek_type(TokenType::EQ) { return None; }
@@ -191,7 +209,22 @@ impl<'a> Parser<'a>
             _ => return None,
         };
         self.next_token();
-        params.push(FunctionParameter { name, value_type });
+
+        let mut array_size = None;
+        if self.peektok.token_type == TokenType::LBRACKET 
+        {
+            let mut dimensions = Vec::new();
+            while self.peektok.token_type == TokenType::LBRACKET 
+            {
+                self.next_token(); 
+                self.next_token(); 
+                dimensions.push(self.parse_expression(Precedence::LOWEST)?);
+                if !self.expect_peek_type(TokenType::RBRACKET) { return None; }
+            }
+            array_size = Some(dimensions);
+        }
+
+        params.push(FunctionParameter { name, value_type, array_size });
 
         while self.peektok.token_type == TokenType::COMMA {
             self.next_token(); 
@@ -207,7 +240,21 @@ impl<'a> Parser<'a>
                 _ => return None,
             };
             self.next_token();
-            params.push(FunctionParameter { name: p_name, value_type: p_type });
+            let mut p_array_size = None;
+            if self.peektok.token_type == TokenType::LBRACKET 
+            {
+                let mut dimensions = Vec::new();
+                while self.peektok.token_type == TokenType::LBRACKET 
+                {
+                    self.next_token(); 
+                    self.next_token(); 
+                    dimensions.push(self.parse_expression(Precedence::LOWEST)?);
+                    if !self.expect_peek_type(TokenType::RBRACKET) { return None; }
+                }
+                p_array_size = Some(dimensions);
+            }
+
+            params.push(FunctionParameter { name: p_name, value_type: p_type, array_size: p_array_size });
         }
 
         if !self.expect_peek_type(TokenType::RPAREN) { return None; }
@@ -302,7 +349,7 @@ impl<'a> Parser<'a>
             TokenType::FALSE => Expression::Boolean(false),
             TokenType::IDENT(lit) => Expression::Identifier(lit),
             TokenType::STRING(lit) => Expression::String(lit),
-            TokenType::MINUS | TokenType::PLUS | TokenType::BANG => self.parse_prefix_expr()?,
+            TokenType::MINUS | TokenType::PLUS | TokenType::BANG | TokenType::BITNOT => self.parse_prefix_expr()?,
             TokenType::LPAREN => self.parse_grouped_expr()?,
             TokenType::LBRACKET => self.parse_array_literal()?,
             TokenType::IF => self.parse_if_expr()?,
@@ -318,7 +365,8 @@ impl<'a> Parser<'a>
             {
                 TokenType::PLUS | TokenType::MINUS | TokenType::SLASH | TokenType::ASTERISK |
                 TokenType::MODULUS | TokenType::POW | TokenType::EE | TokenType::NE |
-                TokenType::LT | TokenType::GT | TokenType::LTE | TokenType::GTE => {
+                TokenType::LT | TokenType::GT | TokenType::LTE | TokenType::GTE | TokenType::AND | TokenType:: OR |
+                TokenType::BITAND | TokenType::BITOR | TokenType::BITXOR | TokenType::LSHIFT | TokenType::RSHIFT => {
                     self.next_token();
                     left_expr = self.parse_infix_expr(left_expr)?;
                 }
