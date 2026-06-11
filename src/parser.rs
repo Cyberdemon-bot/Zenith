@@ -39,7 +39,7 @@ impl TokenType<'_>
             TokenType::LT | TokenType::GT | TokenType::LTE | TokenType::GTE => Precedence::LESSGREATER,
             TokenType::LPAREN => Precedence::CALL,
             TokenType::LBRACKET => Precedence::INDEX,
-            TokenType::PLUSPLUS | TokenType::MINUSMINUS | TokenType::BANG => Precedence::INDEX,
+            TokenType::PLUSPLUS | TokenType::MINUSMINUS | TokenType::QMARK => Precedence::INDEX,
             TokenType::AND => Precedence::AND,
             TokenType::OR => Precedence::OR,
             TokenType::BITAND => Precedence::BITAND,
@@ -422,7 +422,7 @@ impl<'a> Parser<'a>
                     self.next_token();
                     left_expr = self.parse_index_expr(left_expr)?;
                 }
-                TokenType::PLUSPLUS | TokenType::MINUSMINUS | TokenType::BANG => {
+                TokenType::PLUSPLUS | TokenType::MINUSMINUS | TokenType::QMARK => {
                     self.next_token();
                     left_expr = self.parse_postfix_expr(left_expr)?;
                 }

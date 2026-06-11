@@ -512,10 +512,7 @@ def _eval_postfix(data: dict, env: Environment):
     var_name    = left_node["Identifier"]
     current_val = env.get(var_name)  # dereferences BorrowRef transparently
 
-    # --- Null assertion: x! ---
-    # Asserts the variable is not null. Returns the unwrapped value,
-    # or raises if the value IS null.
-    if op == "!":
+    if op == "?":
         return current_val is not None
 
     # --- Increment / Decrement: x++  x-- ---

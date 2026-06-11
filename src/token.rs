@@ -58,6 +58,7 @@ impl<'a> TokenType<'a>
             TokenType::MODULUS => "%",
             TokenType::POW => "**",
             TokenType::BANG => "!",
+            TokenType::QMARK => "?",
             TokenType::EQ => "=",
             TokenType::PLUSEQ => "+=",
             TokenType::MINUSEQ => "-=",

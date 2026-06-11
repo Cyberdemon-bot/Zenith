@@ -13,7 +13,7 @@ def update_item_slot(slot: int, mut incoming_power: int?) -> int {
     
     // 1. Dùng toán tử Postfix ! để check trạng thái tồn tại của dữ liệu
     // Nếu incoming_power ĐANG CÓ giá trị, '!' trả về true. Ngược lại trả về false.
-    let mut is_valid: bool = incoming_power!;
+    let mut is_valid: bool = incoming_power?;
     
     if is_valid {
         // Tự động tính toán (Nếu có giá trị thì tính bình thường)
@@ -37,7 +37,7 @@ def main() -> int {
     let mut initial_power: int?; // Tự động mang trạng thái Null ẩn do chưa gán gì
     
     // Check thử bằng toán tử Postfix ! bên ngoài hàm
-    let mut check_null: bool = initial_power!; // Sẽ nhận giá trị 'false' vì đang Null
+    let mut check_null: bool = initial_power?; // Sẽ nhận giá trị 'false' vì đang Null
     
     // Gọi hàm truyền initial_power (đang Null) vào slot 0
     // Hàm thấy false -> tự kích hoạt fallback gán bằng 100 -> Lưu vào mảng
@@ -48,7 +48,7 @@ def main() -> int {
     // ---- TEST CASE 2: Gán giá trị để biến thoát kiếp Null ----
     initial_power = 42; // Bây giờ initial_power mang giá trị thực, hết Null!
     
-    let mut check_again: bool = initial_power!; // Sẽ nhận giá trị 'true' vì đã có giá trị
+    let mut check_again: bool = initial_power?; // Sẽ nhận giá trị 'true' vì đã có giá trị
     
     if check_again {
         // Gọi hàm truyền initial_power (lúc này đã là 42) vào slot 1
