@@ -71,6 +71,8 @@ class FunctionObject:
 
 def _make_nd_array(dimensions: list, fill=0):
     """Build a nested list for an N-dimensional array."""
+    if not dimensions:
+        return fill
     if len(dimensions) == 1:
         return [fill] * dimensions[0]
     return [_make_nd_array(dimensions[1:], fill) for _ in range(dimensions[0])]
@@ -266,7 +268,7 @@ def _exec_let(let_data: dict, env: Environment):
     val = _eval_node(let_data["value"], env)
     dims_exprs = let_data.get("array_size")   # None | list[expr]
 
-    if dims_exprs is not None:
+    if dims_exprs:   # None or empty list both skip — no dimensions means no array shaping
         # Evaluate each dimension expression to an int
         dims = [_eval_node(d, env) for d in dims_exprs]
         # Build a fully-sized array filled with zeros
@@ -428,7 +430,7 @@ def _calc_assign(current, op: str, rvalue):
     if op == "+=": return current + rvalue
     if op == "-=": return current - rvalue
     if op == "*=": return current * rvalue
-    if op == "/=": return current / rvalue
+    if op == "/=": return current // rvalue if isinstance(current, int) and isinstance(rvalue, int) else current / rvalue
     if op == "%=": return current % rvalue
     raise RuntimeError(f"Runtime Error: Unknown assignment operator '{op}'.")
 
