@@ -24,6 +24,7 @@ pub enum Expression<'a>
     Float(f32),
     Boolean(bool),
     String(&'a str),
+    Default,
     Void,
     Array(ArrayLiteral<'a>),
     Index(Box<IndexExpression<'a>>),
@@ -40,7 +41,11 @@ pub struct LetStatement<'a>
     pub name: &'a str,
     pub value_type: &'a str,
     pub array_size: Option<Vec<Expression<'a>>>,
-    pub value: Expression<'a>
+    pub value: Option<Expression<'a>>,
+    pub nullable: bool,
+    pub mutable: bool,
+    pub reference: bool,     
+    pub mutable_ref: bool,   
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
@@ -61,6 +66,10 @@ pub struct FunctionParameter<'a>
     pub name: &'a str,
     pub value_type: &'a str,
     pub array_size: Option<Vec<Expression<'a>>>,
+    pub nullable: bool,
+    pub mutable: bool,
+    pub reference: bool,     
+    pub mutable_ref: bool,  
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq)]

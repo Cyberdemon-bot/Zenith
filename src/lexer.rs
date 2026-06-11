@@ -307,6 +307,7 @@ impl<'a> Lexer<'a>
             Some(',') => self.new_token(TokenType::COMMA),
             Some('^') => self.new_token(TokenType::BITXOR),
             Some('~') => self.new_token(TokenType::BITNOT),
+            Some('?') => self.new_token(TokenType::QMARK),
             Some('|') => {
                 if self.peek_char() == Some('|') 
                 {

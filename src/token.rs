@@ -9,11 +9,11 @@ pub enum TokenType<'a>
     PLUSPLUS, MINUSMINUS, AND, OR,
 
     LBRACKET, RBRACKET, LPAREN, RPAREN, LBRACE, RBRACE, 
-    COLON, SEMICOLON, ARROW, COMMA, BANG,
+    COLON, SEMICOLON, ARROW, COMMA, BANG, QMARK,
 
     LT, LTE, GT, GTE, EE, NE,
 
-    LET, DEF, RETURN, IF, ELSE, TRUE, FALSE, WHILE, CONTINUE, BREAK, FOR,
+    LET, DEF, RETURN, IF, ELSE, TRUE, FALSE, WHILE, CONTINUE, BREAK, FOR, MUT,
     TYPE(&'a str)
 }
 
@@ -42,6 +42,7 @@ impl<'a> TokenType<'a>
             "for" => TokenType::FOR,
             "continue" => TokenType::CONTINUE,
             "break" => TokenType::BREAK,
+            "mut" => TokenType::MUT,
             "int" | "float" | "str" | "bool" | "void" => TokenType::TYPE(ident),
             _ => TokenType::IDENT(ident),
         }

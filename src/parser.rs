@@ -39,7 +39,7 @@ impl TokenType<'_>
             TokenType::LT | TokenType::GT | TokenType::LTE | TokenType::GTE => Precedence::LESSGREATER,
             TokenType::LPAREN => Precedence::CALL,
             TokenType::LBRACKET => Precedence::INDEX,
-            TokenType::PLUSPLUS | TokenType::MINUSMINUS => Precedence::INDEX,
+            TokenType::PLUSPLUS | TokenType::MINUSMINUS | TokenType::BANG => Precedence::INDEX,
             TokenType::AND => Precedence::AND,
             TokenType::OR => Precedence::OR,
             TokenType::BITAND => Precedence::BITAND,
@@ -120,6 +120,13 @@ impl<'a> Parser<'a>
 
     fn parse_let_statement(&mut self) -> Option<Statement<'a>> 
     {
+        let mut mutable = false;
+        if self.peektok.token_type == TokenType::MUT
+        {
+            self.next_token(); 
+            mutable = true;
+        } 
+
         let name = match self.peektok.token_type 
         {
             TokenType::IDENT(lit) => lit,
@@ -128,13 +135,14 @@ impl<'a> Parser<'a>
         self.next_token();
 
         if !self.expect_peek_type(TokenType::COLON) { return None; }
-        
-        let value_type = match self.peektok.token_type 
+        let (value_type, reference, mutable_ref) = self.parse_type_annotation()?;
+
+        let mut nullable = false;
+        if self.peektok.token_type == TokenType::QMARK
         {
-            TokenType::TYPE(lit) => lit,
-            _ => { self.peek_error("Type"); return None; }
-        };
-        self.next_token();
+            self.next_token(); 
+            nullable = true;
+        } 
 
         let mut array_size = None;
         if self.peektok.token_type == TokenType::LBRACKET 
@@ -150,6 +158,15 @@ impl<'a> Parser<'a>
             array_size = Some(dimensions);
         }
 
+        if self.peektok.token_type == TokenType::SEMICOLON
+        {
+            self.next_token(); 
+            return Some(Statement::Let(LetStatement 
+            { 
+                name, value_type, array_size, value: None, nullable, mutable, reference, mutable_ref
+            }));
+        }
+
         if !self.expect_peek_type(TokenType::EQ) { return None; }
         self.next_token();
 
@@ -159,7 +176,10 @@ impl<'a> Parser<'a>
             self.next_token();
         }
 
-        Some(Statement::Let(LetStatement { name, value_type, array_size, value }))
+        Some(Statement::Let(LetStatement 
+        { 
+            name, value_type, array_size, value: Some(value), nullable, mutable, reference, mutable_ref
+        }))
     }
 
     fn parse_function_statement(&mut self) -> Option<Statement<'a>> 
@@ -196,19 +216,29 @@ impl<'a> Parser<'a>
             return Some(params);
         }
 
-        self.next_token();
-        let name = match self.currtok.token_type 
+        let mut mutable = false;
+        if self.peektok.token_type == TokenType::MUT
+        {
+            self.next_token(); 
+            mutable = true;
+        }
+
+        let name = match self.peektok.token_type 
         {
             TokenType::IDENT(lit) => lit,
-            _ => return None,
-        };
-
-        if !self.expect_peek_type(TokenType::COLON) { return None; }
-        let value_type = match self.peektok.token_type {
-            TokenType::TYPE(lit) => lit,
-            _ => return None,
+            _ => { self.peek_error("Identifier"); return None; }
         };
         self.next_token();
+
+        if !self.expect_peek_type(TokenType::COLON) { return None; }
+        let (value_type, reference, mutable_ref) = self.parse_type_annotation()?;
+
+        let mut nullable = false;
+        if self.peektok.token_type == TokenType::QMARK
+        {
+            self.next_token(); 
+            nullable = true;
+        } 
 
         let mut array_size = None;
         if self.peektok.token_type == TokenType::LBRACKET 
@@ -224,22 +254,36 @@ impl<'a> Parser<'a>
             array_size = Some(dimensions);
         }
 
-        params.push(FunctionParameter { name, value_type, array_size });
+        params.push(FunctionParameter { name, value_type, array_size, nullable, mutable, reference, mutable_ref });
 
-        while self.peektok.token_type == TokenType::COMMA {
+        while self.peektok.token_type == TokenType::COMMA 
+        {
             self.next_token(); 
-            self.next_token(); 
-            
-            let p_name = match self.currtok.token_type {
+
+            let mut p_mutable = false;
+            if self.peektok.token_type == TokenType::MUT
+            {
+                self.next_token(); 
+                p_mutable = true;
+            }
+
+            let p_name = match self.peektok.token_type 
+            {
                 TokenType::IDENT(lit) => lit,
-                _ => return None,
-            };
-            if !self.expect_peek_type(TokenType::COLON) { return None; }
-            let p_type = match self.peektok.token_type {
-                TokenType::TYPE(lit) => lit,
-                _ => return None,
+                _ => { self.peek_error("Identifier"); return None; }
             };
             self.next_token();
+
+            if !self.expect_peek_type(TokenType::COLON) { return None; }
+            let (p_type, p_reference, p_mutable_ref) = self.parse_type_annotation()?;
+
+            let mut p_nullable = false;
+            if self.peektok.token_type == TokenType::QMARK
+            {
+                self.next_token(); 
+                p_nullable = true;
+            } 
+
             let mut p_array_size = None;
             if self.peektok.token_type == TokenType::LBRACKET 
             {
@@ -254,7 +298,7 @@ impl<'a> Parser<'a>
                 p_array_size = Some(dimensions);
             }
 
-            params.push(FunctionParameter { name: p_name, value_type: p_type, array_size: p_array_size });
+            params.push(FunctionParameter { name: p_name, value_type: p_type, array_size: p_array_size, nullable: p_nullable, mutable: p_mutable, reference: p_reference, mutable_ref: p_mutable_ref });
         }
 
         if !self.expect_peek_type(TokenType::RPAREN) { return None; }
@@ -349,7 +393,7 @@ impl<'a> Parser<'a>
             TokenType::FALSE => Expression::Boolean(false),
             TokenType::IDENT(lit) => Expression::Identifier(lit),
             TokenType::STRING(lit) => Expression::String(lit),
-            TokenType::MINUS | TokenType::PLUS | TokenType::BANG | TokenType::BITNOT => self.parse_prefix_expr()?,
+            TokenType::MINUS | TokenType::PLUS | TokenType::BANG | TokenType::BITNOT | TokenType::BITAND => self.parse_prefix_expr()?,
             TokenType::LPAREN => self.parse_grouped_expr()?,
             TokenType::LBRACKET => self.parse_array_literal()?,
             TokenType::IF => self.parse_if_expr()?,
@@ -378,7 +422,7 @@ impl<'a> Parser<'a>
                     self.next_token();
                     left_expr = self.parse_index_expr(left_expr)?;
                 }
-                TokenType::PLUSPLUS | TokenType::MINUSMINUS => {
+                TokenType::PLUSPLUS | TokenType::MINUSMINUS | TokenType::BANG => {
                     self.next_token();
                     left_expr = self.parse_postfix_expr(left_expr)?;
                 }
@@ -393,6 +437,15 @@ impl<'a> Parser<'a>
     {
         let operator = self.currtok.token_type.get_literal();
         self.next_token();
+        let operator = if operator == "&" && self.currtok.token_type == TokenType::MUT 
+        {
+            self.next_token();
+            "&mut"
+        } 
+        else 
+        {
+            operator
+        };
         let right = self.parse_expression(Precedence::PREFIX)?;
         Some(Expression::Prefix(Box::new(PrefixExpression { operator, right })))
     }
@@ -544,7 +597,36 @@ impl<'a> Parser<'a>
 
     fn peek_error(&mut self, expected: &str)
     {
-        self.errors.push(format!("Expected next token to be {}, got {:?}", expected, self.peektok.token_type));
+        let line = self.peektok.line_no;
+        let pos = self.peektok.position;
+
+        self.errors.push(format!(
+            "Invalid Synctax [line {}, col {}]: Expected next token to be {:?}, but got {:?}", 
+            line, pos, expected, self.peektok.token_type
+        ));
+    }
+
+    fn parse_type_annotation(&mut self) -> Option<(&'a str, bool, bool)>
+    {
+        let mut reference = false;
+        let mut mutable_ref = false;
+
+        if self.peektok.token_type == TokenType::BITAND {
+            self.next_token();
+            reference = true;
+            if self.peektok.token_type == TokenType::MUT {
+                self.next_token(); 
+                mutable_ref = true;
+            }
+        }
+
+        let value_type = match self.peektok.token_type {
+            TokenType::TYPE(lit) => lit,
+            _ => { self.peek_error("Type"); return None; }
+        };
+        self.next_token();
+
+        Some((value_type, reference, mutable_ref))
     }
 
 }

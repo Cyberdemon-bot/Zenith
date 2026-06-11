@@ -2,7 +2,8 @@
 pub mod token;
 pub mod lexer;
 pub mod ast;
-mod parser;
+pub mod parser;
+pub mod vm;
 
 use std::env;     
 use std::fs;     

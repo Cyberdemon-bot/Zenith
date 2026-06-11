@@ -10,9 +10,23 @@ class Environment:
 
     def __init__(self, outer: "Environment | None" = None) -> None:
         self.store: dict = {}
+        self.mutable: set = set()
         self.outer = outer
 
     def get(self, name: str):
+        env = self
+        while env is not None:
+            if name in env.store:
+                val = env.store[name]
+                # Transparently dereference borrows on read
+                if isinstance(val, BorrowRef):
+                    return self.get(val.target_name)
+                return val
+            env = env.outer
+        raise RuntimeError(f"Runtime Error: Undefined variable '{name}'.")
+
+    def get_raw(self, name: str):
+        """Return the raw stored value without dereferencing BorrowRef."""
         env = self
         while env is not None:
             if name in env.store:
@@ -21,21 +35,45 @@ class Environment:
         raise RuntimeError(f"Runtime Error: Undefined variable '{name}'.")
 
     def set(self, name: str, value):
-        """Walk up the chain and update the first scope that owns the name.
-        If nobody owns it, create it in the current (innermost) scope."""
+        """Walk up the chain and update the first scope that owns the name,
+        enforcing mutability. If nobody owns it, create it in the current
+        (innermost) scope. Writes through &mut borrows to the original variable."""
         env = self
         while env is not None:
             if name in env.store:
+                raw = env.store[name]
+                # Write-through for &mut borrows
+                if isinstance(raw, BorrowRef):
+                    if not raw.mutable_ref:
+                        raise RuntimeError(
+                            f"Runtime Error: Cannot assign through immutable borrow '&{name}'."
+                        )
+                    return self.set(raw.target_name, value)
+                if name not in env.mutable:
+                    raise RuntimeError(f"Runtime Error: Cannot assign to immutable variable '{name}'.")
                 env.store[name] = value
                 return value
             env = env.outer
         self.store[name] = value
+        self.mutable.add(name)
         return value
 
-    def define(self, name: str, value):
+    def define(self, name: str, value, mutable: bool = True):
         """Always create in the current scope (used by Let / function params)."""
         self.store[name] = value
+        if mutable:
+            self.mutable.add(name)
+        else:
+            self.mutable.discard(name)
         return value
+
+    def is_mutable(self, name: str) -> bool:
+        env = self
+        while env is not None:
+            if name in env.store:
+                return name in env.mutable
+            env = env.outer
+        return True
 
     def __repr__(self):
         return str({k: v for k, v in self.store.items() if not isinstance(v, FunctionObject)})
@@ -64,10 +102,43 @@ class FunctionObject:
     def __repr__(self):
         return f"<fn({', '.join(p['name'] for p in self.parameters)})>"
 
+class BorrowRef:
+    """
+    Runtime representation of a borrow (& or &mut).
+    Stored as the value of the borrowing variable in the environment.
+    Reads transparently dereference to the target's current value.
+    Writes through &mut update the original target variable.
+    """
+    __slots__ = ("target_name", "mutable_ref")
+    def __init__(self, target_name: str, mutable_ref: bool):
+        self.target_name = target_name
+        self.mutable_ref = mutable_ref
+    def __repr__(self):
+        prefix = "&mut " if self.mutable_ref else "&"
+        return f"{prefix}{self.target_name}"
+
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+def _zero_for_type(value_type: str):
+    """Type-appropriate default/fill value for a base type."""
+    if value_type == "float": return 0.0
+    if value_type == "str":   return ""
+    if value_type == "bool":  return False
+    return 0  # "int" and anything else
+
+
+def _default_value(value_type: str, dims_exprs, env: "Environment"):
+    """Default value for a `let` declaration with no initializer
+    (and not nullable)."""
+    fill = _zero_for_type(value_type)
+    if dims_exprs:
+        dims = [_eval_node(d, env) for d in dims_exprs]
+        return _make_nd_array(dims, fill=fill)
+    return fill
+
 
 def _make_nd_array(dimensions: list, fill=0):
     """Build a nested list for an N-dimensional array."""
@@ -95,38 +166,37 @@ def _fill_nd_array(target: list, source):
             target[i] = val
 
 
+def _root_identifier_name(node):
+    """Walk down a chain of Index nodes to find the root variable name, if any.
+    e.g. a[1][2] -> "a" """
+    cur = node
+    while isinstance(cur, dict) and "Index" in cur:
+        cur = cur["Index"]["left"]
+    if isinstance(cur, dict) and "Identifier" in cur:
+        return cur["Identifier"]
+    return None
+
+
 def _resolve_index_chain(node: dict, env: "Environment"):
     """
     Walk a chain of Index nodes to find the innermost list and final index.
     Returns (list_ref, int_index) ready for assignment.
     e.g.  a[1][2]  →  (a[1], 2)
     """
-    idx_data = node["Index"]
-    left_node = idx_data["left"]
-    idx_val   = None  # will be filled below
-
-    # Collect the chain: outermost index is the one we're assigning to.
-    # We need to eval everything down to the second-to-last level.
-    chain = []          # list of index expressions from outermost inward
+    chain = []
     cur = node
     while isinstance(cur, dict) and "Index" in cur:
         chain.append(cur["Index"]["index"])
         cur = cur["Index"]["left"]
-    # cur is now the root identifier/expression
-    # chain[0]  = outermost (assignment target) index
-    # chain[-1] = innermost index
 
-    # Evaluate root
     arr = _eval_expr(cur, env)
 
-    # Drill down through all but the last index
     for index_expr in reversed(chain[1:]):
         idx = _eval_node(index_expr, env)
         if not isinstance(arr, list):
             raise RuntimeError("Runtime Error: Cannot index a non-array.")
         arr = arr[idx]
 
-    # The final index (outermost in the chain = chain[0])
     final_idx = _eval_node(chain[0], env)
     if not isinstance(arr, list):
         raise RuntimeError("Runtime Error: Cannot index a non-array.")
@@ -139,7 +209,7 @@ def _resolve_index_chain(node: dict, env: "Environment"):
 
 def _eval_node(node, env: Environment):
     """
-    Main dispatch.  Statements are handled iteratively inside
+    Main dispatch. Statements are handled iteratively inside
     _eval_block_iterative; this function handles single nodes / expressions.
     """
     if node == "Break":
@@ -153,6 +223,7 @@ def _eval_node(node, env: Environment):
 
     if not isinstance(node, dict):
         return None
+
     # ---- Statements --------------------------------------------------------
 
     if "Let" in node:
@@ -213,6 +284,8 @@ def _eval_expr(node, env: Environment):
     if "String"   in node: return str(node["String"])
     if "Void"     in node: return None
 
+    if "Default"  in node: return None
+
     if "Array" in node:
         return [_eval_node(el, env) for el in node["Array"]["elements"]]
 
@@ -249,8 +322,8 @@ def _eval_expr(node, env: Environment):
 def _eval_block_iterative(statements: list, env: Environment):
     """
     Execute a list of statements without recursing back into _eval_node
-    for the next statement.  Returns the last value, or a control-flow signal.
-    ReturnValue is NOT unwrapped here — it bubbles up to __apply_function.
+    for the next statement. Returns the last value, or a control-flow signal.
+    ReturnValue is NOT unwrapped here — it bubbles up to _apply_function.
     """
     result = None
     for stmt in statements:
@@ -265,20 +338,53 @@ def _eval_block_iterative(statements: list, env: Environment):
 # ---------------------------------------------------------------------------
 
 def _exec_let(let_data: dict, env: Environment):
-    val = _eval_node(let_data["value"], env)
-    dims_exprs = let_data.get("array_size")   # None | list[expr]
+    value_node  = let_data.get("value")
+    nullable    = let_data.get("nullable", False)
+    mutable     = let_data.get("mutable", True)
+    value_type  = let_data.get("value_type")
+    dims_exprs  = let_data.get("array_size")
+    reference   = let_data.get("reference", False)
+    mutable_ref = let_data.get("mutable_ref", False)
 
-    if dims_exprs:   # None or empty list both skip — no dimensions means no array shaping
-        # Evaluate each dimension expression to an int
+    # --- Borrow semantics ---------------------------------------------------
+    if reference:
+        if value_node is None or not (isinstance(value_node, dict) and "Identifier" in value_node):
+            raise RuntimeError(
+                f"Runtime Error: Borrow '{let_data['name']}' must reference a named variable."
+            )
+        target_name = value_node["Identifier"]
+
+        # Ensure target exists
+        env.get(target_name)  # raises if undefined
+
+        # &mut requires the target to be declared mut
+        if mutable_ref and not env.is_mutable(target_name):
+            raise RuntimeError(
+                f"Runtime Error: Cannot borrow '{target_name}' as mutable — it is not declared mut."
+            )
+
+        # The borrow variable itself is immutable (you can't rebind a reference)
+        env.define(let_data["name"], BorrowRef(target_name, mutable_ref), mutable=False)
+        return None
+
+    # --- Owned value --------------------------------------------------------
+    if value_node is not None:
+        val = _eval_node(value_node, env)
+    elif nullable:
+        # `let x: int?;` — no initializer, nullable -> null
+        val = None
+    else:
+        # `let x: int;` / `let a: int[5];` — zero value
+        val = _default_value(value_type, dims_exprs, env)
+
+    if dims_exprs and val is not None:
         dims = [_eval_node(d, env) for d in dims_exprs]
-        # Build a fully-sized array filled with zeros
-        target = _make_nd_array(dims)
-        # Overlay whatever initialiser values were provided
+        target = _make_nd_array(dims, fill=_zero_for_type(value_type))
         if isinstance(val, list):
             _fill_nd_array(target, val)
         val = target
 
-    env.define(let_data["name"], val)
+    env.define(let_data["name"], val, mutable=mutable)
     return None
 
 
@@ -288,6 +394,9 @@ def _exec_assign(assign_data: dict, env: Environment):
     op         = assign_data["operator"]
 
     if isinstance(ident_node, dict) and "Index" in ident_node:
+        root_name = _root_identifier_name(ident_node)
+        if root_name is not None and not env.is_mutable(root_name):
+            raise RuntimeError(f"Runtime Error: Cannot mutate immutable variable '{root_name}'.")
         arr, idx = _resolve_index_chain(ident_node, env)
         arr[idx] = _calc_assign(arr[idx], op, rvalue)
         return None
@@ -295,7 +404,7 @@ def _exec_assign(assign_data: dict, env: Environment):
     if isinstance(ident_node, dict) and "Identifier" in ident_node:
         var_name    = ident_node["Identifier"]
         current_val = env.get(var_name)
-        env.set(var_name, _calc_assign(current_val, op, rvalue))
+        env.set(var_name, _calc_assign(current_val, op, rvalue))  # raises if immutable
         return None
 
     raise RuntimeError("Runtime Error: Invalid left-hand side in assignment.")
@@ -327,21 +436,37 @@ def _exec_for(for_data: dict, env: Environment):
 
 _INFIX_OPS = {
     "+":  operator.add,  "-":  operator.sub,  "*": operator.mul,
-    "%":  operator.mod,  "**":  operator.pow,
+    "%":  operator.mod,  "**": operator.pow,
     "==": operator.eq,   "!=": operator.ne,
     "<":  operator.lt,   "<=": operator.le,
     ">":  operator.gt,   ">=": operator.ge,
-    "&":  operator.and_,  # Bitwise AND
-    "|":  operator.or_,   # Bitwise OR
-    "^":  operator.xor,  # Bitwise XOR (Nếu Parser map ký tự '^' thành toán tử BITXOR)
+    "&":  operator.and_,   # Bitwise AND
+    "|":  operator.or_,    # Bitwise OR
+    "^":  operator.xor,    # Bitwise XOR
     "<<": operator.lshift, # Bitwise Left Shift
     ">>": operator.rshift, # Bitwise Right Shift
 }
 
 
 def _eval_prefix(data: dict, env: Environment):
+    op = data["operator"]
+
+    # Borrow prefix operators — produce a BorrowRef at expression level.
+    # Usage: pass &x or &mut x as a function argument.
+    if op in ("&", "&mut"):
+        right_node = data["right"]
+        if not (isinstance(right_node, dict) and "Identifier" in right_node):
+            raise RuntimeError("Runtime Error: Borrow operator requires a named variable.")
+        target_name = right_node["Identifier"]
+        mutable_ref = op == "&mut"
+        env.get(target_name)  # raises if undefined
+        if mutable_ref and not env.is_mutable(target_name):
+            raise RuntimeError(
+                f"Runtime Error: Cannot borrow '{target_name}' as mutable — it is not declared mut."
+            )
+        return BorrowRef(target_name, mutable_ref)
+
     right = _eval_node(data["right"], env)
-    op    = data["operator"]
     if op == "-": return -right
     if op == "+": return +right
     if op == "!": return not right
@@ -363,6 +488,9 @@ def _eval_infix(data: dict, env: Environment):
     left  = _eval_node(data["left"],  env)
     right = _eval_node(data["right"], env)
 
+    if left is None or right is None:
+        return None
+
     if op == "/":
         if isinstance(left, int) and isinstance(right, int):
             return left // right
@@ -377,17 +505,27 @@ def _eval_infix(data: dict, env: Environment):
 def _eval_postfix(data: dict, env: Environment):
     left_node = data["left"]
     op        = data["operator"]
+
     if not (isinstance(left_node, dict) and "Identifier" in left_node):
         raise RuntimeError("Runtime Error: Postfix target must be a variable.")
+
     var_name    = left_node["Identifier"]
-    current_val = env.get(var_name)
+    current_val = env.get(var_name)  # dereferences BorrowRef transparently
+
+    # --- Null assertion: x! ---
+    # Asserts the variable is not null. Returns the unwrapped value,
+    # or raises if the value IS null.
+    if op == "!":
+        return current_val is not None
+
+    # --- Increment / Decrement: x++  x-- ---
     if not isinstance(current_val, int):
-        raise RuntimeError("Runtime Error: Postfix operators require an integer.")
+        raise RuntimeError("Runtime Error: Postfix ++ / -- require an integer.")
     step = 1 if op == "++" else -1 if op == "--" else None
     if step is None:
         raise RuntimeError(f"Runtime Error: Unknown postfix operator '{op}'.")
-    env.set(var_name, current_val + step)
-    return current_val          # return old value (post semantics)
+    env.set(var_name, current_val + step)  # raises if immutable; writes through &mut
+    return current_val  # post-increment semantics: return OLD value
 
 
 def _eval_if(data: dict, env: Environment):
@@ -417,7 +555,20 @@ def _apply_function(func_obj, args):
         )
     fn_env = Environment(outer=func_obj.env)
     for param, arg in zip(func_obj.parameters, args):
-        fn_env.define(param["name"], arg)
+        p_mutable     = param.get("mutable", True)
+        p_mutable_ref = param.get("mutable_ref", False)
+        p_reference   = param.get("reference", False)
+
+        # If the argument is a BorrowRef, bind it directly so the param
+        # acts as an alias inside the function body.
+        if isinstance(arg, BorrowRef):
+            if p_mutable_ref and not arg.mutable_ref:
+                raise RuntimeError(
+                    f"Runtime Error: Cannot pass immutable borrow as &mut parameter '{param['name']}'."
+                )
+            fn_env.define(param["name"], arg, mutable=False)
+        else:
+            fn_env.define(param["name"], arg, mutable=p_mutable)
 
     result = _eval_block_iterative(func_obj.body["statements"], fn_env)
     if isinstance(result, ReturnValue):
@@ -427,6 +578,8 @@ def _apply_function(func_obj, args):
 
 def _calc_assign(current, op: str, rvalue):
     if op == "=":  return rvalue
+    if current is None or rvalue is None:
+        return None
     if op == "+=": return current + rvalue
     if op == "-=": return current - rvalue
     if op == "*=": return current * rvalue
