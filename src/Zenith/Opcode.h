@@ -10,10 +10,17 @@ namespace Zenith
     {
         NOP = 0,
       
-        CVT_F32_I32, ADD_I32, SUB_I32,
-        CVT_I32_F32, ADD_F32, SUB_F32,
-        CVT_F64_I64, ADD_I64, SUB_I64,
-        CVT_I64_F64, ADD_F64, SUB_F64,
+       
+        MOVE, 
+        LOADI,
+
+        // 32 bit
+        CVT_F32_I32, ADD_I32, SUB_I32, MUL_I32, DIV_I32, MOD_I32,
+        CVT_I32_F32, ADD_F32, SUB_F32, MUL_F32, DIV_F32,
+
+        // 64 bit
+        CVT_F64_I64, ADD_I64, SUB_I64, MUL_I64, DIV_I64,
+        CVT_I64_F64, ADD_F64, SUB_F64, MUL_F64, DIV_F64,
         
         HALT,
         COUNT
@@ -38,18 +45,34 @@ namespace Zenith
 
     constexpr OpInfo OPCODE_INFO[static_cast<size_t>(Opcode::COUNT)] = {
         /* NOP         */ { OpMode::iABC,  OpArgMask::OpArgN, OpArgMask::OpArgN, false, false },
+        /* MOVE        */ { OpMode::iABC,  OpArgMask::OpArgN, OpArgMask::OpArgR, true,  false },
+        /* LOADI       */ { OpMode::iAsBx, OpArgMask::OpArgN, OpArgMask::OpArgN, true,  false },
+
         /* CVT_F32_I32 */ { OpMode::iABC,  OpArgMask::OpArgN, OpArgMask::OpArgR, true,  false },
         /* ADD_I32     */ { OpMode::iABC,  OpArgMask::OpArgR, OpArgMask::OpArgR, true,  false },
         /* SUB_I32     */ { OpMode::iABC,  OpArgMask::OpArgR, OpArgMask::OpArgR, true,  false },
+        /* MUL_I32     */ { OpMode::iABC,  OpArgMask::OpArgR, OpArgMask::OpArgR, true,  false },
+        /* DIV_I32     */ { OpMode::iABC,  OpArgMask::OpArgR, OpArgMask::OpArgR, true,  false },
+        /* MOD_I32     */ { OpMode::iABC,  OpArgMask::OpArgR, OpArgMask::OpArgR, true,  false },
+
         /* CVT_I32_F32 */ { OpMode::iABC,  OpArgMask::OpArgN, OpArgMask::OpArgR, true,  false },
         /* ADD_F32     */ { OpMode::iABC,  OpArgMask::OpArgR, OpArgMask::OpArgR, true,  false },
         /* SUB_F32     */ { OpMode::iABC,  OpArgMask::OpArgR, OpArgMask::OpArgR, true,  false },
+        /* MUL_F32     */ { OpMode::iABC,  OpArgMask::OpArgR, OpArgMask::OpArgR, true,  false },
+        /* DIV_F32     */ { OpMode::iABC,  OpArgMask::OpArgR, OpArgMask::OpArgR, true,  false },
+
         /* CVT_F64_I64 */ { OpMode::iABC,  OpArgMask::OpArgN, OpArgMask::OpArgR, true,  false },
         /* ADD_I64     */ { OpMode::iABC,  OpArgMask::OpArgR, OpArgMask::OpArgR, true,  false },
         /* SUB_I64     */ { OpMode::iABC,  OpArgMask::OpArgR, OpArgMask::OpArgR, true,  false },
+        /* MUL_I64     */ { OpMode::iABC,  OpArgMask::OpArgR, OpArgMask::OpArgR, true,  false },
+        /* DIV_I64     */ { OpMode::iABC,  OpArgMask::OpArgR, OpArgMask::OpArgR, true,  false },
+
         /* CVT_I64_F64 */ { OpMode::iABC,  OpArgMask::OpArgN, OpArgMask::OpArgR, true,  false },
         /* ADD_F64     */ { OpMode::iABC,  OpArgMask::OpArgR, OpArgMask::OpArgR, true,  false },
         /* SUB_F64     */ { OpMode::iABC,  OpArgMask::OpArgR, OpArgMask::OpArgR, true,  false },
+        /* MUL_F64     */ { OpMode::iABC,  OpArgMask::OpArgR, OpArgMask::OpArgR, true,  false },
+        /* DIV_F64     */ { OpMode::iABC,  OpArgMask::OpArgR, OpArgMask::OpArgR, true,  false },
+
         /* HALT        */ { OpMode::iABC,  OpArgMask::OpArgN, OpArgMask::OpArgN, false, false }
     };
 }

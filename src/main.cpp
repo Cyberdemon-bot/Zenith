@@ -1,10 +1,118 @@
 #include <iostream>
+#include <fstream>
 #include <iomanip>
 #include <memory>
+#include <vector>
+#include <string>
+#include <sstream>
+#include <unordered_map>
+#include <stdexcept>
+
 #include "Zenith/VirtualMachine.h"
 #include "Zenith/OpcodeUtils.h" 
 
-void dump_memory(const Zenith::Stack& stack, size_t count32 = 8, size_t count64 = 6)
+Zenith::Opcode parse_opcode_string(const std::string& name)
+{
+    static const std::unordered_map<std::string, Zenith::Opcode> op_map = {
+        {"NOP",         Zenith::Opcode::NOP},
+        {"MOVE",        Zenith::Opcode::MOVE},
+        {"LOADI",       Zenith::Opcode::LOADI},
+
+        {"CVT_F32_I32", Zenith::Opcode::CVT_F32_I32},
+        {"ADD_I32",     Zenith::Opcode::ADD_I32},
+        {"SUB_I32",     Zenith::Opcode::SUB_I32},
+        {"MUL_I32",     Zenith::Opcode::MUL_I32},
+        {"DIV_I32",     Zenith::Opcode::DIV_I32},
+        {"MOD_I32",     Zenith::Opcode::MOD_I32},
+
+        {"CVT_I32_F32", Zenith::Opcode::CVT_I32_F32},
+        {"ADD_F32",     Zenith::Opcode::ADD_F32},
+        {"SUB_F32",     Zenith::Opcode::SUB_F32},
+        {"MUL_F32",     Zenith::Opcode::MUL_F32},
+        {"DIV_F32",     Zenith::Opcode::DIV_F32},
+
+        {"CVT_F64_I64", Zenith::Opcode::CVT_F64_I64},
+        {"ADD_I64",     Zenith::Opcode::ADD_I64},
+        {"SUB_I64",     Zenith::Opcode::SUB_I64},
+        {"MUL_I64",     Zenith::Opcode::MUL_I64},
+        {"DIV_I64",     Zenith::Opcode::DIV_I64},
+
+        {"CVT_I64_F64", Zenith::Opcode::CVT_I64_F64},
+        {"ADD_F64",     Zenith::Opcode::ADD_F64},
+        {"SUB_F64",     Zenith::Opcode::SUB_F64},
+        {"MUL_F64",     Zenith::Opcode::MUL_F64},
+        {"DIV_F64",     Zenith::Opcode::DIV_F64},
+
+        {"HALT",        Zenith::Opcode::HALT}
+    };
+
+    auto it = op_map.find(name);
+    if (it != op_map.end())
+    {
+        return it->second;
+    }
+    throw std::runtime_error("Invalid Opcode -> " + name);
+}
+
+std::string read_file(const std::string& filepath)
+{
+    std::ifstream file(filepath);
+    if (!file.is_open())
+    {
+        throw std::runtime_error("Cannot open script file: " + filepath);
+    }
+    std::stringstream buffer;
+    buffer << file.rdbuf();
+    return buffer.str();
+}
+
+std::vector<Zenith::Instruction> assemble(const std::string& source)
+{
+    std::vector<Zenith::Instruction> bytecode;
+    std::stringstream ss(source);
+    std::string line;
+
+    while (std::getline(ss, line))
+    {
+        size_t comment_pos = line.find_first_of(";#");
+        if (comment_pos != std::string::npos)
+        {
+            line = line.substr(0, comment_pos);
+        }
+
+        std::stringstream line_stream(line);
+        std::string op_str;
+        if (!(line_stream >> op_str)) continue;
+
+        Zenith::Opcode op = parse_opcode_string(op_str);
+        const auto& info = Zenith::get_opcode_info(op);
+
+        if (info.mode == Zenith::OpMode::iABC)
+        {
+            int a = 0, b = 0, c = 0;
+            line_stream >> a >> b >> c;
+            bytecode.push_back(Zenith::make_iABC(op, a, b, c));
+        }
+        else if (info.mode == Zenith::OpMode::iAsBx)
+        {
+            int a = 0;
+            int32_t sbx = 0;
+            line_stream >> a >> sbx;
+            bytecode.push_back(Zenith::make_iAsBx(op, a, sbx));
+        }
+        else if (info.mode == Zenith::OpMode::iABx)
+        {
+            int a = 0;
+            uint32_t bx = 0;
+            line_stream >> a >> bx;
+            bytecode.push_back(Zenith::make_iABx(op, a, bx));
+        }
+    }
+
+    return bytecode;
+}
+
+void dump_memory(const Zenith::Stack& stack, size_t count32 = 16, size_t count64 = 16)
 {
     std::cout << "--- R32 BANK DUMP ---\n";
     for (size_t i = 0; i < count32; ++i)
@@ -33,42 +141,42 @@ void dump_memory(const Zenith::Stack& stack, size_t count32 = 8, size_t count64 
     }
 }
 
-int main()
+int main(int argc, char* argv[])
 {
+    std::string filename = "script/test.zasm";
+    if (argc > 1)
+    {
+        filename = argv[1];
+    }
+
     auto stack = std::make_unique<Zenith::Stack>();
     Zenith::State state{ .stack = stack.get(), .pc = nullptr };
     Zenith::Machine vm;
 
-    state.write_R32(1, int32_t(100));
-    state.write_R32(2, int32_t(45));
-    
-    state.write_R32(3, 10.5f);
-    state.write_R32(4, 2.5f);
-
     state.write_R64(1, int64_t(10000000000LL));
-    state.write_R64(2, int64_t(4000000000LL));
+    state.write_R64(2, int64_t(2000000000LL));
 
-    state.write_R64(3, 100.75);
-    state.write_R64(4, 50.25);
+    try 
+    {
+        std::cout << "Reading script: " << filename << "...\n\n";
+        std::string source = read_file(filename);
 
-    constexpr size_t instruction_count = 6;
-    auto bytecode = std::make_unique<Zenith::Instruction[]>(instruction_count);
-    bytecode[0] = Zenith::make_iABC(Zenith::Opcode::ADD_I32, 0, 1, 2);
-    bytecode[1] = Zenith::make_iABC(Zenith::Opcode::SUB_F32, 5, 3, 4);
-    bytecode[2] = Zenith::make_iABC(Zenith::Opcode::CVT_I32_F32, 6, 0, 0);
-    bytecode[3] = Zenith::make_iABC(Zenith::Opcode::SUB_I64, 0, 1, 2);
-    bytecode[4] = Zenith::make_iABC(Zenith::Opcode::ADD_F64, 5, 3, 4);
-    bytecode[5] = Zenith::make_iABC(Zenith::Opcode::HALT, 0, 0, 0);
+        std::vector<Zenith::Instruction> bytecode = assemble(source);
+        state.pc = bytecode.data();
 
-    state.pc = bytecode.get();
+        std::cout << "[ BEFORE EXECUTION ]\n";
+        dump_memory(*stack, 16, 16);
 
-    std::cout << "[ BEFORE EXECUTION ]\n";
-    dump_memory(*stack);
+        vm.execute(state);
 
-    vm.execute(state);
-
-    std::cout << "\n[ AFTER EXECUTION ]\n";
-    dump_memory(*stack);
+        std::cout << "\n[ AFTER EXECUTION ]\n";
+        dump_memory(*stack, 16, 16);
+    }
+    catch (const std::exception& e)
+    {
+        std::cerr << "Loi: " << e.what() << "\n";
+        return 1;
+    }
 
     return 0;
 }

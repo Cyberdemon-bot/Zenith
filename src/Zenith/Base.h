@@ -29,10 +29,18 @@ namespace Zenith
     constexpr uint16_t BIT_RK     = 1U << (SIZE_B - 1);                   // 256 
 
     #if defined(_MSC_VER)
-        #define ZENITH_UNREACHABLE() __assume(0)
+        #define UNREACHABLE() __assume(0)
     #elif defined(__GNUC__) || defined(__clang__)
-        #define ZENITH_UNREACHABLE() __builtin_unreachable()
+        #define UNREACHABLE() __builtin_unreachable()
     #else
-        #define ZENITH_UNREACHABLE() std::abort()
+        #define UNREACHABLE() std::abort()
+    #endif
+
+    #if defined(_MSC_VER)
+        #define FORCE_INLINE __forceinline
+    #elif defined(__GNUC__) || defined(__clang__)
+        #define FORCE_INLINE inline __attribute__((always_inline)) constexpr
+    #else
+        #define FORCE_INLINE inline constexpr
     #endif
 }
