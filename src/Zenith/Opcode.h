@@ -1,44 +1,55 @@
 #pragma once
+
 #include "Zenith/Base.h"
 
 namespace Zenith 
 {
+    enum class OpMode : uint8_t { iABC, iABx, iAsBx };
+
     enum class Opcode : uint8_t 
     {
-        OP_NOP = 0,
+        NOP = 0,
       
-        OP_CAST32_F2I, 
-        OP_ADD_I32,
-        OP_SUB_I32,
-
-        OP_CAST32_I2F, 
-        OP_ADD_F32,
-        OP_SUB_F32,
-
-        OP_CAST64_F2I, 
-        OP_ADD_I64,
-        OP_SUB_I64,
-
-        OP_CAST64_I2F, 
-        OP_ADD_F64,
-        OP_SUB_F64,
+        CVT_F32_I32, ADD_I32, SUB_I32,
+        CVT_I32_F32, ADD_F32, SUB_F32,
+        CVT_F64_I64, ADD_I64, SUB_I64,
+        CVT_I64_F64, ADD_F64, SUB_F64,
         
-        OP_HALT = 255
+        HALT,
+        COUNT
     };
 
-    constexpr Instruction make_inst(Opcode op, uint8_t dst = 0, uint8_t srcA = 0, uint8_t srcB = 0) 
+    enum class OpArgMask : uint8_t // use for b and c
     {
-        return (static_cast<uint32_t>(op) << 24) |
-               (static_cast<uint32_t>(dst) << 16) |
-               (static_cast<uint32_t>(srcA) << 8)  |
-               (static_cast<uint32_t>(srcB));
-    }
+        OpArgN = 0, // no use
+        OpArgU,     // unsigned
+        OpArgR,     // register 
+        OpArgK      // constant index
+    };
 
-    inline Opcode unpack_opcode(const Instruction& inst, uint8_t& dst, uint8_t& srcA, uint8_t& srcB)
+    struct OpInfo 
     {
-        dst = (inst >> 16) & 0xFF;
-        srcA = (inst >> 8)  & 0xFF;
-        srcB = inst & 0xFF;
-        return static_cast<Opcode>((inst >> 24) & 0xFF);
-    }
+        OpMode mode: 2;     // iABC, iABx, iAsBx
+        OpArgMask arg_c: 2; 
+        OpArgMask arg_b: 2; 
+        bool sets_reg : 1;  // should vm set reg A?
+        bool is_test: 1;    // is condition test?
+    };
+
+    constexpr OpInfo OPCODE_INFO[static_cast<size_t>(Opcode::COUNT)] = {
+        /* OP_NOP        */ { OpMode::iABC,  OpArgMask::OpArgN, OpArgMask::OpArgN, false, false },
+        /* OP_CAST32_F2I */ { OpMode::iABC,  OpArgMask::OpArgN, OpArgMask::OpArgR, true,  false },
+        /* OP_ADD32_I    */ { OpMode::iABC,  OpArgMask::OpArgR, OpArgMask::OpArgR, true,  false },
+        /* OP_SUB_I32    */ { OpMode::iABC,  OpArgMask::OpArgR, OpArgMask::OpArgR, true,  false },
+        /* OP_CAST32_I2F */ { OpMode::iABC,  OpArgMask::OpArgN, OpArgMask::OpArgR, true,  false },
+        /* OP_ADD_F32    */ { OpMode::iABC,  OpArgMask::OpArgR, OpArgMask::OpArgR, true,  false },
+        /* OP_SUB_F32    */ { OpMode::iABC,  OpArgMask::OpArgR, OpArgMask::OpArgR, true,  false },
+        /* OP_CAST64_F2I */ { OpMode::iABC,  OpArgMask::OpArgN, OpArgMask::OpArgR, true,  false },
+        /* OP_ADD_I64    */ { OpMode::iABC,  OpArgMask::OpArgR, OpArgMask::OpArgR, true,  false },
+        /* OP_SUB_I64    */ { OpMode::iABC,  OpArgMask::OpArgR, OpArgMask::OpArgR, true,  false },
+        /* OP_CAST64_I2F */ { OpMode::iABC,  OpArgMask::OpArgN, OpArgMask::OpArgR, true,  false },
+        /* OP_ADD_F64    */ { OpMode::iABC,  OpArgMask::OpArgR, OpArgMask::OpArgR, true,  false },
+        /* OP_SUB_F64    */ { OpMode::iABC,  OpArgMask::OpArgR, OpArgMask::OpArgR, true,  false },
+        /* OP_HALT       */ { OpMode::iABC,  OpArgMask::OpArgN, OpArgMask::OpArgN, false, false }
+    };
 }

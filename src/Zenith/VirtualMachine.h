@@ -1,6 +1,6 @@
 #pragma once
+
 #include "Zenith/State.h"
-#include "Zenith/Opcode.h"
 
 namespace Zenith 
 {

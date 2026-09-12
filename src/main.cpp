@@ -1,6 +1,8 @@
 #include <iostream>
 #include <iomanip>
+#include <memory>
 #include "Zenith/VirtualMachine.h"
+#include "Zenith/OpcodeUtils.h" 
 
 void dump_memory(const Zenith::Stack& stack, size_t count32 = 8, size_t count64 = 6)
 {
@@ -33,8 +35,8 @@ void dump_memory(const Zenith::Stack& stack, size_t count32 = 8, size_t count64 
 
 int main()
 {
-    Zenith::Stack stack{};
-    Zenith::State state{ .stack = &stack, .pc = nullptr };
+    auto stack = std::make_unique<Zenith::Stack>();
+    Zenith::State state{ .stack = stack.get(), .pc = nullptr };
     Zenith::Machine vm;
 
     state.write_R32(1, int32_t(100));
@@ -49,26 +51,24 @@ int main()
     state.write_R64(3, 100.75);
     state.write_R64(4, 50.25);
 
-    Zenith::Instruction bytecode[] = {
-        Zenith::make_inst(Zenith::Opcode::OP_ADD_I32, 0, 1, 2),
-        Zenith::make_inst(Zenith::Opcode::OP_SUB_F32, 5, 3, 4),
-        Zenith::make_inst(Zenith::Opcode::OP_CAST32_I2F, 6, 0, 0),
+    constexpr size_t instruction_count = 6;
+    auto bytecode = std::make_unique<Zenith::Instruction[]>(instruction_count);
+    bytecode[0] = Zenith::make_iABC(Zenith::Opcode::ADD_I32, 0, 1, 2);
+    bytecode[1] = Zenith::make_iABC(Zenith::Opcode::SUB_F32, 5, 3, 4);
+    bytecode[2] = Zenith::make_iABC(Zenith::Opcode::CVT_I32_F32, 6, 0, 0);
+    bytecode[3] = Zenith::make_iABC(Zenith::Opcode::SUB_I64, 0, 1, 2);
+    bytecode[4] = Zenith::make_iABC(Zenith::Opcode::ADD_F64, 5, 3, 4);
+    bytecode[5] = Zenith::make_iABC(Zenith::Opcode::HALT, 0, 0, 0);
 
-        Zenith::make_inst(Zenith::Opcode::OP_SUB_I64, 0, 1, 2),
-        Zenith::make_inst(Zenith::Opcode::OP_ADD_F64, 5, 3, 4),
-        
-        Zenith::make_inst(Zenith::Opcode::OP_HALT)
-    };
-
-    state.pc = bytecode;
+    state.pc = bytecode.get();
 
     std::cout << "[ BEFORE EXECUTION ]\n";
-    dump_memory(stack);
+    dump_memory(*stack);
 
     vm.execute(state);
 
     std::cout << "\n[ AFTER EXECUTION ]\n";
-    dump_memory(stack);
+    dump_memory(*stack);
 
     return 0;
 }
