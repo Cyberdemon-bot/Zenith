@@ -121,10 +121,11 @@ void dump_memory(const Zenith::Stack& stack, size_t count32 = 16, size_t count64
         int32_t i_val = std::bit_cast<int32_t>(raw);
         float f_val = std::bit_cast<float>(raw);
         
-        std::cout << "R32[" << std::setw(2) << i << "] = HEX: 0x" 
-                  << std::hex << std::setfill('0') << std::setw(8) << raw << std::dec
-                  << " | INT: " << std::setw(8) << i_val
-                  << " | FLOAT: " << f_val << "\n";
+        std::cout << "R32[" << std::dec << std::setfill('0') << std::setw(2) << i << "] = HEX: 0x" 
+                  << std::hex << std::setfill('0') << std::setw(8) << raw
+                  << std::dec << std::setfill(' ')
+                  << " | I32: " << std::setw(11) << i_val
+                  << " | F32: " << std::setw(14) << std::left << f_val << std::right << "\n";
     }
 
     std::cout << "\n--- R64 BANK DUMP ---\n";
@@ -134,10 +135,11 @@ void dump_memory(const Zenith::Stack& stack, size_t count32 = 16, size_t count64
         int64_t i_val = std::bit_cast<int64_t>(raw);
         double d_val = std::bit_cast<double>(raw);
         
-        std::cout << "R64[" << std::setw(2) << i << "] = HEX: 0x" 
-                  << std::hex << std::setfill('0') << std::setw(16) << raw << std::dec
-                  << " | INT64: " << std::setw(12) << i_val
-                  << " | DOUBLE: " << d_val << "\n";
+        std::cout << "R64[" << std::dec << std::setfill('0') << std::setw(2) << i << "] = HEX: 0x" 
+                  << std::hex << std::setfill('0') << std::setw(16) << raw
+                  << std::dec << std::setfill(' ')
+                  << " | I64: " << std::setw(20) << i_val
+                  << " | F64: " << std::setw(22) << std::left << d_val << std::right << "\n";
     }
 }
 
