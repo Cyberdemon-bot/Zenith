@@ -7,8 +7,7 @@ namespace Zenith
 {
     using Instruction = uint32_t;
 
-    constexpr uint32_t NUM_R32 = 64;
-    constexpr uint32_t NUM_R64 = NUM_R32 / 2;
+    constexpr uint32_t NUM_R64 = 64;
     constexpr uint32_t SIZE_OP = 6;
     constexpr uint32_t SIZE_A  = 8;
     constexpr uint32_t SIZE_B  = 9;

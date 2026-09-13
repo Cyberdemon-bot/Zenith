@@ -2,7 +2,6 @@
 #include "Zenith/VirtualMachine.h"
 #include "Zenith/Inl/Handlers_Data.inl"
 #include "Zenith/Inl/Handlers_Cvt.inl"
-#include "Zenith/Inl/Handlers_Arith32.inl"
 #include "Zenith/Inl/Handlers_Arith64.inl"
 
 #define HANDLE(OP) { handle_##OP(state, inst); break; }
@@ -23,21 +22,8 @@ namespace Zenith
                 case Opcode::MOVE:  HANDLE(MOVE)
                 case Opcode::LOADI: HANDLE(LOADI)
 
-                case Opcode::CVT_F32_I32: HANDLE(CVT_F32_I32)
-                case Opcode::CVT_I32_F32: HANDLE(CVT_I32_F32)
                 case Opcode::CVT_F64_I64: HANDLE(CVT_F64_I64)
                 case Opcode::CVT_I64_F64: HANDLE(CVT_I64_F64)
-
-                case Opcode::ADD_I32: HANDLE(ADD_I32)
-                case Opcode::SUB_I32: HANDLE(SUB_I32)
-                case Opcode::MUL_I32: HANDLE(MUL_I32)
-                case Opcode::DIV_I32: HANDLE(DIV_I32)
-                case Opcode::MOD_I32: HANDLE(MOD_I32)
-
-                case Opcode::ADD_F32: HANDLE(ADD_F32)
-                case Opcode::SUB_F32: HANDLE(SUB_F32)
-                case Opcode::MUL_F32: HANDLE(MUL_F32)
-                case Opcode::DIV_F32: HANDLE(DIV_F32)
 
                 case Opcode::ADD_I64: HANDLE(ADD_I64)
                 case Opcode::SUB_I64: HANDLE(SUB_I64)

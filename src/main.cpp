@@ -18,19 +18,6 @@ Zenith::Opcode parse_opcode_string(const std::string& name)
         {"MOVE",        Zenith::Opcode::MOVE},
         {"LOADI",       Zenith::Opcode::LOADI},
 
-        {"CVT_F32_I32", Zenith::Opcode::CVT_F32_I32},
-        {"ADD_I32",     Zenith::Opcode::ADD_I32},
-        {"SUB_I32",     Zenith::Opcode::SUB_I32},
-        {"MUL_I32",     Zenith::Opcode::MUL_I32},
-        {"DIV_I32",     Zenith::Opcode::DIV_I32},
-        {"MOD_I32",     Zenith::Opcode::MOD_I32},
-
-        {"CVT_I32_F32", Zenith::Opcode::CVT_I32_F32},
-        {"ADD_F32",     Zenith::Opcode::ADD_F32},
-        {"SUB_F32",     Zenith::Opcode::SUB_F32},
-        {"MUL_F32",     Zenith::Opcode::MUL_F32},
-        {"DIV_F32",     Zenith::Opcode::DIV_F32},
-
         {"CVT_F64_I64", Zenith::Opcode::CVT_F64_I64},
         {"ADD_I64",     Zenith::Opcode::ADD_I64},
         {"SUB_I64",     Zenith::Opcode::SUB_I64},
@@ -114,20 +101,6 @@ std::vector<Zenith::Instruction> assemble(const std::string& source)
 
 void dump_memory(const Zenith::Stack& stack, size_t count32 = 16, size_t count64 = 16)
 {
-    std::cout << "--- R32 BANK DUMP ---\n";
-    for (size_t i = 0; i < count32; ++i)
-    {
-        uint32_t raw = stack.R32[i];
-        int32_t i_val = std::bit_cast<int32_t>(raw);
-        float f_val = std::bit_cast<float>(raw);
-        
-        std::cout << "R32[" << std::dec << std::setfill('0') << std::setw(2) << i << "] = HEX: 0x" 
-                  << std::hex << std::setfill('0') << std::setw(8) << raw
-                  << std::dec << std::setfill(' ')
-                  << " | I32: " << std::setw(11) << i_val
-                  << " | F32: " << std::setw(14) << std::left << f_val << std::right << "\n";
-    }
-
     std::cout << "\n--- R64 BANK DUMP ---\n";
     for (size_t i = 0; i < count64; ++i)
     {
@@ -155,8 +128,8 @@ int main(int argc, char* argv[])
     Zenith::State state{ .stack = stack.get(), .pc = nullptr };
     Zenith::Machine vm;
 
-    state.write_R64(1, int64_t(10000000000LL));
-    state.write_R64(2, int64_t(2000000000LL));
+    state.write(1, int64_t(10000000000LL));
+    state.write(2, int64_t(2000000000LL));
 
     try 
     {

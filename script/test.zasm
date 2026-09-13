@@ -1,33 +1,38 @@
 NOP
-LOADI 1 100         ; R32[1] = 100
-LOADI 2 30          ; R32[2] = 30
-MOVE  3 1           ; R32[3] = R32[1]
 
-ADD_I32 4 1 2       ; R32[4] = 100 + 30
-SUB_I32 5 1 2       ; R32[5] = 100 - 30
-MUL_I32 6 1 2       ; R32[6] = 100 * 30
-DIV_I32 7 1 2       ; R32[7] = 100 / 30
-MOD_I32 8 1 2       ; R32[8] = 100 % 30
+; ---- Small values via LOADI (registers 10-11, kept clear of the ----
+; ---- big preset values that main.cpp writes into R64[1] and R64[2]) ----
+LOADI 10 100          ; R64[10] = 100
+LOADI 11 30           ; R64[11] = 30
+MOVE  12 10           ; R64[12] = R64[10]
 
-CVT_I32_F32 9 1     ; R32[9]  = float(100)
-CVT_I32_F32 10 2    ; R32[10] = float(30)
-ADD_F32 11 9 10     ; R32[11] = 100.0 + 30.0
-SUB_F32 12 9 10     ; R32[12] = 100.0 - 30.0
-MUL_F32 13 9 10     ; R32[13] = 100.0 * 30.0
-DIV_F32 14 9 10     ; R32[14] = 100.0 / 30.0
-CVT_F32_I32 15 14   ; R32[15] = int(3.33333)
+; ---- Integer arithmetic (64-bit) ----
+ADD_I64 13 10 11      ; R64[13] = 100 + 30
+SUB_I64 14 10 11      ; R64[14] = 100 - 30
+MUL_I64 15 10 11      ; R64[15] = 100 * 30
+DIV_I64 16 10 11      ; R64[16] = 100 / 30
 
-ADD_I64 3 1 2       ; R64[3] = 10B + 2B
-SUB_I64 4 1 2       ; R64[4] = 10B - 2B
-MUL_I64 5 1 2       ; R64[5] = 10B * 2B
-DIV_I64 6 1 2       ; R64[6] = 10B / 2B
+; ---- Convert to double and repeat in float arithmetic ----
+CVT_I64_F64 17 10     ; R64[17] = double(100)
+CVT_I64_F64 18 11     ; R64[18] = double(30)
+ADD_F64 19 17 18      ; R64[19] = 100.0 + 30.0
+SUB_F64 20 17 18      ; R64[20] = 100.0 - 30.0
+MUL_F64 21 17 18      ; R64[21] = 100.0 * 30.0
+DIV_F64 22 17 18      ; R64[22] = 100.0 / 30.0
+CVT_F64_I64 23 22     ; R64[23] = int64(3.3333...)
 
-CVT_I64_F64 7 1     ; R64[7] = double(10B)
-CVT_I64_F64 8 2     ; R64[8] = double(2B)
-ADD_F64 11 7 8      ; R64[11] = 10B.0 + 2B.0
-SUB_F64 12 7 8      ; R64[12] = 10B.0 - 2B.0
-MUL_F64 13 7 8      ; R64[13] = 10B.0 * 2B.0
-DIV_F64 14 7 8      ; R64[14] = 10B.0 / 2B.0
-CVT_F64_I64 15 14   ; R64[15] = int64(5.0)
+; ---- Big-number 64-bit arithmetic (values preset by the host) ----
+ADD_I64 3 1 2         ; R64[3] = 10B + 2B
+SUB_I64 4 1 2         ; R64[4] = 10B - 2B
+MUL_I64 5 1 2         ; R64[5] = 10B * 2B
+DIV_I64 6 1 2         ; R64[6] = 10B / 2B
+
+CVT_I64_F64 7 1       ; R64[7] = double(10B)
+CVT_I64_F64 8 2       ; R64[8] = double(2B)
+ADD_F64 24 7 8        ; R64[24] = 10B.0 + 2B.0
+SUB_F64 25 7 8        ; R64[25] = 10B.0 - 2B.0
+MUL_F64 26 7 8        ; R64[26] = 10B.0 * 2B.0
+DIV_F64 27 7 8        ; R64[27] = 10B.0 / 2B.0
+CVT_F64_I64 28 27     ; R64[28] = int64(5.0)
 
 HALT

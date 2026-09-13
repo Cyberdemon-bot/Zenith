@@ -9,14 +9,8 @@ namespace Zenith
     enum class Opcode : uint8_t 
     {
         NOP = 0,
-      
-       
         MOVE, 
         LOADI,
-
-        // 32 bit
-        CVT_F32_I32, ADD_I32, SUB_I32, MUL_I32, DIV_I32, MOD_I32,
-        CVT_I32_F32, ADD_F32, SUB_F32, MUL_F32, DIV_F32,
 
         // 64 bit
         CVT_F64_I64, ADD_I64, SUB_I64, MUL_I64, DIV_I64,
@@ -47,19 +41,6 @@ namespace Zenith
         /* NOP         */ { OpMode::iABC,  OpArgMask::OpArgN, OpArgMask::OpArgN, false, false },
         /* MOVE        */ { OpMode::iABC,  OpArgMask::OpArgN, OpArgMask::OpArgR, true,  false },
         /* LOADI       */ { OpMode::iAsBx, OpArgMask::OpArgN, OpArgMask::OpArgN, true,  false },
-
-        /* CVT_F32_I32 */ { OpMode::iABC,  OpArgMask::OpArgN, OpArgMask::OpArgR, true,  false },
-        /* ADD_I32     */ { OpMode::iABC,  OpArgMask::OpArgR, OpArgMask::OpArgR, true,  false },
-        /* SUB_I32     */ { OpMode::iABC,  OpArgMask::OpArgR, OpArgMask::OpArgR, true,  false },
-        /* MUL_I32     */ { OpMode::iABC,  OpArgMask::OpArgR, OpArgMask::OpArgR, true,  false },
-        /* DIV_I32     */ { OpMode::iABC,  OpArgMask::OpArgR, OpArgMask::OpArgR, true,  false },
-        /* MOD_I32     */ { OpMode::iABC,  OpArgMask::OpArgR, OpArgMask::OpArgR, true,  false },
-
-        /* CVT_I32_F32 */ { OpMode::iABC,  OpArgMask::OpArgN, OpArgMask::OpArgR, true,  false },
-        /* ADD_F32     */ { OpMode::iABC,  OpArgMask::OpArgR, OpArgMask::OpArgR, true,  false },
-        /* SUB_F32     */ { OpMode::iABC,  OpArgMask::OpArgR, OpArgMask::OpArgR, true,  false },
-        /* MUL_F32     */ { OpMode::iABC,  OpArgMask::OpArgR, OpArgMask::OpArgR, true,  false },
-        /* DIV_F32     */ { OpMode::iABC,  OpArgMask::OpArgR, OpArgMask::OpArgR, true,  false },
 
         /* CVT_F64_I64 */ { OpMode::iABC,  OpArgMask::OpArgN, OpArgMask::OpArgR, true,  false },
         /* ADD_I64     */ { OpMode::iABC,  OpArgMask::OpArgR, OpArgMask::OpArgR, true,  false },
