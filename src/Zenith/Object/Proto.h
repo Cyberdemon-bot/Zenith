@@ -9,5 +9,6 @@ namespace Zenith {
     {
         std::span<Instruction> code;
         std::span<uint64_t> numeric_constants; // unified buffer for any 64bit data
+        uint32_t register_count = 0;
     };
 }

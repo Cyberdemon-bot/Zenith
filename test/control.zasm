@@ -1,0 +1,229 @@
+; ============================================================
+; Zenith control-flow / comparison test
+;
+; Assumptions:
+;
+;   EQ_I64  A B C  -> R[A] = (R[B] == R[C]) ? 1 : 0
+;   LT_I64  A B C  -> R[A] = (R[B] <  R[C]) ? 1 : 0
+;   LE_I64  A B C  -> R[A] = (R[B] <= R[C]) ? 1 : 0
+;
+;   JMPIF    Rcond label -> jump if Rcond != 0
+;   JMPIFNOT Rcond label -> jump if Rcond == 0
+;
+; ============================================================
+
+
+; ------------------------------------------------------------
+; Initial values
+; ------------------------------------------------------------
+
+LOADI R0 10
+LOADI R1 20
+LOADI R2 10
+
+
+; ------------------------------------------------------------
+; EQ_I64
+;
+; R3 = (10 == 10) -> 1
+; R4 = (10 == 20) -> 0
+; ------------------------------------------------------------
+
+EQ_I64 R3 R0 R2
+EQ_I64 R4 R0 R1
+
+JMPIF R3 equal_true
+JMP fail
+
+
+equal_true:
+
+JMPIFNOT R4 unequal_true
+JMP fail
+
+
+unequal_true:
+
+
+; ------------------------------------------------------------
+; LT_I64
+;
+; R5 = (10 < 20) -> 1
+; R6 = (20 < 10) -> 0
+; ------------------------------------------------------------
+
+LT_I64 R5 R0 R1
+LT_I64 R6 R1 R0
+
+JMPIF R5 less_true
+JMP fail
+
+
+less_true:
+
+JMPIFNOT R6 reverse_less_false
+JMP fail
+
+
+reverse_less_false:
+
+
+; ------------------------------------------------------------
+; LE_I64
+;
+; R7 = (10 <= 10) -> 1
+; R8 = (20 <= 10) -> 0
+; ------------------------------------------------------------
+
+LE_I64 R7 R0 R2
+LE_I64 R8 R1 R0
+
+JMPIF R7 less_equal_true
+JMP fail
+
+
+less_equal_true:
+
+JMPIFNOT R8 greater_than_true
+JMP fail
+
+
+greater_than_true:
+
+
+; ------------------------------------------------------------
+; Floating-point comparison
+; ------------------------------------------------------------
+
+LOADF R9 3.5
+LOADF R10 7.0
+
+LT_F64 R11 R9 R10
+EQ_F64 R12 R9 R10
+LE_F64 R13 R9 R10
+
+; 3.5 < 7.0 must be true
+JMPIF R11 float_lt_true
+JMP fail
+
+
+float_lt_true:
+
+; 3.5 == 7.0 must be false
+JMPIFNOT R12 float_eq_false
+JMP fail
+
+
+float_eq_false:
+
+; 3.5 <= 7.0 must be true
+JMPIF R13 float_le_true
+JMP fail
+
+
+float_le_true:
+
+
+; ------------------------------------------------------------
+; Loop test
+;
+; Calculate:
+;
+;   0 + 1 + 2 + 3 + 4 + 5 = 15
+;
+; R14 = counter
+; R15 = accumulator
+; R16 = constant 6
+; R17 = comparison result
+; ------------------------------------------------------------
+
+LOADI R14 0
+LOADI R15 0
+LOADI R16 6
+
+
+sum_loop:
+
+ADD_I64 R15 R15 R14
+
+LOADI R18 1
+ADD_I64 R14 R14 R18
+
+LT_I64 R17 R14 R16
+
+JMPIF R17 sum_loop
+
+
+; ------------------------------------------------------------
+; At this point:
+;
+; R15 = 15
+; R14 = 6
+; ------------------------------------------------------------
+
+LOADI R19 15
+
+EQ_I64 R20 R15 R19
+
+JMPIF R20 sum_correct
+JMP fail
+
+
+sum_correct:
+
+
+; ------------------------------------------------------------
+; Backward jump + conditional failure path have both
+; been exercised.
+;
+; Now test an unconditional forward jump.
+; ------------------------------------------------------------
+
+JMP final_check
+
+
+; This block must never execute.
+wrong_path:
+
+LOADI R21 999
+JMP fail
+
+
+final_check:
+
+
+; ------------------------------------------------------------
+; Final sanity condition.
+;
+; Check R14 <= R16:
+;
+; 6 <= 6 -> true
+; ------------------------------------------------------------
+
+LE_I64 R22 R14 R16
+
+JMPIF R22 success
+JMP fail
+
+
+; ------------------------------------------------------------
+; Success
+; ------------------------------------------------------------
+
+success:
+
+HALT
+
+
+; ------------------------------------------------------------
+; Failure
+;
+; If the VM reaches here, something went wrong.
+; R23 is deliberately written so the host dump makes
+; the failure obvious.
+; ------------------------------------------------------------
+
+fail:
+
+LOADI R23 -1
+HALT

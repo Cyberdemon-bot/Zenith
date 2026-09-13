@@ -15,6 +15,13 @@ namespace Zenith
         // 64 bit
         CVT_F64_I64, ADD_I64, SUB_I64, MUL_I64, DIV_I64,
         CVT_I64_F64, ADD_F64, SUB_F64, MUL_F64, DIV_F64,
+
+        // cmp
+        EQ_I64, LT_I64, LE_I64,
+        EQ_F64, LT_F64, LE_F64,
+
+        // control flow
+        JMP, JMPIF, JMPIFNOT,
         
         HALT,
         COUNT
@@ -54,6 +61,18 @@ namespace Zenith
         /* SUB_F64     */ { OpMode::iABC,  OpArgMask::OpArgR, OpArgMask::OpArgR, true,  false },
         /* MUL_F64     */ { OpMode::iABC,  OpArgMask::OpArgR, OpArgMask::OpArgR, true,  false },
         /* DIV_F64     */ { OpMode::iABC,  OpArgMask::OpArgR, OpArgMask::OpArgR, true,  false },
+
+        /* EQ_I64      */ { OpMode::iABC,  OpArgMask::OpArgR, OpArgMask::OpArgR, true,  true },
+        /* LT_I64      */ { OpMode::iABC,  OpArgMask::OpArgR, OpArgMask::OpArgR, true,  true },
+        /* LE_I64      */ { OpMode::iABC,  OpArgMask::OpArgR, OpArgMask::OpArgR, true,  true },
+
+        /* EQ_F64      */ { OpMode::iABC,  OpArgMask::OpArgR, OpArgMask::OpArgR, true,  true },
+        /* LT_F64      */ { OpMode::iABC,  OpArgMask::OpArgR, OpArgMask::OpArgR, true,  true },
+        /* LE_F64      */ { OpMode::iABC,  OpArgMask::OpArgR, OpArgMask::OpArgR, true,  true },
+
+        /* JMP         */ { OpMode::iAsBx, OpArgMask::OpArgN, OpArgMask::OpArgN, false, false },
+        /* JMPIF       */ { OpMode::iAsBx, OpArgMask::OpArgN, OpArgMask::OpArgN, false, true },
+        /* JMPIFNOT    */ { OpMode::iAsBx, OpArgMask::OpArgN, OpArgMask::OpArgN, false, true },
 
         /* HALT        */ { OpMode::iABC,  OpArgMask::OpArgN, OpArgMask::OpArgN, false, false }
     };
