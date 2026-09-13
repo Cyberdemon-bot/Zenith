@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Zenith/Base.h"
+#include "Zenith/Core/Base.h"
 
 namespace Zenith 
 {
@@ -10,7 +10,7 @@ namespace Zenith
     {
         NOP = 0,
         MOVE, 
-        LOADI,
+        LOADI, LOADF,   
 
         // 64 bit
         CVT_F64_I64, ADD_I64, SUB_I64, MUL_I64, DIV_I64,
@@ -40,7 +40,8 @@ namespace Zenith
     constexpr OpInfo OPCODE_INFO[static_cast<size_t>(Opcode::COUNT)] = {
         /* NOP         */ { OpMode::iABC,  OpArgMask::OpArgN, OpArgMask::OpArgN, false, false },
         /* MOVE        */ { OpMode::iABC,  OpArgMask::OpArgN, OpArgMask::OpArgR, true,  false },
-        /* LOADI       */ { OpMode::iAsBx, OpArgMask::OpArgN, OpArgMask::OpArgN, true,  false },
+        /* LOADI       */ { OpMode::iABx,  OpArgMask::OpArgN, OpArgMask::OpArgN, true,  false },
+        /* LOADF       */ { OpMode::iABx,  OpArgMask::OpArgN, OpArgMask::OpArgN, true,  false },
 
         /* CVT_F64_I64 */ { OpMode::iABC,  OpArgMask::OpArgN, OpArgMask::OpArgR, true,  false },
         /* ADD_I64     */ { OpMode::iABC,  OpArgMask::OpArgR, OpArgMask::OpArgR, true,  false },

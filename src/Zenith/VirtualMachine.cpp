@@ -1,5 +1,5 @@
-#include "Zenith/OpcodeUtils.h"
 #include "Zenith/VirtualMachine.h"
+#include "Zenith/Core/OpcodeUtils.h"
 #include "Zenith/Inl/Handlers_Data.inl"
 #include "Zenith/Inl/Handlers_Cvt.inl"
 #include "Zenith/Inl/Handlers_Arith64.inl"
@@ -10,6 +10,8 @@ namespace Zenith
 {
     void Machine::execute(State& state)
     {
+        Stack& stack = *state.stack;
+        state.pc = state.proto.code.data();
         while (true)
         {
             Instruction inst = *state.pc++;
@@ -21,6 +23,7 @@ namespace Zenith
 
                 case Opcode::MOVE:  HANDLE(MOVE)
                 case Opcode::LOADI: HANDLE(LOADI)
+                case Opcode::LOADF: HANDLE(LOADF)
 
                 case Opcode::CVT_F64_I64: HANDLE(CVT_F64_I64)
                 case Opcode::CVT_I64_F64: HANDLE(CVT_I64_F64)

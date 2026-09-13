@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Zenith/Base.h"
-#include "Zenith/Opcode.h"
+#include "Zenith/Core/Base.h"
+#include "Zenith/Core/Opcode.h"
 
 namespace Zenith {
     

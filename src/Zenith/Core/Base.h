@@ -3,10 +3,13 @@
 #include <new>
 #include <bit>
 #include <cstdint>
+#include <cstddef>
+
 namespace Zenith 
 {
     using Instruction = uint32_t;
 
+    constexpr std::size_t STACK_ALIGNMENT = 16;
     constexpr uint32_t NUM_R64 = 64;
     constexpr uint32_t SIZE_OP = 6;
     constexpr uint32_t SIZE_A  = 8;

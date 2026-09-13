@@ -1,16 +1,13 @@
 #pragma once
 
-#include "Zenith/Base.h"
+#include "Zenith/Core/Base.h"
+#include "Zenith/Object/Proto.h"
 
 namespace Zenith 
 {
-    struct Stack
+    class Stack
     {
-        uint64_t* R64 = nullptr;
-        size_t size_r64 = NUM_R64;
-
-        static constexpr std::size_t STACK_ALIGNMENT = 16;
-
+    public:
         Stack(size_t cap64 = NUM_R64)
             : size_r64(cap64)
         {
@@ -44,28 +41,32 @@ namespace Zenith
             }
             return *this;
         }
+
+        template<typename T>
+        FORCE_INLINE T read(uint8_t index) const
+        {
+            return std::bit_cast<T>(R64[index]);
+        }
+
+        template<typename T>
+        FORCE_INLINE void write(uint8_t index, T val)
+        {
+            R64[index] = std::bit_cast<uint64_t>(val);
+        }
+
+        FORCE_INLINE void move(uint8_t dst, uint8_t src)
+        {
+            R64[dst] = R64[src];
+        }
+    private:
+        uint64_t* R64 = nullptr;
+        size_t size_r64 = NUM_R64;
     };
 
     struct State
     {   
         Stack* stack;
         Instruction* pc;
-
-        template<typename T>
-        FORCE_INLINE T read(uint8_t index) const
-        {
-            return std::bit_cast<T>(stack->R64[index]);
-        }
-
-        template<typename T>
-        FORCE_INLINE void write(uint8_t index, T val)
-        {
-            stack->R64[index] = std::bit_cast<uint64_t>(val);
-        }
-
-        FORCE_INLINE void move(uint8_t dst, uint8_t src)
-        {
-            stack->R64[dst] = stack->R64[src];
-        }
+        Proto proto;
     };
 }

@@ -1,9 +1,11 @@
 NOP
 
-; ---- Small values via LOADI (registers 10-11, kept clear of the ----
-; ---- big preset values that main.cpp writes into R64[1] and R64[2]) ----
-LOADI 10 100          ; R64[10] = 100
-LOADI 11 30           ; R64[11] = 30
+.CONST I 100          ; K[0] = 100      (int64)
+.CONST I 30           ; K[1] = 30       (int64)
+.CONST F 3.14159      ; K[2] = 3.14159  (float64), unused directly, just a demo
+
+LOADI 10 100          ; R64[10] = K[?] where value 100 -> reuses K[0]
+LOADI 11 30           ; R64[11] = K[?] where value 30  -> reuses K[1]
 MOVE  12 10           ; R64[12] = R64[10]
 
 ; ---- Integer arithmetic (64-bit) ----
@@ -34,5 +36,8 @@ SUB_F64 25 7 8        ; R64[25] = 10B.0 - 2B.0
 MUL_F64 26 7 8        ; R64[26] = 10B.0 * 2B.0
 DIV_F64 27 7 8        ; R64[27] = 10B.0 / 2B.0
 CVT_F64_I64 28 27     ; R64[28] = int64(5.0)
+
+; ---- Extra LOADF sanity check using a value not pre-declared ----
+LOADF 29 2.71828      ; R64[29] = 2.71828 (auto-interned, new pool slot)
 
 HALT
