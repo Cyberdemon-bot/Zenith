@@ -7,6 +7,7 @@
 #include <stdexcept>
 #include <string>
 
+#include "Zenith/Compiler/Lexer.h"
 #include "Zenith/Assembler/Assembler.h"
 #include "Zenith/Core/VirtualMachine.h"
 
@@ -63,20 +64,72 @@ void dump_constants(const std::vector<uint64_t>& constants)
     }
 }
 
-
-int main(int argc, char* argv[])
+void run_lexer_test()
 {
-    std::string filename = "";
-    if (argc > 1) filename = argv[1];
-    if (filename.empty()) return 0;
-  
+    std::string_view source_code = R"(
+        // =========================================
+        // Zenith Compiler - Extended Token Test Suite
+        // =========================================
+
+        function process_scores(scores: int[], ratio: float) -> bool {
+            let total_count: int = 50;
+            let status_msg = "Status: OK"; 
+
+            let index = 0;
+            let is_valid = true;
+
+            while (index < total_count) {
+                if (!is_valid) {
+                    break;
+                }
+
+                let current = scores[index];
+                if (current != 0) {
+                    ratio = ratio + (current * 2.5);
+                } else {
+                    index = index + 1;
+                    continue;
+                }
+
+                index = index + 1;
+            }
+
+            /* End block comment */ return !is_valid -> false; 
+        }
+    )";
+
+    Zenith::Lexer lexer(source_code);
+    
+    std::cout << std::left 
+              << std::setw(18) << "TOKEN TYPE" 
+              << std::setw(25) << "LITERAL" 
+              << std::setw(10) << "LINE" 
+              << std::setw(10) << "COLUMN" 
+              << "\n";
+    std::cout << std::string(63, '-') << "\n";
+
+    while (true)
+    {
+        Zenith::Token tok = lexer.next_token();
+        std::string formatted_literal = "'" + std::string(tok.literal) + "'";
+
+        std::cout << std::left 
+                  << std::setw(18) << tok.type2string()
+                  << std::setw(25) << formatted_literal
+                  << std::setw(10) << tok.line 
+                  << std::setw(10) << tok.column 
+                  << "\n";
+        if (tok.type == Zenith::TokenType::END_OF_FILE) break;
+    }
+
+    std::cout << std::string(63, '-') << "\n";
+}
+
+void run_zasm_test(const std::string& source)
+{
     auto stack = std::make_unique<Zenith::Stack>();
-
     Zenith::State state{ .stack = stack.get() };
-
     Zenith::Machine vm;
-    std::cout << "Reading script: " << filename << "...\n\n";
-    std::string source = read_file(filename);
     Zenith::Assembler assembler;
     Zenith::AssembledProgram program = assembler.assemble(source);
     state.proto = Zenith::Proto
@@ -85,7 +138,6 @@ int main(int argc, char* argv[])
         .numeric_constants = program.constants,
         .register_count = program.register_count
     };
-
 
     std::cout << "Code size       : " << state.proto.code.size() << "\n";
     std::cout << "Constant count  : " << state.proto.numeric_constants.size() << "\n";
@@ -96,5 +148,19 @@ int main(int argc, char* argv[])
     vm.execute(state);
     std::cout << "\n[ AFTER EXECUTION ]\n";
     dump_memory(*stack, state.proto.register_count);
+}
+
+
+int main(int argc, char* argv[])
+{
+    // std::string filename = "";
+    // if (argc > 1) filename = argv[1];
+    // if (filename.empty()) return 0;
+  
+    // std::cout << "Reading script: " << filename << "...\n\n";
+    // std::string source = read_file(filename);
+
+    // run_zasm_test(source);
+    run_lexer_test();
     return 0;
 }
