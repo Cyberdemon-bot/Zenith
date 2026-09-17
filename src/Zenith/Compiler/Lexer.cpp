@@ -55,8 +55,8 @@ namespace Zenith {
 
         switch (curr_char) 
         {
-            case '[': read_char(); return new_token(TokenType::LBRACKET, get_lil(start_pos), start_pos);
-            case ']': read_char(); return new_token(TokenType::RBRACKET, get_lil(start_pos), start_pos);
+            case '[': read_char(); return new_token(TokenType::LBRACKET,  get_lil(start_pos), start_pos);
+            case ']': read_char(); return new_token(TokenType::RBRACKET,  get_lil(start_pos), start_pos);
             case ';': read_char(); return new_token(TokenType::SEMICOLON, get_lil(start_pos), start_pos); 
             case ':': read_char(); return new_token(TokenType::COLON,     get_lil(start_pos), start_pos); 
             case ',': read_char(); return new_token(TokenType::COMMA,     get_lil(start_pos), start_pos); 
@@ -64,11 +64,11 @@ namespace Zenith {
             case ')': read_char(); return new_token(TokenType::RPAREN,    get_lil(start_pos), start_pos); 
             case '{': read_char(); return new_token(TokenType::LBRACE,    get_lil(start_pos), start_pos); 
             case '}': read_char(); return new_token(TokenType::RBRACE,    get_lil(start_pos), start_pos); 
-            case '+': read_char(); return new_token(TokenType::PLUS,     get_lil(start_pos), start_pos); 
-            case '*': read_char(); return new_token(TokenType::ASTERISK, get_lil(start_pos), start_pos); 
-            case '/': read_char(); return new_token(TokenType::SLASH,    get_lil(start_pos), start_pos); 
-            case '%': read_char(); return new_token(TokenType::MODULUS,  get_lil(start_pos), start_pos); 
-            case '^': read_char(); return new_token(TokenType::POW,      get_lil(start_pos), start_pos); 
+            case '+': read_char(); return new_token(TokenType::PLUS,      get_lil(start_pos), start_pos); 
+            case '*': read_char(); return new_token(TokenType::ASTERISK,  get_lil(start_pos), start_pos); 
+            case '/': read_char(); return new_token(TokenType::SLASH,     get_lil(start_pos), start_pos); 
+            case '%': read_char(); return new_token(TokenType::MODULUS,   get_lil(start_pos), start_pos); 
+            case '^': read_char(); return new_token(TokenType::POW,       get_lil(start_pos), start_pos); 
             case '-':
             {
                 if (peek_char() == '>')
@@ -196,7 +196,6 @@ namespace Zenith {
     {
         uint32_t start_pos = pos;
         while (curr_char != NONE_CHAR && is_alnum(curr_char)) read_char();
-        if (curr_char == '[' && peek_char() == ']') { read_char(); read_char(); }
         auto lil = get_lil(start_pos);
         auto type = lookup_ident(lil);
         return new_token(type, lil, start_pos);
