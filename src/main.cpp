@@ -72,7 +72,7 @@ void run_lexer_test()
         // Zenith Compiler - Extended Token Test Suite
         // =========================================
 
-        function process_scores(scores: int[], ratio: float) -> bool {
+        func process_scores(scores: int[], ratio: float) -> bool {
             let total_count: int = 50;
             let status_msg = "Status: OK"; 
 
