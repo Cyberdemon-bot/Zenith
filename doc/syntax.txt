@@ -1,0 +1,15 @@
+integer: full of number letter, no dot
+decimal: same to integer, allowing only 1 dot
+boolean: true, false
+identifier: identifier must start with alphabet letter or <_>, identifier starting with <_> has special meaning depending on the context. ex: _x, _temp
+expr: 
+    - 6 binary arithmetic operations: +, -, *, /, %, **(exponent). <-> can be both binary and unary. return the numeric result
+    - 9 logic operations: <, <=, >, >=, ==, !=, &&, ||, !. <!> is unary and return the flipped logic value of a following expr, remaning ops is binary. 
+        <&&> and <||> using Short-circuiting feature. all return logical value(true / false)
+    - grouping in expr with <()>. 
+    - tuple is a expr, return a value with Tuple type, start and end with <()>, single element tuple must be represent as (<x>,) 
+    - scope is a expr, start and end with <{}>, return void tuple () if end with statement or the result of the last expr. 
+statement:
+    - must end with <;>
+    - assign statement, using <=> letter to set the state of a variable, start with <let>. constant is default, <mut> keyword is required to make a mutable variable. 
+    - re-assign statement, same as assign statement, without <let> and descriptive keywords such as <mut>
