@@ -9,6 +9,7 @@ namespace Zenith
 {
     using Instruction = uint32_t;
 
+    constexpr size_t BLOCK_SIZE = 2 * 1024 * 1024; // 2mb
     constexpr std::size_t STACK_ALIGNMENT = 16;
     constexpr uint32_t NUM_R64 = 64;
     constexpr uint32_t SIZE_OP = 6;

@@ -15,7 +15,7 @@ namespace Zenith {
 
         SEMICOLON, COLON, COMMA, LPAREN, RPAREN, LBRACE, RBRACE, LBRACKET, RBRACKET,
         
-        LET, FUNCTION, WHILE, FOR,
+        LET, FUNC, WHILE, FOR,
         IF, ELSE, RETURN, CONTINUE, BREAK,
 
         COUNT
@@ -29,13 +29,13 @@ namespace Zenith {
         "BANG", "ARROW",
         "SEMICOLON", "COLON", "COMMA", "LPAREN", "RPAREN", "LBRACE", "RBRACE",
         "LBRACKET", "RBRACKET",
-        "LET", "FUNCTION", "WHILE", "FOR",
+        "LET", "FUNC", "WHILE", "FOR",
         "IF", "ELSE", "RETURN", "CONTINUE", "BREAK"
     };
 
     struct Token
     {
-        TokenType type;
+        TokenType type = TokenType::ILLEGAL;
         std::string_view literal;
         uint32_t line, column;
 

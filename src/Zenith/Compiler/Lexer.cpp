@@ -16,7 +16,7 @@ namespace Zenith {
             {"continue", TokenType::CONTINUE},
             {"else",     TokenType::ELSE},
             {"for",      TokenType::FOR},
-            {"function", TokenType::FUNCTION}, 
+            {"func",     TokenType::FUNC}, 
             {"if",       TokenType::IF},
             {"let",      TokenType::LET},
             {"return",   TokenType::RETURN},

@@ -8,6 +8,7 @@
 #include <string>
 
 #include "Zenith/Compiler/Lexer.h"
+#include "Zenith/Compiler/Parser.h"
 #include "Zenith/Assembler/Assembler.h"
 #include "Zenith/Core/VirtualMachine.h"
 
@@ -150,6 +151,18 @@ void run_zasm_test(const std::string& source)
     dump_memory(*stack, state.proto.register_count);
 }
 
+void run_parser_expr_test() 
+{
+    std::string_view source_code = "-a * 2 == x ^ y ^ 3";
+    std::cout << "================ PARSER TEST ================\n";
+    
+    Zenith::Parser parser(source_code);
+    uint32_t root = parser.parse_program();
+
+    std::cout << "Root Node Index: " << root << "\n";
+    parser.dump_ast();
+}
+
 
 int main(int argc, char* argv[])
 {
@@ -161,6 +174,7 @@ int main(int argc, char* argv[])
     // std::string source = read_file(filename);
 
     // run_zasm_test(source);
-    run_lexer_test();
+    //run_lexer_test();
+    run_parser_expr_test();
     return 0;
 }

@@ -1,0 +1,80 @@
+#pragma once
+
+#include <vector>
+#include "Zenith/Compiler/Node.h"
+#include "Zenith/Compiler/Lexer.h"
+
+namespace Zenith {
+
+    constexpr uint32_t ERROR_NODE = 0;
+
+    enum class PrecedenceType : uint8_t 
+    {
+        P_LOWEST = 0,
+        P_EQUALS,
+        P_LESSGREATER,
+        P_SUM,
+        P_PRODUCT,
+        P_EXPONENT,
+        P_PREFIX,
+        P_CALL,
+        P_INDEX
+    };
+
+    class Parser 
+    {
+    public:
+        Parser(std::string_view source);
+        uint32_t parse_program();
+        void dump_ast() const;
+    private:
+        uint32_t m_Cursor = 0;
+        std::vector<Node> m_Nodes;
+        std::vector<Token> m_Tokens;
+        std::vector<uint32_t> m_extra;
+        Lexer m_Lexer;
+
+        uint32_t next_token() { return ++m_Cursor; }
+        uint32_t curr_token() { return m_Cursor; }
+        const Token& get_token(uint32_t idx) const { return m_Tokens[idx]; }
+
+        const Token& get_curr_token() const { return get_token(m_Cursor); }
+        const Token& get_peek_token() const { return get_token(m_Cursor + 1); }
+        bool curr_token_is(TokenType type) { return get_token(m_Cursor).type == type; }
+        bool peek_token_is(TokenType type) { return get_token(m_Cursor + 1).type == type; }
+
+        uint32_t get_curr_node() { return m_Nodes.size() - 1; }
+
+        uint32_t make_binary(uint32_t token, uint32_t left, uint32_t right);
+        uint32_t make_unary(uint32_t token, uint32_t child);
+        uint32_t make_identifier(uint32_t token);
+        uint32_t make_decimal(uint32_t token);
+        uint32_t make_integer(uint32_t token);
+
+        constexpr PrecedenceType get_precedence(TokenType type) noexcept 
+        {
+            switch (type) 
+            {
+                case TokenType::EE:         
+                case TokenType::NE:         return PrecedenceType::P_EQUALS;
+                case TokenType::LT:
+                case TokenType::GT:
+                case TokenType::LTE:
+                case TokenType::GTE:        return PrecedenceType::P_LESSGREATER;
+                case TokenType::PLUS:
+                case TokenType::MINUS:      return PrecedenceType::P_SUM;
+                case TokenType::ASTERISK:
+                case TokenType::SLASH:
+                case TokenType::MODULUS:    return PrecedenceType::P_PRODUCT;
+                case TokenType::POW:        return PrecedenceType::P_EXPONENT;
+                case TokenType::LPAREN:     return PrecedenceType::P_CALL;
+                case TokenType::LBRACKET:   return PrecedenceType::P_INDEX;
+                default:                    return PrecedenceType::P_LOWEST;
+            }
+        }
+
+        uint32_t parse_prefix();
+        uint32_t parse_infix(uint32_t left);
+        uint32_t parse_expr(PrecedenceType precedence);
+    };
+}
