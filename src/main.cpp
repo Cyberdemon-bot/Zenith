@@ -68,35 +68,77 @@ void dump_constants(const std::vector<uint64_t>& constants)
 void run_lexer_test()
 {
     std::string_view source_code = R"(
-        // =========================================
-        // Zenith Compiler - Extended Token Test Suite
-        // =========================================
+    // Zenith Language Test Suite
+    /* 
+        Thử nghiệm Comment khối
+        /* Comment khối lồng nhau (Nested block comment) */
+    */
 
-        func process_scores(scores: int[], ratio: float) -> bool {
-            let total_count: int = 50;
-            let status_msg = "Status: OK"; 
+    pub struct Point {
+        pub x: i32,
+        pub y: i32,
+    }
 
-            let index = 0;
-            let is_valid = true;
+    pub class Player {
+        pub name: String,
+        pub hp: i32,
+    }
 
-            while (index < total_count) {
-                if (!is_valid) {
-                    break;
-                }
+    // 1. Hàm Native & Tham chiếu mượn (&mut T)
+    pub native func move_point(pt: &mut Point, dx: i32, dy: i32) -> () {
+        pt.x = pt.x + dx;
+        pt.y = pt.y + dy;
+    }
 
-                let current = scores[index];
-                if (current != 0) {
-                    ratio = ratio + (current * 2.5);
-                } else {
-                    index = index + 1;
-                    continue;
-                }
+    // 2. Kiểu Result (T ! E) & Chuỗi Escape
+    pub func load_player(id: i32) -> Player ! String {
+        if id <= 0 => return Err("Invalid ID\n");
 
-                index = index + 1;
+        let p = new Player();
+        p.name = "Hero \"Zenith\"";
+        p.hp = 100;
+        return Ok(p);
+    }
+
+    // 3. Hàm Main & Các cú pháp nâng cao
+    pub func main() -> () {
+        // Variable & Literals
+        let mut pt = Point { x: 10, y: 20 };
+        let ratio = 3.14; // Decimal literal
+        
+        // Field access vs Decimal (pt.x)
+        move_point(&mut pt, 5, 10);
+        let x_val = pt.x;
+
+        // Dual Memory Allocation
+        let struct_buf = new Point[100];
+        let class_refs = new &Player[10];
+
+        // Concise Branching (Fat Arrow =>)
+        let status = if pt.x > 10 => 200 else => 400;
+
+        // Expression Block & Labeled Break ('calc)
+        let score = 'calc: {
+            if status == 400 {
+                break 'calc 0;
             }
+            let base = 50;
+            break base * 2 + 10;
+        };
 
-            /* End block comment */ return !is_valid -> false; 
-        }
+        // Error Propagation Operator (?)
+        let player = load_player(1)?;
+
+        // Pattern Matching
+        let msg = match load_player(2) {
+            Ok(p) => {
+                break "Success";
+            },
+            Err(e) => {
+                break "Failed";
+            }
+        };
+    }
     )";
 
     Zenith::Lexer lexer(source_code);
@@ -153,7 +195,49 @@ void run_zasm_test(const std::string& source)
 
 void run_parser_expr_test() 
 {
-    std::string_view source_code = "-a * 2 == x ^ y ^ 3";
+    std::string_view source_code = R"(
+    'main_block: {
+
+        // 1. LetStmt: Các dạng khai báo biến & Type Annotation
+        let simple_int = 42;
+        let decimal_val = 3.14159;
+        let text_str = "Zenith Compiler";
+        let typed_var: i32 = 100;
+        let ref_mut_var: &mut String = &text_str; // Chuẩn Zenith: Borrow chỉ là &expr
+
+        // 2. Prefix Expr: Unary minus (-), Bang (!), Grouping (), Borrow (&)
+        let neg_expr = -simple_int;
+        let not_expr = !simple_int;
+        let grouped = (simple_int + 10);
+        let borrowed_ref = &simple_int;
+
+        // 3. Infix Expr & Precedence: Số học, Lũy thừa (^), So sánh
+        let math_res = (simple_int + 5) * 2 / 4 % 3 ^ 2;
+        let cmp_res = math_res >= 10 == (decimal_val < 5.0);
+
+        // 4. Infix Expr: Field Access (.), Indexing ([]), Function Call (())
+        let age = user.profile.age;
+        let first_elem = list[0];
+        let calc_res = compute(math_res, borrowed_ref, "literal_arg");
+
+        // 5. Labeled Block Expression gán cho biến + Break 'label expr
+        let search_res = 'search: {
+            break 'search 100;
+        };
+
+        // 6. Control Flow Stmts: Continue, Break thuần, Break 'label
+        'loop_label: {
+            continue;
+            break 'loop_label;
+        };
+
+        // 7. Expression Statement (Expr + ;)
+        process_data(search_res);
+
+        // 8. ReturnStmt
+        return search_res;
+    }
+    )";
     std::cout << "================ PARSER TEST ================\n";
     
     Zenith::Parser parser(source_code);
@@ -162,6 +246,44 @@ void run_parser_expr_test()
     std::cout << "Root Node Index: " << root << "\n";
     parser.dump_ast();
 }
+
+
+void run_parser_error_test() 
+{
+    std::string_view source_code = R"(
+    'error_test_block: {
+
+        let = 42;
+        let no_assignment 100;
+        let bad_type: &mut = 10;
+        let unclosed_paren = (10 + 20;
+        let bad_field_access = user.;
+        let bad_call = compute(arg1 arg2);
+        let bad_index = list[0;
+        let missing_semicolon = 50
+        return 99
+    }
+    )";
+    
+    std::cout << "================ PARSER ERROR TEST ================\n";
+    
+    Zenith::Parser parser(source_code);
+    uint32_t root = parser.parse_program();
+
+    std::cout << "Root Node Index: " << root << "\n";
+
+    if (parser.has_errors())
+    {
+        std::cout << "\n[Captured Parsing Errors (" << parser.get_errors_count() << ")]:\n";
+        parser.dump_errors();
+    }
+    else
+    {
+        std::cout << "\nNo errors found (Unexpected!). AST:\n";
+        parser.dump_ast();
+    }
+}
+
 
 
 int main(int argc, char* argv[])
@@ -175,6 +297,7 @@ int main(int argc, char* argv[])
 
     // run_zasm_test(source);
     //run_lexer_test();
-    run_parser_expr_test();
+    //run_parser_expr_test();
+    run_parser_error_test();
     return 0;
 }

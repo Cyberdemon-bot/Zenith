@@ -5,13 +5,39 @@ namespace Zenith {
     enum class NodeType : uint16_t 
     {
         Error = 0,
-        BinaryExpr,
-        UnaryExpr,
+
         Integer,
         Decimal,
+        String,
         Identifier,
-        Tuple,
-        Block
+        Label,
+
+        UnaryExpr,
+        BinaryExpr,
+        CallExpr,
+        IndexExpr,
+        FieldAccess,
+        BorrowExpr,
+        NewExpr,
+        LabeledExpr,
+        BlockExpr,
+        IfExpr,
+        MatchExpr,
+        MatchArm,
+
+        ExprStmt,
+        LetStmt,
+        ReturnStmt,
+        BreakStmt,
+        ContinueStmt,
+
+        TypeAnnotation, 
+        ParamDecl,
+        FieldDecl,
+        FuncDecl,
+        StructDecl,
+        ClassDecl,
+        Program
     };
 
     struct Node
@@ -21,7 +47,8 @@ namespace Zenith {
         union Data
         {
             int64_t i64; double f64;
-            struct { uint32_t lhs, rhs; } u32;
+            struct { uint32_t lhs, rhs; } indicies;
+            struct { uint32_t start; uint32_t count; } list;
         } data;
     };
 }

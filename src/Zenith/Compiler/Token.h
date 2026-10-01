@@ -7,30 +7,31 @@ namespace Zenith {
     enum class TokenType : uint8_t
     {
         END_OF_FILE, ILLEGAL,
-        IDENT, INTEGER, DECIMAL, STRING, 
+        IDENT, INTEGER, DECIMAL, STRING, LABEL,
         // +      -         *      /        %    ^
         PLUS, MINUS, ASTERISK, SLASH, MODULUS, POW,
         EQ, LT, LTE, GT, GTE, EE, NE, // EE -> ==, NE -> !=
-        BANG, ARROW,
+        BANG, QUESTION, AMPERSAND, DOT, // !, ?, &, .
+        ARROW, FATARROW, // ->, =>
 
         SEMICOLON, COLON, COMMA, LPAREN, RPAREN, LBRACE, RBRACE, LBRACKET, RBRACKET,
-        
-        LET, FUNC, WHILE, FOR,
-        IF, ELSE, RETURN, CONTINUE, BREAK,
-
+        BREAK, CLASS, CONTINUE, ELSE, FOR, FUNC, IF, LET, MATCH, MUT, NATIVE, NEW, PUB, RETURN, STRUCT,
         COUNT
     };
 
+
     inline constexpr std::array<std::string_view, static_cast<size_t>(TokenType::COUNT)> TOKEN_NAMES = {
         "END_OF_FILE", "ILLEGAL",
-        "IDENT", "INTEGER", "DECIMAL", "STRING", 
+        "IDENT", "INTEGER", "DECIMAL", "STRING", "LABEL",
+
         "PLUS", "MINUS", "ASTERISK", "SLASH", "MODULUS", "POW",
         "EQ", "LT", "LTE", "GT", "GTE", "EE", "NE",
-        "BANG", "ARROW",
-        "SEMICOLON", "COLON", "COMMA", "LPAREN", "RPAREN", "LBRACE", "RBRACE",
-        "LBRACKET", "RBRACKET",
-        "LET", "FUNC", "WHILE", "FOR",
-        "IF", "ELSE", "RETURN", "CONTINUE", "BREAK"
+        "BANG", "QUESTION", "AMPERSAND", "DOT", 
+        "ARROW", "FATARROW",
+
+        "SEMICOLON", "COLON", "COMMA", "LPAREN", "RPAREN", "LBRACE", "RBRACE", "LBRACKET", "RBRACKET",
+
+        "BREAK", "CLASS", "CONTINUE", "ELSE", "FOR", "FUNC", "IF", "LET", "MATCH", "MUT", "NATIVE", "NEW", "PUB", "RETURN", "STRUCT"
     };
 
     struct Token

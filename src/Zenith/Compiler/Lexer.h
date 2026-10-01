@@ -23,6 +23,7 @@ namespace Zenith {
         Token read_identifier();
         Token read_number();
         Token read_string();
+        Token read_label();
 
         static constexpr bool is_digit(char ch) { return ch >= '0' && ch <= '9'; }
         static constexpr bool is_letter(char ch) { return ('a' <= ch && ch <= 'z') || ('A' <= ch && ch <= 'Z') || ch == '_'; }

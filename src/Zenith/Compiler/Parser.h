@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vector>
+#include <string_view>
 #include "Zenith/Compiler/Node.h"
 #include "Zenith/Compiler/Lexer.h"
 
@@ -11,6 +12,7 @@ namespace Zenith {
     enum class PrecedenceType : uint8_t 
     {
         P_LOWEST = 0,
+        P_BRANCHVALUE,
         P_EQUALS,
         P_LESSGREATER,
         P_SUM,
@@ -27,12 +29,20 @@ namespace Zenith {
         Parser(std::string_view source);
         uint32_t parse_program();
         void dump_ast() const;
+        void dump_errors() const;
+
+        bool has_errors() const { return !m_Errors.empty(); }
+        uint32_t get_errors_count() const { return static_cast<uint32_t>(m_Errors.size()); }
     private:
         uint32_t m_Cursor = 0;
         std::vector<Node> m_Nodes;
         std::vector<Token> m_Tokens;
-        std::vector<uint32_t> m_extra;
+        std::vector<uint32_t> m_Extra;
+        std::vector<std::string> m_Errors;
         Lexer m_Lexer;
+
+        void synchronize();
+        uint32_t add_error(std::string_view message);
 
         uint32_t next_token() { return ++m_Cursor; }
         uint32_t curr_token() { return m_Cursor; }
@@ -43,13 +53,15 @@ namespace Zenith {
         bool curr_token_is(TokenType type) { return get_token(m_Cursor).type == type; }
         bool peek_token_is(TokenType type) { return get_token(m_Cursor + 1).type == type; }
 
-        uint32_t get_curr_node() { return m_Nodes.size() - 1; }
+        uint32_t get_curr_node() { return static_cast<uint32_t>(m_Nodes.size() - 1); }
+        uint32_t get_list_start() { return static_cast<uint32_t>(m_Extra.size()); }
+        void push_list(uint32_t elem, uint32_t& count) { m_Extra.push_back(elem); ++count; }
 
-        uint32_t make_binary(uint32_t token, uint32_t left, uint32_t right);
-        uint32_t make_unary(uint32_t token, uint32_t child);
-        uint32_t make_identifier(uint32_t token);
-        uint32_t make_decimal(uint32_t token);
-        uint32_t make_integer(uint32_t token);
+        uint32_t push_node(NodeType type, uint32_t token, Node::Data data = {}) 
+        {
+            m_Nodes.push_back(Node{ .type = type, .token = token, .data = data });
+            return static_cast<uint32_t>(m_Nodes.size() - 1);
+        }
 
         constexpr PrecedenceType get_precedence(TokenType type) noexcept 
         {
@@ -67,14 +79,31 @@ namespace Zenith {
                 case TokenType::SLASH:
                 case TokenType::MODULUS:    return PrecedenceType::P_PRODUCT;
                 case TokenType::POW:        return PrecedenceType::P_EXPONENT;
+                case TokenType::DOT:
                 case TokenType::LPAREN:     return PrecedenceType::P_CALL;
                 case TokenType::LBRACKET:   return PrecedenceType::P_INDEX;
                 default:                    return PrecedenceType::P_LOWEST;
             }
         }
 
-        uint32_t parse_prefix();
-        uint32_t parse_infix(uint32_t left);
+        uint32_t parse_statement();
+        uint32_t parse_expr_stmt();
+        uint32_t parse_let_stmt();
+        uint32_t parse_return_stmt();
+        uint32_t parse_break_stmt();
+        uint32_t parse_continue_stmt();
+
+        uint32_t parse_prefix_expr();
+        uint32_t parse_infix_expr(uint32_t left);
         uint32_t parse_expr(PrecedenceType precedence);
+
+        uint32_t parse_numeric_expr(uint32_t left);
+        uint32_t parse_field_access_expr(uint32_t left);
+        uint32_t parse_call_expr(uint32_t left);
+        uint32_t parse_index_expr(uint32_t left);
+        uint32_t parse_borrow_expr();
+        uint32_t parse_block_expr();
+
+        uint32_t parse_type_annotation();
     };
 }
