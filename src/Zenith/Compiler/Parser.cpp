@@ -19,18 +19,19 @@ namespace Zenith {
 
     uint32_t Parser::parse_program()
     {
-        uint32_t start = get_list_start();
-        uint32_t count = 0;
-        uint32_t first_tok = curr_token();
+        size_t marker = get_scratch_marker();
+        uint32_t start = curr_token(), end;
 
         while (!curr_token_is(TokenType::END_OF_FILE))
         {
             uint32_t stmt = parse_statement();
             if (stmt == ERROR_NODE) synchronize(); 
-            else push_list(stmt, count);
+            else push_scratch(stmt);
         }
 
-        return push_node(NodeType::Program, first_tok, { .list = { .start = start, .count = count } });
+        end = curr_token(); // END_OF_FILE
+        auto list = commit_list(marker);
+        return push_node(NodeType::Program, start, end, { .list = { .start = list.start, .count = list.count } });
     }
 
     // parse expr
@@ -76,26 +77,20 @@ namespace Zenith {
                 next_token(); 
                 return idx;
             }
-            case TokenType::IDENT: 
-            {
-                uint32_t idx = push_node(NodeType::Identifier, curr_token()); 
-                next_token();
-                return idx;
-            }
             case TokenType::BANG:
             case TokenType::MINUS: 
             {
                 uint32_t signIdx = curr_token(); next_token(); 
                 uint32_t expr = parse_expr(PrecedenceType::P_PREFIX);
                 if (expr == ERROR_NODE) return ERROR_NODE;
-                return push_node(NodeType::UnaryExpr, signIdx, { .indicies = { .lhs = expr, .rhs = 0 } });
+                return push_node(NodeType::UnaryExpr, signIdx, get_node(expr).end_token, { .indicies = { .lhs = expr, .rhs = 0 } });
             }
             case TokenType::LPAREN:
             {
                 next_token(); 
                 uint32_t expr = parse_expr(PrecedenceType::P_LOWEST);
                 if (expr == ERROR_NODE) return ERROR_NODE;
-                if (!curr_token_is(TokenType::RPAREN)) return add_error("Expected ')' after expression");
+                if (!curr_token_is(TokenType::RPAREN)) return add_error("Expected ')' after expression", expr);
                 next_token(); 
                 return expr;
             }
@@ -110,13 +105,15 @@ namespace Zenith {
                     uint32_t expr = parse_expr(PrecedenceType::P_PREFIX);
                     if (expr == ERROR_NODE) return ERROR_NODE;
 
-                    return push_node(NodeType::LabeledExpr, label_tok, { .indicies = { .lhs = label_node, .rhs = expr } });
+                    return push_node(NodeType::LabeledExpr, label_tok, get_node(expr).end_token, { .indicies = { .lhs = label_node, .rhs = expr } });
                 }
 
                 return label_node;
             }
+            case TokenType::IDENT: return parse_identifier();
             case TokenType::AMPERSAND: return parse_borrow_expr();
             case TokenType::LBRACE: return parse_block_expr();
+            case TokenType::IF: return parse_if_expr();
             default: return add_error("Unexpected token in prefix expression");
         }
     }
@@ -147,13 +144,12 @@ namespace Zenith {
             case TokenType::LBRACKET: 
                 return parse_index_expr(left);
             default: 
-                return add_error("Unexpected token in binary/infix expression");
+                return add_error("Unexpected token in binary/infix expression", left);
         }
     }
 
     uint32_t Parser::parse_numeric_expr(uint32_t left)
     {
-        uint32_t op_idx = curr_token(); 
         const auto& token = get_curr_token(); next_token();
         PrecedenceType precedence = get_precedence(token.type);
         PrecedenceType right_precedence = precedence;
@@ -163,50 +159,46 @@ namespace Zenith {
         
         uint32_t right = parse_expr(right_precedence);
         if (right == ERROR_NODE) return ERROR_NODE;
-        return push_node(NodeType::BinaryExpr, op_idx, { .indicies = { .lhs = left, .rhs = right } });
+
+        uint32_t start = get_node(left).start_token, end = get_node(right).end_token;
+        return push_node(NodeType::BinaryExpr, start, end, { .indicies = { .lhs = left, .rhs = right } });
     }
 
     uint32_t Parser::parse_field_access_expr(uint32_t left)
     {
-        uint32_t dot_tok = curr_token(); next_token();
-        if (!curr_token_is(TokenType::IDENT)) return add_error("Expected field identifier after '.'");
-        uint32_t field = push_node(NodeType::Identifier, curr_token()); next_token();
-        return push_node(NodeType::FieldAccess, dot_tok, { .indicies = { .lhs = left, .rhs = field } });
+        next_token(); // consume '.'
+        if (!curr_token_is(TokenType::IDENT)) return add_error("Expected field identifier after '.'", left);
+        uint32_t field = parse_identifier();
+        uint32_t start = get_node(left).start_token, end = get_node(field).end_token;
+        return push_node(NodeType::FieldAccess, start, end, { .indicies = { .lhs = left, .rhs = field } });
     }
 
     uint32_t Parser::parse_call_expr(uint32_t left)
     {
-        uint32_t paren_tok = curr_token(); next_token(); // consume '('
-        uint32_t start = get_list_start();
-        uint32_t count = 0;
+        uint32_t args = parse_delimited_list(
+            NodeType::ArgList,
+            TokenType::RPAREN,
+            TokenType::COMMA,
+            [this]() { return parse_expr(PrecedenceType::P_LOWEST); },
+            "Expected ',' or ')' in function call argument list"
+        );
+        if (args == ERROR_NODE) return ERROR_NODE;
 
-        push_list(left, count);
-        if (!curr_token_is(TokenType::RPAREN))
-        {
-            while (true)
-            {
-                uint32_t arg = parse_expr(PrecedenceType::P_LOWEST);
-                if (arg == ERROR_NODE) return ERROR_NODE;
-                push_list(arg, count);
-
-                if (curr_token_is(TokenType::COMMA)) next_token();
-                else if (curr_token_is(TokenType::RPAREN)) break;
-                else return add_error("Expected ',' or ')' in function call argument list");
-            }
-        }
-        next_token(); // consume ')'
-        return push_node(NodeType::CallExpr, paren_tok, { .list = { .start = start, .count = count } });
+        uint32_t start = get_node(left).start_token, end = get_node(args).end_token;
+        return push_node(NodeType::CallExpr, start, end, { .indicies = { .lhs = left, .rhs = args } });
     }
 
     uint32_t Parser::parse_index_expr(uint32_t left)
     {
-        uint32_t bracket_tok = curr_token(); next_token(); // consume '['
+        next_token(); // consume '['
         uint32_t index_expr = parse_expr(PrecedenceType::P_LOWEST);
         if (index_expr == ERROR_NODE) return ERROR_NODE;
-        if (!curr_token_is(TokenType::RBRACKET)) return add_error("Expected ']' after index expression"); 
+        if (!curr_token_is(TokenType::RBRACKET)) return add_error("Expected ']' after index expression", index_expr); 
+        
+        uint32_t start = get_node(left).start_token, end = curr_token();
         next_token(); // consume ']'
 
-        return push_node(NodeType::IndexExpr, bracket_tok, { .indicies = { .lhs = left, .rhs = index_expr } });
+        return push_node(NodeType::IndexExpr, start, end, { .indicies = { .lhs = left, .rhs = index_expr } });
     }
 
     uint32_t Parser::parse_borrow_expr()
@@ -214,26 +206,71 @@ namespace Zenith {
         uint32_t amp_tok = curr_token(); next_token(); // consume '&'
         uint32_t expr = parse_expr(PrecedenceType::P_PREFIX);
         if (expr == ERROR_NODE) return ERROR_NODE;
-        return push_node(NodeType::BorrowExpr, amp_tok, { .indicies = { .lhs = expr } });
+        return push_node(NodeType::BorrowExpr, amp_tok, get_node(expr).end_token, { .indicies = { .lhs = expr } });
     }
 
     uint32_t Parser::parse_block_expr()
     {
-        uint32_t lbrace_tok = curr_token(); next_token(); // consume '{'
-        uint32_t start = get_list_start();
-        uint32_t count = 0;
+        uint32_t start = curr_token(), end; next_token(); // consume '{'
+        size_t marker = get_scratch_marker();
 
         while (!curr_token_is(TokenType::RBRACE) && !curr_token_is(TokenType::END_OF_FILE))
         {
             uint32_t stmt = parse_statement();
             if (stmt == ERROR_NODE) synchronize();
-            else push_list(stmt, count);
+            else push_scratch(stmt);
         }
 
         if (!curr_token_is(TokenType::RBRACE)) return add_error("Expected '}' at end of block expression");
-        next_token(); // consume '}'
+        end = curr_token(); next_token(); // consume '}'
 
-        return push_node(NodeType::BlockExpr, lbrace_tok, { .list = { .start = start, .count = count } });
+        auto list = commit_list(marker);
+        return push_node(NodeType::BlockExpr, start, end, { .list = { .start = list.start, .count = list.count } });
+    }
+
+    uint32_t Parser::parse_if_expr()
+    {
+        uint32_t if_tok = curr_token(); next_token(); // consume 'if'
+
+        uint32_t condition = parse_expr(PrecedenceType::P_LOWEST);
+        if (condition == ERROR_NODE) return ERROR_NODE;
+
+        uint32_t then_branch = ERROR_NODE;
+        if (curr_token_is(TokenType::FATARROW))
+        {
+            next_token();
+            then_branch = parse_expr(PrecedenceType::P_LOWEST);
+        }
+        else if (curr_token_is(TokenType::LBRACE)) then_branch = parse_block_expr();
+        else return add_error("Expected '=>' or '{' after if condition", condition);
+
+        if (then_branch == ERROR_NODE) return ERROR_NODE;
+
+        uint32_t else_branch = ERROR_NODE;
+        if (curr_token_is(TokenType::ELSE))
+        {
+            next_token(); // consume 'else'
+            if (curr_token_is(TokenType::IF)) else_branch = parse_if_expr();
+            else if (curr_token_is(TokenType::LBRACE)) else_branch = parse_block_expr();
+            else if (curr_token_is(TokenType::FATARROW))
+            {
+                next_token();
+                else_branch = parse_expr(PrecedenceType::P_LOWEST);
+            }
+            else return add_error("Expected 'if', '=>', or '{' after 'else'");
+
+            if (else_branch == ERROR_NODE) return ERROR_NODE;
+        }
+
+        uint32_t start = get_list_start(), count = 0;
+        push_list(condition, count);
+        push_list(then_branch, count);
+        push_list(else_branch, count);
+
+        uint32_t last_node = else_branch != ERROR_NODE ? else_branch : then_branch;
+        uint32_t end_tok = get_node(last_node).end_token;
+
+        return push_node(NodeType::IfExpr, if_tok, end_tok, { .list = { .start = start, .count = count } });
     }
 
     // parse statement
@@ -251,46 +288,42 @@ namespace Zenith {
 
     uint32_t Parser::parse_expr_stmt()
     {
-        uint32_t tok = curr_token();
         uint32_t expr = parse_expr(PrecedenceType::P_LOWEST);
         if (expr == ERROR_NODE) return ERROR_NODE;
 
-        if (curr_token_is(TokenType::SEMICOLON)) next_token();
-        else if (m_Nodes[expr].type != NodeType::BlockExpr && 
-             m_Nodes[expr].type != NodeType::LabeledExpr) return add_error("Expected ';' after expression statement");
+        uint32_t start = get_node(expr).start_token;
+        uint32_t end = get_node(expr).end_token;
 
-        return push_node(NodeType::ExprStmt, tok, { .indicies = { .lhs = expr } });
+        if (curr_token_is(TokenType::SEMICOLON)) 
+        {
+            end = curr_token();
+            next_token();
+        }
+        else if (m_Nodes[expr].type != NodeType::BlockExpr && 
+                 m_Nodes[expr].type != NodeType::LabeledExpr) 
+                return add_error("Expected ';' after expression statement", expr);
+
+        return push_node(NodeType::ExprStmt, start, end, { .indicies = { .lhs = expr } });
     }
 
-
-    uint32_t Parser::parse_let_stmt() // let [ident]: mut [type] = [expr];
+    uint32_t Parser::parse_let_stmt() // let [ident]: [type_annotation] = [expr];
     {
-        uint32_t let_tok = curr_token(); next_token(); 
+        uint32_t start = curr_token(), end; next_token(); // consume 'let'
         if (!curr_token_is(TokenType::IDENT)) return add_error("Expected identifier after 'let'");
-        uint32_t ident = push_node(NodeType::Identifier, curr_token()); next_token(); 
+        
+        uint32_t ident = parse_typed_identifier();
+        if (ident == ERROR_NODE) return ERROR_NODE; 
 
-        uint32_t type_annotation = ERROR_NODE;
-        if (curr_token_is(TokenType::COLON))
-        {
-            next_token(); 
-            type_annotation = parse_type_annotation();
-            if (type_annotation == ERROR_NODE) return ERROR_NODE;
-        }
-        if (!curr_token_is(TokenType::EQ)) return add_error("Expected '=' in variable declaration");
+        if (!curr_token_is(TokenType::EQ)) return add_error("Expected '=' in variable declaration", ident);
         next_token(); // consume '='
 
         uint32_t expr = parse_expr(PrecedenceType::P_LOWEST);
         if (expr == ERROR_NODE) return ERROR_NODE;
 
-        if (!curr_token_is(TokenType::SEMICOLON)) return add_error("Expected ';' after let statement"); 
-        next_token(); // consume ';'
+        if (!curr_token_is(TokenType::SEMICOLON)) return add_error("Expected ';' after let statement", expr); 
+        end = curr_token(); next_token(); // consume ';'
 
-        uint32_t start = get_list_start(), count = 0;
-        push_list(ident, count);
-        push_list(type_annotation, count);
-        push_list(expr, count);
-
-        return push_node(NodeType::LetStmt, let_tok, { .list = { .start = start, .count = count } });
+        return push_node(NodeType::LetStmt, start, end, { .indicies = { .lhs = ident, .rhs = expr } });
     }
     
     uint32_t Parser::parse_return_stmt() // return [expr];
@@ -304,13 +337,14 @@ namespace Zenith {
             if (expr == ERROR_NODE) return ERROR_NODE;
         }
 
-        if (!curr_token_is(TokenType::SEMICOLON)) return add_error("Expected ';' after return statement"); 
+        if (!curr_token_is(TokenType::SEMICOLON)) return add_error("Expected ';' after return statement", expr); 
+        uint32_t end = curr_token();
         next_token(); // consume ';'
 
-        return push_node(NodeType::ReturnStmt, ret_tok, { .indicies = { .lhs = expr } });
+        return push_node(NodeType::ReturnStmt, ret_tok, end, { .indicies = { .lhs = expr } });
     }
 
-    uint32_t Parser::parse_break_stmt() // break [expr];
+    uint32_t Parser::parse_break_stmt() // break [label] [expr];
     {   
         uint32_t break_tok = curr_token(); next_token(); // consume 'break'
         uint32_t label = ERROR_NODE;
@@ -318,8 +352,9 @@ namespace Zenith {
 
         if (curr_token_is(TokenType::SEMICOLON)) 
         {
+            uint32_t end = curr_token();
             next_token(); // consume ';'
-            return push_node(NodeType::BreakStmt, break_tok);
+            return push_node(NodeType::BreakStmt, break_tok, end);
         }
 
         if (curr_token_is(TokenType::LABEL))
@@ -334,60 +369,105 @@ namespace Zenith {
             if (expr == ERROR_NODE) return ERROR_NODE;
         }
 
-        if (!curr_token_is(TokenType::SEMICOLON)) return add_error("Expected ';' after break statement"); 
+        if (!curr_token_is(TokenType::SEMICOLON)) return add_error("Expected ';' after break statement", expr != ERROR_NODE ? expr : label); 
+        uint32_t end = curr_token();
         next_token(); // consume ';'
 
-        return push_node(NodeType::BreakStmt, break_tok, { .indicies = { .lhs = label, .rhs = expr } });
+        return push_node(NodeType::BreakStmt, break_tok, end, { .indicies = { .lhs = label, .rhs = expr } });
     }   
 
     uint32_t Parser::parse_continue_stmt() // continue;
     {
         uint32_t cont_tok = curr_token(); next_token(); // consume 'continue'
-        uint32_t expr = ERROR_NODE;
 
         if (!curr_token_is(TokenType::SEMICOLON)) return add_error("Expected ';' after continue statement"); 
+        uint32_t end = curr_token();
         next_token(); // consume ';'
 
-        return push_node(NodeType::ContinueStmt, cont_tok);
+        return push_node(NodeType::ContinueStmt, cont_tok, end);
     }
 
-    // other
+    // special node
 
     uint32_t Parser::parse_type_annotation() // &mut [ident] / mut [ident] / [ident]
     {
         uint32_t is_borrow = 0, is_mut = 0;
-        uint32_t first_tok = curr_token();
+        uint32_t start = curr_token(), end;
 
         if (curr_token_is(TokenType::AMPERSAND)) { is_borrow = 1; next_token(); } // &
         if (curr_token_is(TokenType::MUT)) { is_mut = 1; next_token(); } // mut
 
+        end = curr_token(); // should be ident
         if (!curr_token_is(TokenType::IDENT)) return add_error("Expected type identifier in type annotation");
         next_token();
 
-        return push_node(NodeType::TypeAnnotation, first_tok, { .indicies = { .lhs = is_borrow, .rhs = is_mut } });
+        return push_node(NodeType::TypeAnnotation, start, end, { .indicies = { .lhs = is_borrow, .rhs = is_mut } });
     }
 
+    uint32_t Parser::parse_identifier()
+    {
+        uint32_t node = push_node(NodeType::Identifier, curr_token());
+        next_token(); 
+        return node;
+    }
+
+    uint32_t Parser::parse_typed_identifier()
+    {
+        uint32_t ident = parse_identifier();
+
+        if (curr_token_is(TokenType::COLON))
+        {
+            next_token(); 
+            if (!curr_token_is(TokenType::AMPERSAND) && 
+                !curr_token_is(TokenType::MUT) && 
+                !curr_token_is(TokenType::IDENT)) return add_error("Expected type annotation after ':'", ident);
+
+            uint32_t type_annot = parse_type_annotation();
+            if (type_annot == ERROR_NODE) return ERROR_NODE;
+
+            uint32_t start = get_node(ident).start_token, end = get_node(type_annot).end_token;
+            return push_node(NodeType::TypedIdentifier, start, end, { .indicies = { .lhs = ident, .rhs = type_annot } });
+        }
+
+        return ident; 
+    }
+
+
+    // other
     void Parser::synchronize()
     {
         while (!curr_token_is(TokenType::END_OF_FILE))
         {
             if (curr_token_is(TokenType::SEMICOLON))
             {
-                next_token(); // consume ';'
+                next_token();
                 return;
             }
 
-            if (curr_token_is(TokenType::RBRACE)) return;
+            if (curr_token_is(TokenType::LET)    ||
+                curr_token_is(TokenType::RETURN) ||
+                curr_token_is(TokenType::BREAK)  ||
+                curr_token_is(TokenType::CONTINUE) ||
+                curr_token_is(TokenType::RBRACE)) return;
             next_token();
         }
     }
 
-    uint32_t Parser::add_error(std::string_view message)
+    uint32_t Parser::add_error(std::string_view message, uint32_t node)
     {
         const Token& tok = get_curr_token();
         std::string err = std::format("[Parse Error] Failed at line: {}, column: {} ({}): {}", 
                                     tok.line, tok.column, tok.literal, message);
-        m_Errors.push_back(err);
+        m_Errors.push_back(ParseError{ .message = err, .node = node, .token = curr_token() });
         return ERROR_NODE;
+    }
+
+    ListHeader Parser::commit_list(size_t marker)
+    {
+        uint32_t count = static_cast<uint32_t>(m_Scratch.size() - marker);
+        uint32_t start = static_cast<uint32_t>(m_Extra.size());
+        m_Extra.insert(m_Extra.end(), m_Scratch.begin() + marker, m_Scratch.end());
+        m_Scratch.resize(marker);
+        return { .start = start, .count = count };
     }
 }

@@ -9,7 +9,9 @@ namespace Zenith {
         Integer,
         Decimal,
         String,
+        Tuple,
         Identifier,
+        TypedIdentifier,
         Label,
 
         UnaryExpr,
@@ -32,8 +34,7 @@ namespace Zenith {
         ContinueStmt,
 
         TypeAnnotation, 
-        ParamDecl,
-        FieldDecl,
+        ArgList,
         FuncDecl,
         StructDecl,
         ClassDecl,
@@ -43,7 +44,7 @@ namespace Zenith {
     struct Node
     {
         NodeType type;
-        uint32_t token;
+        uint32_t start_token, end_token;
         union Data
         {
             int64_t i64; double f64;

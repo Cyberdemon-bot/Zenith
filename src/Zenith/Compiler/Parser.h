@@ -9,6 +9,19 @@ namespace Zenith {
 
     constexpr uint32_t ERROR_NODE = 0;
 
+    struct ParseError
+    {
+        std::string message;
+        uint32_t node = ERROR_NODE;
+        uint32_t token = 0;
+    };
+
+    struct ListHeader 
+    {
+        uint32_t start;
+        uint32_t count;
+    };
+
     enum class PrecedenceType : uint8_t 
     {
         P_LOWEST = 0,
@@ -38,11 +51,16 @@ namespace Zenith {
         std::vector<Node> m_Nodes;
         std::vector<Token> m_Tokens;
         std::vector<uint32_t> m_Extra;
-        std::vector<std::string> m_Errors;
+        std::vector<uint32_t> m_Scratch;
+        std::vector<ParseError> m_Errors;
         Lexer m_Lexer;
 
         void synchronize();
-        uint32_t add_error(std::string_view message);
+        uint32_t add_error(std::string_view message, uint32_t node = ERROR_NODE);
+        size_t get_scratch_marker() const { return m_Scratch.size(); }
+        void push_scratch(uint32_t node) { m_Scratch.push_back(node); }
+        void rollback_scratch(size_t marker) { m_Scratch.resize(marker); }
+        ListHeader commit_list(size_t marker);
 
         uint32_t next_token() { return ++m_Cursor; }
         uint32_t curr_token() { return m_Cursor; }
@@ -53,13 +71,20 @@ namespace Zenith {
         bool curr_token_is(TokenType type) { return get_token(m_Cursor).type == type; }
         bool peek_token_is(TokenType type) { return get_token(m_Cursor + 1).type == type; }
 
+        const Node& get_node(uint32_t idx) const { return m_Nodes[idx]; }
         uint32_t get_curr_node() { return static_cast<uint32_t>(m_Nodes.size() - 1); }
         uint32_t get_list_start() { return static_cast<uint32_t>(m_Extra.size()); }
         void push_list(uint32_t elem, uint32_t& count) { m_Extra.push_back(elem); ++count; }
 
-        uint32_t push_node(NodeType type, uint32_t token, Node::Data data = {}) 
+        uint32_t push_node(NodeType type, uint32_t start, uint32_t end, Node::Data data = {}) 
         {
-            m_Nodes.push_back(Node{ .type = type, .token = token, .data = data });
+            m_Nodes.push_back(Node{ .type = type, .start_token = start, .end_token = end, .data = data });
+            return static_cast<uint32_t>(m_Nodes.size() - 1);
+        }
+
+        uint32_t push_node(NodeType type, uint32_t start, Node::Data data = {}) 
+        {
+            m_Nodes.push_back(Node{ .type = type, .start_token = start, .end_token = start, .data = data });
             return static_cast<uint32_t>(m_Nodes.size() - 1);
         }
 
@@ -103,7 +128,52 @@ namespace Zenith {
         uint32_t parse_index_expr(uint32_t left);
         uint32_t parse_borrow_expr();
         uint32_t parse_block_expr();
+        uint32_t parse_if_expr();
 
+        uint32_t parse_identifier();
+        uint32_t parse_typed_identifier();
         uint32_t parse_type_annotation();
+
+        template <typename Fn>
+        uint32_t parse_delimited_list(
+            NodeType res_type, 
+            TokenType close_type, 
+            TokenType sep_type, 
+            Fn parse_element, 
+            std::string_view error_message,
+            bool allow_trailing = true)
+        {
+            uint32_t start = curr_token(); next_token(); // consume open_token
+            size_t marker = get_scratch_marker();
+
+            if (!curr_token_is(close_type))  
+            {
+                while (true)
+                {
+                    uint32_t elem = parse_element();
+                    if (elem == ERROR_NODE)
+                    {
+                        rollback_scratch(marker);
+                        return ERROR_NODE;
+                    }
+                    push_scratch(elem);
+                    if (curr_token_is(sep_type))
+                    {
+                        next_token(); // consume separator
+                        if (allow_trailing && curr_token_is(close_type)) break; // trailing: (1, 2, )
+                    }
+                    else if (curr_token_is(close_type)) break; 
+                    else
+                    {
+                        rollback_scratch(marker);
+                        return add_error(error_message);
+                    }
+                }
+            }
+
+            uint32_t end = curr_token(); next_token(); // consume close_type
+            auto list = commit_list(marker);
+            return push_node(res_type, start, end, { .list = { .start = list.start, .count = list.count } });
+        }
     };
 }

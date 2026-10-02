@@ -234,7 +234,25 @@ void run_parser_expr_test()
         // 7. Expression Statement (Expr + ;)
         process_data(search_res);
 
-        // 8. ReturnStmt
+        // 8. If-Else Expressions (Arrow, Block & Chain variations)
+        // 8.1 Dạng Arrow đơn giản gán biến
+        let if_arrow = if math_res >= 10 => 1 else => 0;
+
+        // 8.2 Dạng Block đơn giản
+        let if_block = if decimal_val < 5.0 { break 100; } else { break 200; };
+
+        // 8.3 Kết hợp Arrow và Block trong chuỗi else if
+        let if_chain = if simple_int < 0 => "negative" 
+               else if simple_int == 0 { break "zero"; } 
+               else => "positive";
+
+        // 8.4 If không có else
+        if typed_var > 50 => process_data(typed_var);
+
+        // 8.5 If lồng bên trong biểu thức khác
+        let nested_if = if (if simple_int > 0 => true else => false) { break 999; } else { break -1; };
+
+        // 9. ReturnStmt
         return search_res;
     }
     )";
@@ -245,8 +263,14 @@ void run_parser_expr_test()
 
     std::cout << "Root Node Index: " << root << "\n";
     parser.dump_ast();
-}
 
+    if (parser.has_errors())
+    {
+        std::cout << "================ PARSER ERROR TEST ================\n";
+        std::cout << "\n[Captured Parsing Errors (" << parser.get_errors_count() << ")]:\n";
+        parser.dump_errors();
+    }
+}
 
 void run_parser_error_test() 
 {
@@ -297,7 +321,7 @@ int main(int argc, char* argv[])
 
     // run_zasm_test(source);
     //run_lexer_test();
-    //run_parser_expr_test();
-    run_parser_error_test();
+    run_parser_expr_test();
+    //run_parser_error_test();
     return 0;
 }

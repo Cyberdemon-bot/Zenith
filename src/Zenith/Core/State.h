@@ -63,6 +63,13 @@ namespace Zenith
         size_t size_r64 = NUM_R64;
     };
 
+    struct CallFrame
+    {
+        Instruction* pc;
+        uint32_t base_reg;
+        Proto* proto;
+    };
+
     struct State
     {   
         Stack* stack;
