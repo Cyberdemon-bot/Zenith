@@ -77,6 +77,24 @@ namespace Zenith {
                 next_token(); 
                 return idx;
             }
+            case TokenType::TRUE:
+            {
+                uint32_t idx = push_node(NodeType::Bool, curr_token(), { .i64 = 1 });
+                next_token();
+                return idx;
+            }
+            case TokenType::FALSE:
+            {
+                uint32_t idx = push_node(NodeType::Bool, curr_token(), { .i64 = 0 });
+                next_token();
+                return idx;
+            }
+            case TokenType::NULL_LIT:
+            {
+                uint32_t idx = push_node(NodeType::Null, curr_token());
+                next_token();
+                return idx;
+            }
             case TokenType::BANG:
             case TokenType::MINUS: 
             {

@@ -6,9 +6,7 @@ namespace Zenith {
     {
         Error = 0,
 
-        Integer,
-        Decimal,
-        String,
+        Integer, Decimal, String, Bool, Null,
         Tuple,
         Identifier,
         TypedIdentifier,

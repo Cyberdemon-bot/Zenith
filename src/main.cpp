@@ -212,7 +212,7 @@ void run_parser_test()
         let borrowed_ref = &simple_int;
 
         // 3. Infix Expr & Precedence: Số học, Lũy thừa (^), So sánh
-        let math_res = (simple_int + 5) * 2 / 4 % 3 ^ 2;
+        let math_res = (simple_int + 5) * 2 / 4 % 3 ** 2;
         let cmp_res = math_res >= 10 == (decimal_val < 5.0);
 
         // 4. Infix Expr: Field Access (.), Indexing ([]), Function Call (())

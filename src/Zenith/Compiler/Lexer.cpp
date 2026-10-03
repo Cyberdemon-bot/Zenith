@@ -88,11 +88,6 @@ namespace Zenith {
             case ']': read_char(); return new_token(TokenType::RBRACKET,  get_lil(start_pos), start_pos);
 
             case '+': read_char(); return new_token(TokenType::PLUS,      get_lil(start_pos), start_pos); 
-            case '*': read_char(); return new_token(TokenType::ASTERISK,  get_lil(start_pos), start_pos); 
-            case '/': read_char(); return new_token(TokenType::SLASH,     get_lil(start_pos), start_pos); 
-            case '%': read_char(); return new_token(TokenType::MODULUS,   get_lil(start_pos), start_pos); 
-            case '^': read_char(); return new_token(TokenType::POW,       get_lil(start_pos), start_pos); 
-
             case '-':
             {
                 if (peek_char() == '>')
@@ -103,6 +98,19 @@ namespace Zenith {
                 read_char();
                 return new_token(TokenType::MINUS, get_lil(start_pos), start_pos);
             }
+            case '*':
+            {
+                if (peek_char() == '*')
+                {
+                    read_char(); read_char();
+                    return new_token(TokenType::POW, get_lil(start_pos), start_pos);
+                }
+                read_char();
+                return new_token(TokenType::ASTERISK, get_lil(start_pos), start_pos);
+            }
+            case '/': read_char(); return new_token(TokenType::SLASH,     get_lil(start_pos), start_pos); 
+            case '%': read_char(); return new_token(TokenType::MODULUS,   get_lil(start_pos), start_pos); 
+            
             case '=':
             {
                 if (peek_char() == '=') 
