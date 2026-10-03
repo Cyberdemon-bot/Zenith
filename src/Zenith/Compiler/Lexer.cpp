@@ -11,11 +11,12 @@ namespace Zenith {
             TokenType type;
         };
 
-        constexpr std::array<KeyPair, 15> KEYWORDS = {{
+        constexpr std::array<KeyPair, 18> KEYWORDS = {{
             {"break",    TokenType::BREAK},
             {"class",    TokenType::CLASS},
             {"continue", TokenType::CONTINUE},
             {"else",     TokenType::ELSE},
+            {"false",    TokenType::FALSE},
             {"for",      TokenType::FOR},
             {"func",     TokenType::FUNC}, 
             {"if",       TokenType::IF},
@@ -24,9 +25,11 @@ namespace Zenith {
             {"mut",      TokenType::MUT},
             {"native",   TokenType::NATIVE},
             {"new",      TokenType::NEW},
+            {"null",     TokenType::NULL_LIT},
             {"pub",      TokenType::PUB},
             {"return",   TokenType::RETURN},
-            {"struct",   TokenType::STRUCT}
+            {"struct",   TokenType::STRUCT},
+            {"true",     TokenType::TRUE}
         }};
 
         TokenType lookup_ident(std::string_view ident) 
@@ -53,6 +56,13 @@ namespace Zenith {
     Token Lexer::next_token()
     {
         skip_whitespace(); 
+
+        if (m_HadUnterminatedComment)
+        {
+            m_HadUnterminatedComment = false;
+            return new_token(TokenType::ILLEGAL, "", pos);
+        }
+
         if (curr_char == NONE_CHAR) return new_token(TokenType::END_OF_FILE, "", pos); 
         uint32_t start_pos = pos;
 
@@ -146,10 +156,17 @@ namespace Zenith {
 
     void Lexer::read_char()
     {
-        if (read_pos >= source.size()) curr_char = NONE_CHAR;
-        else curr_char = source[read_pos];
-        pos = read_pos;
-        ++read_pos;
+        if (read_pos >= source.size())
+        {
+            curr_char = NONE_CHAR;
+            pos = static_cast<uint32_t>(source.size());
+        }
+        else
+        {
+            curr_char = source[read_pos];
+            pos = read_pos;
+            ++read_pos;
+        }
     }
 
     char Lexer::peek_char()
@@ -208,6 +225,7 @@ namespace Zenith {
                             }
                             else read_char();
                         }
+                        if (depth > 0) m_HadUnterminatedComment = true;
                     }
                     else return;
                     break;
@@ -239,38 +257,75 @@ namespace Zenith {
             while (is_digit(curr_char)) read_char();
         }
 
+        if (curr_char == 'e' || curr_char == 'E')
+        {
+            char next_char = peek_char();
+            if (is_digit(next_char))
+            {
+                is_decimal = true;
+                read_char();
+                while (is_digit(curr_char)) read_char();
+            }
+            else if (next_char == '+' || next_char == '-')
+            {
+                uint32_t after_sign = read_pos + 1;
+                if (after_sign < source.size() && is_digit(source[after_sign]))
+                {
+                    is_decimal = true;
+                    read_char();
+                    read_char();
+                    while (is_digit(curr_char)) read_char();
+                }
+            }
+        }
+
         return new_token(is_decimal ? TokenType::DECIMAL : TokenType::INTEGER, get_lil(start_pos), start_pos);
     }
 
     Token Lexer::read_string()
     {
-        uint32_t start_pos = pos + 1;
+        uint32_t content_start = pos + 1;
+        bool terminated = false;
+
         while (true)
         {
             read_char();
-            if (curr_char == '\\') read_char();
-            else if (curr_char == '"' || curr_char == NONE_CHAR) break;
-            else if (curr_char == '\n')
+            if (curr_char == NONE_CHAR) break;
+            if (curr_char == '"') { terminated = true; break; }
+            if (curr_char == '\n')
             {
                 line++;
-                line_start_pos = pos;
+                line_start_pos = pos + 1;
+                continue;
+            }
+            if (curr_char == '\\')
+            {
+                read_char();
+                if (curr_char == NONE_CHAR) break;
+                if (curr_char == '\n')
+                {
+                    line++;
+                    line_start_pos = pos + 1;
+                }
             }
         }
-        
-        auto lil = get_lil(start_pos);
-        if (curr_char == '"') read_char(); 
-        return new_token(TokenType::STRING, lil, start_pos - 1); 
+
+        auto lil = get_lil(content_start);
+        if (terminated) read_char();
+
+        return new_token(terminated ? TokenType::STRING : TokenType::ILLEGAL, lil, content_start);
     }
 
     Token Lexer::read_label()
     {
-        uint32_t start_pos = pos;
         read_char(); 
-        if (is_letter(curr_char))
+        if (!is_letter(curr_char))
         {
-            while (curr_char != NONE_CHAR && is_alnum(curr_char)) read_char();
-            return new_token(TokenType::LABEL, get_lil(start_pos), start_pos);
+            return new_token(TokenType::ILLEGAL, "", pos);
         }
-        return new_token(TokenType::ILLEGAL, get_lil(start_pos), start_pos);
+
+        uint32_t start_pos = pos;
+        while (curr_char != NONE_CHAR && is_alnum(curr_char)) read_char();
+        return new_token(TokenType::LABEL, get_lil(start_pos), start_pos);
     }
 }

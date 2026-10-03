@@ -25,7 +25,6 @@ namespace Zenith {
     enum class PrecedenceType : uint8_t 
     {
         P_LOWEST = 0,
-        P_BRANCHVALUE,
         P_EQUALS,
         P_LESSGREATER,
         P_SUM,
@@ -47,6 +46,7 @@ namespace Zenith {
         bool has_errors() const { return !m_Errors.empty(); }
         uint32_t get_errors_count() const { return static_cast<uint32_t>(m_Errors.size()); }
     private:
+        std::string_view m_Source;
         uint32_t m_Cursor = 0;
         std::vector<Node> m_Nodes;
         std::vector<Token> m_Tokens;
@@ -117,6 +117,7 @@ namespace Zenith {
         uint32_t parse_return_stmt();
         uint32_t parse_break_stmt();
         uint32_t parse_continue_stmt();
+        uint32_t parse_assign_stmt(uint32_t lhs);
 
         uint32_t parse_prefix_expr();
         uint32_t parse_infix_expr(uint32_t left);

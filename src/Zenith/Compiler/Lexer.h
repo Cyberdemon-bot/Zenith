@@ -15,6 +15,7 @@ namespace Zenith {
         std::string_view source;
         uint32_t pos = 0, read_pos = 0, line = 1, line_start_pos = 0;
         char curr_char = NONE_CHAR;
+        bool m_HadUnterminatedComment = false;
 
         void read_char();
         char peek_char();

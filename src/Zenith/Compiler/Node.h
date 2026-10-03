@@ -32,6 +32,7 @@ namespace Zenith {
         ReturnStmt,
         BreakStmt,
         ContinueStmt,
+        AssignStmt, 
 
         TypeAnnotation, 
         ArgList,

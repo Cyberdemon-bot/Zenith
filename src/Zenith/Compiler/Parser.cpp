@@ -5,7 +5,7 @@
 namespace Zenith {
 
     Parser::Parser(std::string_view source)
-        : m_Lexer(source)
+         : m_Lexer(source), m_Source(source)
     {
         m_Tokens.reserve(256);
         m_Nodes.push_back({}); // ERROR_NODE
@@ -262,15 +262,17 @@ namespace Zenith {
             if (else_branch == ERROR_NODE) return ERROR_NODE;
         }
 
-        uint32_t start = get_list_start(), count = 0;
-        push_list(condition, count);
-        push_list(then_branch, count);
-        push_list(else_branch, count);
+        size_t marker = get_scratch_marker();
+        push_scratch(condition);
+        push_scratch(then_branch);
+        push_scratch(else_branch);
+        auto list = commit_list(marker);
 
-        uint32_t last_node = else_branch != ERROR_NODE ? else_branch : then_branch;
+        uint32_t last_node = (else_branch != ERROR_NODE) ? else_branch : then_branch;
         uint32_t end_tok = get_node(last_node).end_token;
 
-        return push_node(NodeType::IfExpr, if_tok, end_tok, { .list = { .start = start, .count = count } });
+        return push_node(NodeType::IfExpr, if_tok, end_tok,
+                         { .list = { .start = list.start, .count = list.count } });
     }
 
     // parse statement
@@ -291,19 +293,47 @@ namespace Zenith {
         uint32_t expr = parse_expr(PrecedenceType::P_LOWEST);
         if (expr == ERROR_NODE) return ERROR_NODE;
 
-        uint32_t start = get_node(expr).start_token;
-        uint32_t end = get_node(expr).end_token;
+        if (curr_token_is(TokenType::EQ))
+            return parse_assign_stmt(expr);
 
-        if (curr_token_is(TokenType::SEMICOLON)) 
+        uint32_t start = get_node(expr).start_token;
+        uint32_t end   = get_node(expr).end_token;
+
+        if (curr_token_is(TokenType::SEMICOLON))
         {
             end = curr_token();
             next_token();
         }
-        else if (m_Nodes[expr].type != NodeType::BlockExpr && 
-                 m_Nodes[expr].type != NodeType::LabeledExpr) 
-                return add_error("Expected ';' after expression statement", expr);
+        else if (m_Nodes[expr].type != NodeType::BlockExpr &&
+                 m_Nodes[expr].type != NodeType::LabeledExpr)
+            return add_error("Expected ';' after expression statement", expr);
 
-        return push_node(NodeType::ExprStmt, start, end, { .indicies = { .lhs = expr } });
+        return push_node(NodeType::ExprStmt, start, end,
+                         { .indicies = { .lhs = expr } });
+    }
+
+    uint32_t Parser::parse_assign_stmt(uint32_t lhs)
+    {
+        NodeType lt = m_Nodes[lhs].type;
+        if (lt != NodeType::Identifier &&
+            lt != NodeType::FieldAccess &&
+            lt != NodeType::IndexExpr)
+            return add_error("Invalid assignment target", lhs);
+
+        next_token(); // consume '='
+
+        uint32_t rhs = parse_expr(PrecedenceType::P_LOWEST);
+        if (rhs == ERROR_NODE) return ERROR_NODE;
+
+        if (!curr_token_is(TokenType::SEMICOLON))
+            return add_error("Expected ';' after assignment statement", rhs);
+
+        uint32_t start = get_node(lhs).start_token;
+        uint32_t end   = curr_token();
+        next_token(); // consume ';'
+
+        return push_node(NodeType::AssignStmt, start, end,
+                         { .indicies = { .lhs = lhs, .rhs = rhs } });
     }
 
     uint32_t Parser::parse_let_stmt() // let [ident]: [type_annotation] = [expr];
@@ -443,12 +473,17 @@ namespace Zenith {
                 next_token();
                 return;
             }
+            if (curr_token_is(TokenType::RBRACE))
+            {
+                next_token();
+                return;
+            }
 
-            if (curr_token_is(TokenType::LET)    ||
-                curr_token_is(TokenType::RETURN) ||
-                curr_token_is(TokenType::BREAK)  ||
-                curr_token_is(TokenType::CONTINUE) ||
-                curr_token_is(TokenType::RBRACE)) return;
+            if (curr_token_is(TokenType::LET)      ||
+                curr_token_is(TokenType::RETURN)   ||
+                curr_token_is(TokenType::BREAK)    ||
+                curr_token_is(TokenType::CONTINUE)) return;
+
             next_token();
         }
     }

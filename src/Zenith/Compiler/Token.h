@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <string_view>
 
 namespace Zenith {
@@ -16,6 +17,7 @@ namespace Zenith {
 
         SEMICOLON, COLON, COMMA, LPAREN, RPAREN, LBRACE, RBRACE, LBRACKET, RBRACKET,
         BREAK, CLASS, CONTINUE, ELSE, FOR, FUNC, IF, LET, MATCH, MUT, NATIVE, NEW, PUB, RETURN, STRUCT,
+        FALSE, NULL_LIT, TRUE,
         COUNT
     };
 
@@ -31,7 +33,8 @@ namespace Zenith {
 
         "SEMICOLON", "COLON", "COMMA", "LPAREN", "RPAREN", "LBRACE", "RBRACE", "LBRACKET", "RBRACKET",
 
-        "BREAK", "CLASS", "CONTINUE", "ELSE", "FOR", "FUNC", "IF", "LET", "MATCH", "MUT", "NATIVE", "NEW", "PUB", "RETURN", "STRUCT"
+        "BREAK", "CLASS", "CONTINUE", "ELSE", "FOR", "FUNC", "IF", "LET", "MATCH", "MUT", "NATIVE", "NEW", "PUB", "RETURN", "STRUCT",
+        "FALSE", "NULL", "TRUE"
     };
 
     struct Token

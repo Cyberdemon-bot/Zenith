@@ -193,7 +193,7 @@ void run_zasm_test(const std::string& source)
     dump_memory(*stack, state.proto.register_count);
 }
 
-void run_parser_expr_test() 
+void run_parser_test() 
 {
     std::string_view source_code = R"(
     'main_block: {
@@ -321,7 +321,7 @@ int main(int argc, char* argv[])
 
     // run_zasm_test(source);
     //run_lexer_test();
-    run_parser_expr_test();
+    run_parser_test();
     //run_parser_error_test();
     return 0;
 }
