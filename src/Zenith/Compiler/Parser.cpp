@@ -24,12 +24,19 @@ namespace Zenith {
 
         while (!curr_token_is(TokenType::END_OF_FILE))
         {
+            if (curr_token_is(TokenType::RBRACE))
+            {
+                add_error("Unexpected '}' at top level");
+                next_token();
+                continue;
+            }
+
             uint32_t stmt = parse_statement();
-            if (stmt == ERROR_NODE) synchronize(); 
+            if (stmt == ERROR_NODE) synchronize();
             else push_scratch(stmt);
         }
 
-        end = curr_token(); // END_OF_FILE
+        end = curr_token(); // EOF
         auto list = commit_list(marker);
         return push_node(NodeType::Program, start, end, { .list = { .start = list.start, .count = list.count } });
     }
@@ -39,9 +46,7 @@ namespace Zenith {
     {
         uint32_t left = parse_prefix_expr();
         if (left == ERROR_NODE) return ERROR_NODE;
-        while (!curr_token_is(TokenType::SEMICOLON) && 
-               !curr_token_is(TokenType::END_OF_FILE) &&
-               precedence < get_precedence(get_curr_token().type))
+        while (precedence < get_precedence(get_curr_token().type)) // precedence of semicolon and eof are P_LOWEST by default
         {
             left = parse_infix_expr(left);
             if (left == ERROR_NODE) return ERROR_NODE;
@@ -99,7 +104,7 @@ namespace Zenith {
             case TokenType::MINUS: 
             {
                 uint32_t signIdx = curr_token(); next_token(); 
-                uint32_t expr = parse_expr(PrecedenceType::P_PREFIX);
+                uint32_t expr = parse_expr(PrecedenceType::P_UNARY);
                 if (expr == ERROR_NODE) return ERROR_NODE;
                 return push_node(NodeType::UnaryExpr, signIdx, get_node(expr).end_token, { .indicies = { .lhs = expr, .rhs = 0 } });
             }
@@ -114,19 +119,18 @@ namespace Zenith {
             }
             case TokenType::LABEL:
             {
-                uint32_t label_tok = curr_token(); next_token();
-                uint32_t label_node = push_node(NodeType::Label, label_tok);
+                uint32_t start = curr_token(), end; next_token();
+                if (!curr_token_is(TokenType::COLON)) return add_error("Expected ':' after label");
 
-                if (curr_token_is(TokenType::COLON))
-                {
-                    next_token(); // consume ':'
-                    uint32_t expr = parse_expr(PrecedenceType::P_PREFIX);
-                    if (expr == ERROR_NODE) return ERROR_NODE;
+                next_token(); // consume ':'
+                if (!curr_token_is(TokenType::LBRACE)) 
+                    return add_error("Label definition required a block expression"); // only accept block expr after label
+                uint32_t expr = parse_block_expr();
+                if (expr == ERROR_NODE) return ERROR_NODE;
+                end = get_node(expr).end_token;
 
-                    return push_node(NodeType::LabeledExpr, label_tok, get_node(expr).end_token, { .indicies = { .lhs = label_node, .rhs = expr } });
-                }
-
-                return label_node;
+                uint32_t label = push_node(NodeType::Label, start);
+                return push_node(NodeType::LabeledBlockExpr, start, end, { .indicies = { .lhs = label, .rhs = expr } });
             }
             case TokenType::IDENT: return parse_identifier();
             case TokenType::AMPERSAND: return parse_borrow_expr();
@@ -222,7 +226,7 @@ namespace Zenith {
     uint32_t Parser::parse_borrow_expr()
     {
         uint32_t amp_tok = curr_token(); next_token(); // consume '&'
-        uint32_t expr = parse_expr(PrecedenceType::P_PREFIX);
+        uint32_t expr = parse_expr(PrecedenceType::P_UNARY);
         if (expr == ERROR_NODE) return ERROR_NODE;
         return push_node(NodeType::BorrowExpr, amp_tok, get_node(expr).end_token, { .indicies = { .lhs = expr } });
     }
@@ -296,38 +300,45 @@ namespace Zenith {
     // parse statement
     uint32_t Parser::parse_statement()
     {
+        while (curr_token_is(TokenType::SEMICOLON)) next_token(); // consume all leftover ';'
+
+        if (curr_token_is(TokenType::END_OF_FILE) ||
+            curr_token_is(TokenType::RBRACE))
+            return ERROR_NODE;
+
         switch (get_curr_token().type)
         {
             case TokenType::LET:      return parse_let_stmt();
             case TokenType::RETURN:   return parse_return_stmt();
             case TokenType::BREAK:    return parse_break_stmt();
             case TokenType::CONTINUE: return parse_continue_stmt();
-            default:                  return parse_expr_stmt();
+            default:                  return default_parser();
         }
     }
 
-    uint32_t Parser::parse_expr_stmt()
+    uint32_t Parser::default_parser()
     {
         uint32_t expr = parse_expr(PrecedenceType::P_LOWEST);
         if (expr == ERROR_NODE) return ERROR_NODE;
+        if (curr_token_is(TokenType::EQ)) return parse_assign_stmt(expr);
 
-        if (curr_token_is(TokenType::EQ))
-            return parse_assign_stmt(expr);
+        NodeType t = m_Nodes[expr].type;
+        bool is_expr_as_stmt_node =
+            t == NodeType::BlockExpr        ||
+            t == NodeType::LabeledBlockExpr ||
+            t == NodeType::IfExpr           ||
+            t == NodeType::CallExpr;
 
-        uint32_t start = get_node(expr).start_token;
-        uint32_t end   = get_node(expr).end_token;
+        if (!is_expr_as_stmt_node)
+            return add_error("Expression is not valid as a statement; expected call, block, if, or assignment", expr, ErrorScope::NodeStart);
 
-        if (curr_token_is(TokenType::SEMICOLON))
-        {
-            end = curr_token();
-            next_token();
-        }
-        else if (m_Nodes[expr].type != NodeType::BlockExpr &&
-                 m_Nodes[expr].type != NodeType::LabeledExpr)
-            return add_error("Expected ';' after expression statement", expr);
+        uint32_t start = get_node(expr).start_token, end = get_node(expr).end_token;
 
-        return push_node(NodeType::ExprStmt, start, end,
-                         { .indicies = { .lhs = expr } });
+        if (curr_token_is(TokenType::SEMICOLON)) { end = curr_token(); next_token(); }
+        else if (m_Tokens[end].type != TokenType::RBRACE)
+            return add_error("Expected ';' after expression statement", expr, ErrorScope::TokenBefore);
+
+        return push_node(NodeType::ExprStmt, start, end, { .indicies = { .lhs = expr } });
     }
 
     uint32_t Parser::parse_assign_stmt(uint32_t lhs)
@@ -336,7 +347,7 @@ namespace Zenith {
         if (lt != NodeType::Identifier &&
             lt != NodeType::FieldAccess &&
             lt != NodeType::IndexExpr)
-            return add_error("Invalid assignment target", lhs);
+            return add_error("Invalid assignment target", lhs, ErrorScope::NodeStart);
 
         next_token(); // consume '='
 
@@ -344,10 +355,10 @@ namespace Zenith {
         if (rhs == ERROR_NODE) return ERROR_NODE;
 
         if (!curr_token_is(TokenType::SEMICOLON))
-            return add_error("Expected ';' after assignment statement", rhs);
+            return add_error("Expected ';' after assignment statement", rhs, ErrorScope::TokenBefore);
 
         uint32_t start = get_node(lhs).start_token;
-        uint32_t end   = curr_token();
+        uint32_t end = curr_token();
         next_token(); // consume ';'
 
         return push_node(NodeType::AssignStmt, start, end,
@@ -368,7 +379,7 @@ namespace Zenith {
         uint32_t expr = parse_expr(PrecedenceType::P_LOWEST);
         if (expr == ERROR_NODE) return ERROR_NODE;
 
-        if (!curr_token_is(TokenType::SEMICOLON)) return add_error("Expected ';' after let statement", expr); 
+        if (!curr_token_is(TokenType::SEMICOLON)) return add_error("Expected ';' after let statement", expr, ErrorScope::TokenBefore);
         end = curr_token(); next_token(); // consume ';'
 
         return push_node(NodeType::LetStmt, start, end, { .indicies = { .lhs = ident, .rhs = expr } });
@@ -385,9 +396,8 @@ namespace Zenith {
             if (expr == ERROR_NODE) return ERROR_NODE;
         }
 
-        if (!curr_token_is(TokenType::SEMICOLON)) return add_error("Expected ';' after return statement", expr); 
-        uint32_t end = curr_token();
-        next_token(); // consume ';'
+        if (!curr_token_is(TokenType::SEMICOLON)) return add_error("Expected ';' after return statement", expr, ErrorScope::TokenBefore);
+        uint32_t end = curr_token(); next_token(); // consume ';'
 
         return push_node(NodeType::ReturnStmt, ret_tok, end, { .indicies = { .lhs = expr } });
     }
@@ -400,8 +410,7 @@ namespace Zenith {
 
         if (curr_token_is(TokenType::SEMICOLON)) 
         {
-            uint32_t end = curr_token();
-            next_token(); // consume ';'
+            uint32_t end = curr_token(); next_token(); // consume ';'
             return push_node(NodeType::BreakStmt, break_tok, end);
         }
 
@@ -417,7 +426,10 @@ namespace Zenith {
             if (expr == ERROR_NODE) return ERROR_NODE;
         }
 
-        if (!curr_token_is(TokenType::SEMICOLON)) return add_error("Expected ';' after break statement", expr != ERROR_NODE ? expr : label); 
+        if (!curr_token_is(TokenType::SEMICOLON)) 
+                return add_error("Expected ';' after break statement",
+                     expr != ERROR_NODE ? expr : label,
+                     ErrorScope::TokenBefore);
         uint32_t end = curr_token();
         next_token(); // consume ';'
 
@@ -428,7 +440,9 @@ namespace Zenith {
     {
         uint32_t cont_tok = curr_token(); next_token(); // consume 'continue'
 
-        if (!curr_token_is(TokenType::SEMICOLON)) return add_error("Expected ';' after continue statement"); 
+        if (!curr_token_is(TokenType::SEMICOLON)) 
+            return add_error("Expected ';' after continue statement",
+                    ERROR_NODE, ErrorScope::TokenBefore);
         uint32_t end = curr_token();
         next_token(); // consume ';'
 
@@ -491,11 +505,7 @@ namespace Zenith {
                 next_token();
                 return;
             }
-            if (curr_token_is(TokenType::RBRACE))
-            {
-                next_token();
-                return;
-            }
+            if (curr_token_is(TokenType::RBRACE)) return;
 
             if (curr_token_is(TokenType::LET)      ||
                 curr_token_is(TokenType::RETURN)   ||
@@ -506,12 +516,31 @@ namespace Zenith {
         }
     }
 
-    uint32_t Parser::add_error(std::string_view message, uint32_t node)
+    uint32_t Parser::add_error(std::string_view message, uint32_t node, ErrorScope scope)
     {
-        const Token& tok = get_curr_token();
-        std::string err = std::format("[Parse Error] Failed at line: {}, column: {} ({}): {}", 
-                                    tok.line, tok.column, tok.literal, message);
-        m_Errors.push_back(ParseError{ .message = err, .node = node, .token = curr_token() });
+        uint32_t pos = curr_token();
+
+        switch (scope)
+        {
+            case ErrorScope::NodeStart:
+                if (node != ERROR_NODE && node < m_Nodes.size()) pos = m_Nodes[node].start_token;
+                break;
+            case ErrorScope::TokenBefore:
+                if (m_Cursor > 0) pos = m_Cursor - 1;
+                break;
+            case ErrorScope::Token:
+            default: break;
+        }
+        if (pos >= m_Tokens.size()) pos = static_cast<uint32_t>(m_Tokens.size()) - 1;
+
+        const Token& tok = m_Tokens[pos];
+        m_Errors.push_back(ParseError
+        {
+            .message = std::string(message),
+            .node    = node,
+            .token   = pos,
+            .scope   = scope
+        });
         return ERROR_NODE;
     }
 

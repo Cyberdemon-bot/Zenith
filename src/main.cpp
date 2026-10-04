@@ -9,8 +9,6 @@
 
 #include "Zenith/Compiler/Lexer.h"
 #include "Zenith/Compiler/Parser.h"
-#include "Zenith/Assembler/Assembler.h"
-#include "Zenith/Core/VirtualMachine.h"
 
 
 std::string read_file(const std::string& filepath)
@@ -28,41 +26,6 @@ std::string read_file(const std::string& filepath)
     buffer << file.rdbuf();
 
     return buffer.str();
-}
-
-void dump_memory(const Zenith::Stack& stack, uint32_t register_count)
-{
-    std::cout << "\n--- R64 BANK DUMP ---\n";
-    for (uint32_t i = 0; i < register_count; ++i)
-    {
-        uint64_t raw = stack.read<uint64_t>(i);
-        int64_t i_val = std::bit_cast<int64_t>(raw);
-        double d_val = std::bit_cast<double>(raw);
-        std::cout
-            << "R64[" << std::dec << std::setfill('0') << std::setw(2) << i << "] = HEX: 0x"
-            << std::hex << std::setfill('0') << std::setw(16) << raw << std::dec << std::setfill(' ')
-            << " | I64: " << std::setw(20) << i_val
-            << " | F64: " << std::setw(22) << std::left << d_val << std::right
-            << "\n";
-    }
-}
-
-
-void dump_constants(const std::vector<uint64_t>& constants)
-{
-    std::cout << "\n--- CONSTANT POOL (" << constants.size() << " entries) ---\n";
-    for (size_t i = 0; i < constants.size(); ++i)
-    {
-        uint64_t raw = constants[i];
-        int64_t i_val = std::bit_cast<int64_t>(raw);
-        double d_val = std::bit_cast<double>(raw);
-        std::cout 
-            << "K[" << std::dec << std::setfill('0') << std::setw(2) << i << "] = HEX: 0x"
-            << std::hex << std::setfill('0') << std::setw(16) << raw << std::dec << std::setfill(' ')
-            << " | I64: " << std::setw(20) << i_val
-            << " | F64: " << std::setw(22) << std::left << d_val << std::right
-            << "\n";
-    }
 }
 
 void run_lexer_test()
@@ -168,31 +131,6 @@ void run_lexer_test()
     std::cout << std::string(63, '-') << "\n";
 }
 
-void run_zasm_test(const std::string& source)
-{
-    auto stack = std::make_unique<Zenith::Stack>();
-    Zenith::State state{ .stack = stack.get() };
-    Zenith::Machine vm;
-    Zenith::Assembler assembler;
-    Zenith::AssembledProgram program = assembler.assemble(source);
-    state.proto = Zenith::Proto
-    {
-        .code = program.code,
-        .numeric_constants = program.constants,
-        .register_count = program.register_count
-    };
-
-    std::cout << "Code size       : " << state.proto.code.size() << "\n";
-    std::cout << "Constant count  : " << state.proto.numeric_constants.size() << "\n";
-    std::cout << "Register count  : " << state.proto.register_count << "\n";
-    dump_constants(program.constants);
-    std::cout << "\n[ BEFORE EXECUTION ]\n";
-    dump_memory(*stack, state.proto.register_count);
-    vm.execute(state);
-    std::cout << "\n[ AFTER EXECUTION ]\n";
-    dump_memory(*stack, state.proto.register_count);
-}
-
 void run_parser_test() 
 {
     std::string_view source_code = R"(
@@ -275,18 +213,23 @@ void run_parser_test()
 void run_parser_error_test() 
 {
     std::string_view source_code = R"(
-    'error_test_block: {
-
-        let = 42;
-        let no_assignment 100;
-        let bad_type: &mut = 10;
-        let unclosed_paren = (10 + 20;
-        let bad_field_access = user.;
-        let bad_call = compute(arg1 arg2);
-        let bad_index = list[0;
-        let missing_semicolon = 50
-        return 99
     }
+    5 + 3;
+    foo() = 5;
+    if x;
+    if x => 1 else 42;
+    'foo;
+    'bar: 5;
+    (;
+    a.;
+    a[1;
+    foo(1 2);
+    break x y;
+    continue
+    return;
+    let x : = 5;
+    let x: & = 5;
+    {
     )";
     
     std::cout << "================ PARSER ERROR TEST ================\n";
@@ -321,7 +264,7 @@ int main(int argc, char* argv[])
 
     // run_zasm_test(source);
     //run_lexer_test();
-    run_parser_test();
-    //run_parser_error_test();
+    //run_parser_test();
+    run_parser_error_test();
     return 0;
 }

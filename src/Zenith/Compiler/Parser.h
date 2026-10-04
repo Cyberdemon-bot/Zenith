@@ -9,11 +9,19 @@ namespace Zenith {
 
     constexpr uint32_t ERROR_NODE = 0;
 
+    enum class ErrorScope : uint8_t
+    {
+        Token,       
+        NodeStart,    
+        TokenBefore, 
+    };
+
     struct ParseError
     {
         std::string message;
-        uint32_t node = ERROR_NODE;
+        uint32_t node  = ERROR_NODE;
         uint32_t token = 0;
+        ErrorScope scope = ErrorScope::Token;
     };
 
     struct ListHeader 
@@ -29,8 +37,8 @@ namespace Zenith {
         P_LESSGREATER,
         P_SUM,
         P_PRODUCT,
+        P_UNARY,
         P_EXPONENT,
-        P_PREFIX,
         P_CALL,
         P_INDEX
     };
@@ -55,8 +63,11 @@ namespace Zenith {
         std::vector<ParseError> m_Errors;
         Lexer m_Lexer;
 
+        // error handler
         void synchronize();
-        uint32_t add_error(std::string_view message, uint32_t node = ERROR_NODE);
+        uint32_t add_error(std::string_view message, uint32_t node = ERROR_NODE, ErrorScope scope = ErrorScope::Token);
+
+        // buffer's methods
         size_t get_scratch_marker() const { return m_Scratch.size(); }
         void push_scratch(uint32_t node) { m_Scratch.push_back(node); }
         void rollback_scratch(size_t marker) { m_Scratch.resize(marker); }
@@ -88,6 +99,32 @@ namespace Zenith {
             return static_cast<uint32_t>(m_Nodes.size() - 1);
         }
 
+        // parsing methods
+        uint32_t parse_statement();
+        uint32_t default_parser();
+        uint32_t parse_let_stmt();
+        uint32_t parse_return_stmt();
+        uint32_t parse_break_stmt();
+        uint32_t parse_continue_stmt();
+        uint32_t parse_assign_stmt(uint32_t lhs);
+
+        uint32_t parse_prefix_expr();
+        uint32_t parse_infix_expr(uint32_t left);
+        uint32_t parse_expr(PrecedenceType precedence);
+
+        uint32_t parse_numeric_expr(uint32_t left);
+        uint32_t parse_field_access_expr(uint32_t left);
+        uint32_t parse_call_expr(uint32_t left);
+        uint32_t parse_index_expr(uint32_t left);
+        uint32_t parse_borrow_expr();
+        uint32_t parse_block_expr();
+        uint32_t parse_if_expr();
+
+        uint32_t parse_identifier();
+        uint32_t parse_typed_identifier();
+        uint32_t parse_type_annotation();
+
+        //utils
         constexpr PrecedenceType get_precedence(TokenType type) noexcept 
         {
             switch (type) 
@@ -110,30 +147,6 @@ namespace Zenith {
                 default:                    return PrecedenceType::P_LOWEST;
             }
         }
-
-        uint32_t parse_statement();
-        uint32_t parse_expr_stmt();
-        uint32_t parse_let_stmt();
-        uint32_t parse_return_stmt();
-        uint32_t parse_break_stmt();
-        uint32_t parse_continue_stmt();
-        uint32_t parse_assign_stmt(uint32_t lhs);
-
-        uint32_t parse_prefix_expr();
-        uint32_t parse_infix_expr(uint32_t left);
-        uint32_t parse_expr(PrecedenceType precedence);
-
-        uint32_t parse_numeric_expr(uint32_t left);
-        uint32_t parse_field_access_expr(uint32_t left);
-        uint32_t parse_call_expr(uint32_t left);
-        uint32_t parse_index_expr(uint32_t left);
-        uint32_t parse_borrow_expr();
-        uint32_t parse_block_expr();
-        uint32_t parse_if_expr();
-
-        uint32_t parse_identifier();
-        uint32_t parse_typed_identifier();
-        uint32_t parse_type_annotation();
 
         template <typename Fn>
         uint32_t parse_delimited_list(

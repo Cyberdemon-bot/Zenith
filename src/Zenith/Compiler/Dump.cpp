@@ -23,40 +23,44 @@ namespace Zenith {
             const auto& err = m_Errors[i];
 
             uint32_t target_tok_idx = err.token;
-            size_t highlight_len = 1;
+            if (target_tok_idx >= m_Tokens.size())
+                target_tok_idx = static_cast<uint32_t>(m_Tokens.size()) - 1;
 
-            if (err.node != ERROR_NODE && err.node < m_Nodes.size())
+            const Token& tok = m_Tokens[target_tok_idx];
+
+            std::cerr << std::format("[Error #{}] {}\n", i + 1, err.message);
+            std::cerr << std::format("  --> Line {}:{}\n", tok.line, tok.column);
+
+            if (tok.literal.empty())
+            {
+                std::cerr << "\n";
+                continue;
+            }
+
+            size_t highlight_len = std::max<size_t>(1, tok.literal.size());
+
+            if (err.scope == ErrorScope::NodeStart &&
+                err.node != ERROR_NODE && err.node < m_Nodes.size())
             {
                 const auto& node = m_Nodes[err.node];
-                if (node.start_token >= m_Tokens.size() ||
-                    node.end_token   >= m_Tokens.size())
-                    continue;
-
-                target_tok_idx = node.start_token;
-
-                const char* start_ptr = m_Tokens[node.start_token].literal.data();
-                const char* end_ptr   = m_Tokens[node.end_token].literal.data()
-                                      + m_Tokens[node.end_token].literal.size();
-                highlight_len = std::max<size_t>(1, static_cast<size_t>(end_ptr - start_ptr));
+                if (node.start_token < m_Tokens.size() &&
+                    node.end_token   < m_Tokens.size())
+                {
+                    const char* start_ptr = m_Tokens[node.start_token].literal.data();
+                    const char* end_ptr   = m_Tokens[node.end_token].literal.data()
+                                          + m_Tokens[node.end_token].literal.size();
+                    highlight_len = std::max<size_t>(1,
+                        static_cast<size_t>(end_ptr - start_ptr));
+                }
             }
-            else if (target_tok_idx < m_Tokens.size())
-            {
-                highlight_len = std::max<size_t>(1, m_Tokens[target_tok_idx].literal.size());
-            }
-
-            if (target_tok_idx >= m_Tokens.size()) continue;
-            const Token& tok = m_Tokens[target_tok_idx];
-            if (tok.literal.empty()) continue;
 
             const char* tok_begin = tok.literal.data();
 
-            // Quét lùi về đầu dòng, có chặn biên bằng src_begin.
             const char* line_start = tok_begin;
             while (line_start > src_begin &&
                    line_start[-1] != '\n' && line_start[-1] != '\r')
                 --line_start;
 
-            // Quét tới cuối dòng, có chặn biên bằng src_end.
             const char* line_end = tok_begin;
             while (line_end < src_end &&
                    *line_end != '\n' && *line_end != '\r')
@@ -66,10 +70,9 @@ namespace Zenith {
                                           static_cast<size_t>(line_end - line_start));
             size_t indent_cols     = static_cast<size_t>(tok_begin - line_start);
             size_t max_line_remain = static_cast<size_t>(line_end - tok_begin);
-            highlight_len = std::max<size_t>(1, std::min(highlight_len, max_line_remain));
+            highlight_len = std::max<size_t>(1,
+                std::min(highlight_len, max_line_remain));
 
-            std::cerr << std::format("[Error #{}] {}\n", i + 1, err.message);
-            std::cerr << std::format("  --> Line {}:{}\n", tok.line, tok.column);
             std::cerr << "   |\n";
             std::cerr << std::format("{:>3} | {}\n", tok.line, line_snippet);
             std::cerr << std::format("   | {}{}\n\n",
@@ -141,6 +144,15 @@ namespace Zenith {
                 case NodeType::String:
                     std::cout << std::setw(20) << "[String]"
                               << "Val: \"" << tok.literal << "\"";
+                    break;
+
+                case NodeType::Bool:
+                    std::cout << std::setw(20) << "[Bool]"
+                              << "Val: " << (node.data.i64 ? "true" : "false");
+                    break;
+
+                case NodeType::Null:
+                    std::cout << std::setw(20) << "[Null]";
                     break;
 
                 case NodeType::Identifier:
@@ -285,8 +297,8 @@ namespace Zenith {
                               << "Expr: " << node_ref(node.data.indicies.lhs);
                     break;
 
-                case NodeType::LabeledExpr:
-                    std::cout << std::setw(20) << "[LabeledExpr]"
+                case NodeType::LabeledBlockExpr:
+                    std::cout << std::setw(20) << "[LabeledBlockExpr]"
                               << "Label: " << node_ref(node.data.indicies.lhs)
                               << " | Expr: " << node_ref(node.data.indicies.rhs);
                     break;

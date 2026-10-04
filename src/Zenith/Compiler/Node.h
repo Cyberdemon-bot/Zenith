@@ -19,7 +19,7 @@ namespace Zenith {
         FieldAccess,
         BorrowExpr,
         NewExpr,
-        LabeledExpr,
+        LabeledBlockExpr,
         BlockExpr,
         IfExpr,
         MatchExpr,
