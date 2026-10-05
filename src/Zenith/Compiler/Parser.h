@@ -107,6 +107,9 @@ namespace Zenith {
         uint32_t parse_break_stmt();
         uint32_t parse_continue_stmt();
         uint32_t parse_assign_stmt(uint32_t lhs);
+        uint32_t parse_func_decl(uint32_t start);
+        uint32_t parse_func_arg_decl();
+        uint32_t parse_struct_decl(uint32_t start);
 
         uint32_t parse_prefix_expr();
         uint32_t parse_infix_expr(uint32_t left);
@@ -121,7 +124,6 @@ namespace Zenith {
         uint32_t parse_if_expr();
 
         uint32_t parse_identifier();
-        uint32_t parse_typed_identifier();
         uint32_t parse_type_annotation();
 
         //utils

@@ -105,6 +105,11 @@ namespace Zenith {
                                        : "Node[" + fmt_idx(idx) + "]";
         };
 
+        auto tok_ref = [&](uint32_t idx) -> std::string {
+            if (idx == ERROR_NODE || idx >= m_Tokens.size()) return std::string("None");
+            return "Tok[" + fmt_idx(idx) + "]";
+        };
+
         auto dump_list = [&](uint32_t start, uint32_t count,
                              std::string_view label) {
             std::cout << label << ": [";
@@ -162,8 +167,9 @@ namespace Zenith {
 
                 case NodeType::TypedIdentifier:
                     std::cout << std::setw(20) << "[TypedIdentifier]"
-                              << "Name: " << node_ref(node.data.indicies.lhs)
-                              << " | Type: " << node_ref(node.data.indicies.rhs);
+                              << "Name: " << node_ref(node.data.typed_ident.ident)
+                              << " | Type: " << node_ref(node.data.typed_ident.type)
+                              << " | Mut: "  << (node.data.typed_ident.is_mut ? "yes" : "no");
                     break;
 
                 case NodeType::Label:
@@ -173,70 +179,86 @@ namespace Zenith {
 
                 case NodeType::UnaryExpr:
                     std::cout << std::setw(20) << "[UnaryExpr]"
-                              << "Child: " << node_ref(node.data.indicies.lhs);
+                              << "Op: "    << tok_ref(node.data.unary.op)
+                              << " | Child: " << node_ref(node.data.unary.operand);
                     break;
 
                 case NodeType::BinaryExpr:
+                {
+                    uint32_t op_tok = node.data.binary.op;
+                    std::string_view op_str =
+                        (op_tok < m_Tokens.size()) ? m_Tokens[op_tok].literal
+                                                   : std::string_view{};
                     std::cout << std::setw(20) << "[BinaryExpr]"
-                              << "LHS: " << node_ref(node.data.indicies.lhs)
-                              << " | RHS: " << node_ref(node.data.indicies.rhs);
+                              << "LHS: " << node_ref(node.data.binary.lhs)
+                              << " | Op: '" << op_str << "'"
+                              << " | RHS: " << node_ref(node.data.binary.rhs);
                     break;
+                }
 
                 case NodeType::FieldAccess:
                     std::cout << std::setw(20) << "[FieldAccess]"
-                              << "Obj: " << node_ref(node.data.indicies.lhs)
-                              << " | Field: " << node_ref(node.data.indicies.rhs);
+                              << "Obj: "   << node_ref(node.data.access.target)
+                              << " | Field: " << node_ref(node.data.access.member);
                     break;
 
                 case NodeType::IndexExpr:
                     std::cout << std::setw(20) << "[IndexExpr]"
-                              << "Arr: " << node_ref(node.data.indicies.lhs)
-                              << " | Index: " << node_ref(node.data.indicies.rhs);
+                              << "Arr: "   << node_ref(node.data.access.target)
+                              << " | Index: " << node_ref(node.data.access.member);
                     break;
 
                 case NodeType::BorrowExpr:
                     std::cout << std::setw(20) << "[BorrowExpr]"
-                              << "Target: " << node_ref(node.data.indicies.lhs);
+                              << "Mut: "     << (node.data.borrow.is_mut ? "yes" : "no")
+                              << " | Target: " << node_ref(node.data.borrow.operand);
                     break;
 
                 case NodeType::TypeAnnotation:
                 {
-                    std::cout << std::setw(20) << "[TypeAnnotation]";
-                    bool is_borrow = node.data.indicies.lhs != 0;
-                    bool is_mut    = node.data.indicies.rhs != 0;
-                    // Type ident nằm ở token end_token (xem parse_type_annotation).
+                    uint8_t flags = node.data.type_annot.flags;
+                    uint32_t ident_tok = node.data.type_annot.ident;
+
                     std::string_view type_name =
-                        (node.end_token < m_Tokens.size())
-                            ? m_Tokens[node.end_token].literal
-                            : std::string_view{};
-                    std::cout << "Type: "
-                              << (is_borrow ? "&" : "")
-                              << (is_mut    ? "mut " : "")
-                              << type_name;
+                        (ident_tok < m_Tokens.size()) ? m_Tokens[ident_tok].literal
+                                                    : std::string_view{};
+
+                    std::cout << std::setw(20) << "[TypeAnnotation]"
+                            << "Type: "
+                            << ((flags & TYPE_FLAG_BORROW) ? "&" : "")
+                            << ((flags & TYPE_FLAG_MUT)    ? "mut " : "")
+                            << type_name;
                     break;
                 }
 
                 case NodeType::LetStmt:
                     std::cout << std::setw(20) << "[LetStmt]"
-                              << "Ident: " << node_ref(node.data.indicies.lhs)
-                              << " | Init: " << node_ref(node.data.indicies.rhs);
+                              << "Target: " << node_ref(node.data.let.target)
+                              << " | Init: " << node_ref(node.data.let.value);
                     break;
 
                 case NodeType::AssignStmt:
+                {
+                    uint32_t op_tok = node.data.binary.op;
+                    std::string_view op_str =
+                        (op_tok < m_Tokens.size()) ? m_Tokens[op_tok].literal
+                                                   : std::string_view{};
                     std::cout << std::setw(20) << "[AssignStmt]"
-                              << "Target: " << node_ref(node.data.indicies.lhs)
-                              << " | Value: "  << node_ref(node.data.indicies.rhs);
+                              << "Target: " << node_ref(node.data.binary.lhs)
+                              << " | Op: '" << op_str << "'"
+                              << " | Value: " << node_ref(node.data.binary.rhs);
                     break;
+                }
 
                 case NodeType::ReturnStmt:
                     std::cout << std::setw(20) << "[ReturnStmt]"
-                              << "Expr: " << node_ref(node.data.indicies.lhs);
+                              << "Expr: " << node_ref(node.data.child);
                     break;
 
                 case NodeType::BreakStmt:
                     std::cout << std::setw(20) << "[BreakStmt]"
-                              << "Label: " << node_ref(node.data.indicies.lhs)
-                              << " | Expr: " << node_ref(node.data.indicies.rhs);
+                              << "Label: " << node_ref(node.data.break_stmt.label)
+                              << " | Expr: " << node_ref(node.data.break_stmt.value);
                     break;
 
                 case NodeType::ContinueStmt:
@@ -246,18 +268,15 @@ namespace Zenith {
                 case NodeType::CallExpr:
                 {
                     std::cout << std::setw(20) << "[CallExpr]";
-                    uint32_t callee = node.data.indicies.lhs;
-                    uint32_t args   = node.data.indicies.rhs;
-
+                    uint32_t callee = node.data.call.callee;
+                    uint32_t args   = node.data.call.args;
                     std::cout << "Callee: " << node_ref(callee);
 
                     if (args != ERROR_NODE && args < m_Nodes.size())
                     {
                         const auto& arg_list = m_Nodes[args];
-                        uint32_t s = arg_list.data.list.start;
-                        uint32_t c = arg_list.data.list.count;
                         std::cout << " | ";
-                        dump_list(s, c, "Args");
+                        dump_list(arg_list.data.list.start, arg_list.data.list.count, "Args");
                     }
                     break;
                 }
@@ -265,50 +284,73 @@ namespace Zenith {
                 case NodeType::ArgList:
                 {
                     std::cout << std::setw(20) << "[ArgList]";
-                    uint32_t s = node.data.list.start;
-                    uint32_t c = node.data.list.count;
-                    dump_list(s, c, "Args");
+                    dump_list(node.data.list.start, node.data.list.count, "Args");
                     break;
                 }
 
                 case NodeType::IfExpr:
                     std::cout << std::setw(20) << "[IfExpr]"
-                            << "Arm: "  << node_ref(node.data.indicies.lhs)
-                            << " | Else: " << node_ref(node.data.indicies.rhs);
-                    break;
-
-                case NodeType::IfArm:
-                    std::cout << std::setw(20) << "[IfArm]"
-                            << "Cond: " << node_ref(node.data.indicies.lhs)
-                            << " | Then: " << node_ref(node.data.indicies.rhs);
+                              << "Cond: " << node_ref(node.data.if_expr.cond)
+                              << " | Then: " << node_ref(node.data.if_expr.then_branch)
+                              << " | Else: " << node_ref(node.data.if_expr.else_branch);
                     break;
 
                 case NodeType::ExprStmt:
                     std::cout << std::setw(20) << "[ExprStmt]"
-                              << "Expr: " << node_ref(node.data.indicies.lhs);
+                              << "Expr: " << node_ref(node.data.child);
                     break;
 
                 case NodeType::LabeledBlockExpr:
                     std::cout << std::setw(20) << "[LabeledBlockExpr]"
-                              << "Label: " << node_ref(node.data.indicies.lhs)
-                              << " | Expr: " << node_ref(node.data.indicies.rhs);
+                              << "Label: " << node_ref(node.data.labeled.label)
+                              << " | Body: " << node_ref(node.data.labeled.body);
                     break;
 
                 case NodeType::BlockExpr:
-                {
                     std::cout << std::setw(20) << "[BlockExpr]";
-                    uint32_t s = node.data.list.start;
-                    uint32_t c = node.data.list.count;
-                    dump_list(s, c, "Stmts");
+                    dump_list(node.data.list.start, node.data.list.count, "Stmts");
                     break;
-                }
 
                 case NodeType::Program:
+                    std::cout << std::setw(20) << "[Program]"
+                              << "Stmts: " << node.data.list.count;
+                    break;
+
+                case NodeType::FuncDecl:
+                    std::cout << std::setw(20) << "[FuncDecl]"
+                              << "Sign: " << node_ref(node.data.func_decl.sign)
+                              << " | Body: " << node_ref(node.data.func_decl.body);
+                    break;
+
+                case NodeType::FuncSign:
+                    std::cout << std::setw(20) << "[FuncSign]"
+                              << "Name: " << node_ref(node.data.func_sign.name)
+                              << " | Params: " << node_ref(node.data.func_sign.params)
+                              << " | Ret: " << node_ref(node.data.func_sign.ret_type);
+                    break;
+
+                case NodeType::FuncArgDecl:
+                    std::cout << std::setw(20) << "[FuncArgDecl]"
+                              << "Name: " << node_ref(node.data.func_arg.ident)
+                              << " | Type: " << node_ref(node.data.func_arg.type)
+                              << " | Default: " << node_ref(node.data.func_arg.default_val);
+                    break;
+
+                case NodeType::StructDecl:
                 {
-                    std::cout << std::setw(20) << "[Program]";
-                    uint32_t s = node.data.list.start;
-                    uint32_t c = node.data.list.count;
-                    std::cout << "Stmts: " << c;
+                    std::cout << std::setw(20) << "[StructDecl]"
+                              << "Name: " << node_ref(node.data.struct_decl.name);
+                    uint32_t fields = node.data.struct_decl.fields;
+                    if (fields != ERROR_NODE && fields < m_Nodes.size())
+                    {
+                        const auto& f = m_Nodes[fields];
+                        std::cout << " | ";
+                        dump_list(f.data.list.start, f.data.list.count, "Fields");
+                    }
+                    else
+                    {
+                        std::cout << " | Fields: (unit)";
+                    }
                     break;
                 }
 
