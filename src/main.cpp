@@ -264,7 +264,7 @@ int main(int argc, char* argv[])
 
     // run_zasm_test(source);
     //run_lexer_test();
-    //run_parser_test();
-    run_parser_error_test();
+    run_parser_test();
+    //run_parser_error_test();
     return 0;
 }

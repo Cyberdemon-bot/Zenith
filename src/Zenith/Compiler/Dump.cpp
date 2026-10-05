@@ -272,25 +272,16 @@ namespace Zenith {
                 }
 
                 case NodeType::IfExpr:
-                {
-                    std::cout << std::setw(20) << "[IfExpr]";
-                    uint32_t s = node.data.list.start;
-                    uint32_t c = node.data.list.count;
-                    if (c >= 3 && s + 2 < m_Extra.size())
-                    {
-                        uint32_t cond   = m_Extra[s];
-                        uint32_t then_b = m_Extra[s + 1];
-                        uint32_t else_b = m_Extra[s + 2];
-                        std::cout << "Cond: " << node_ref(cond)
-                                  << " | Then: " << node_ref(then_b)
-                                  << " | Else: " << node_ref(else_b);
-                    }
-                    else
-                    {
-                        std::cout << "ExtraStart: " << s << " | Count: " << c;
-                    }
+                    std::cout << std::setw(20) << "[IfExpr]"
+                            << "Arm: "  << node_ref(node.data.indicies.lhs)
+                            << " | Else: " << node_ref(node.data.indicies.rhs);
                     break;
-                }
+
+                case NodeType::IfArm:
+                    std::cout << std::setw(20) << "[IfArm]"
+                            << "Cond: " << node_ref(node.data.indicies.lhs)
+                            << " | Then: " << node_ref(node.data.indicies.rhs);
+                    break;
 
                 case NodeType::ExprStmt:
                     std::cout << std::setw(20) << "[ExprStmt]"

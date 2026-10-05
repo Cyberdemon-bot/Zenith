@@ -21,9 +21,8 @@ namespace Zenith {
         NewExpr,
         LabeledBlockExpr,
         BlockExpr,
-        IfExpr,
-        MatchExpr,
-        MatchArm,
+        IfExpr, IfArm,
+        MatchExpr, MatchArm,
 
         ExprStmt,
         LetStmt,

@@ -268,6 +268,10 @@ namespace Zenith {
 
         if (then_branch == ERROR_NODE) return ERROR_NODE;
 
+        uint32_t arm_start = get_node(condition).start_token, arm_end = get_node(then_branch).end_token;
+        uint32_t if_arm = push_node(NodeType::IfArm, arm_start, arm_end, 
+                                { .indicies = { .lhs = condition, .rhs = then_branch } });
+
         uint32_t else_branch = ERROR_NODE;
         if (curr_token_is(TokenType::ELSE))
         {
@@ -284,17 +288,10 @@ namespace Zenith {
             if (else_branch == ERROR_NODE) return ERROR_NODE;
         }
 
-        size_t marker = get_scratch_marker();
-        push_scratch(condition);
-        push_scratch(then_branch);
-        push_scratch(else_branch);
-        auto list = commit_list(marker);
-
-        uint32_t last_node = (else_branch != ERROR_NODE) ? else_branch : then_branch;
-        uint32_t end_tok = get_node(last_node).end_token;
+        uint32_t end_tok = (else_branch != ERROR_NODE) ? get_node(else_branch).end_token : arm_end;
 
         return push_node(NodeType::IfExpr, if_tok, end_tok,
-                         { .list = { .start = list.start, .count = list.count } });
+                         { .indicies = { .lhs = if_arm, .rhs = else_branch } });
     }
 
     // parse statement
