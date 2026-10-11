@@ -1,0 +1,62 @@
+func demo() {
+    let a = 42;
+    let b = 3.14;
+    let s = "text";
+    let t = true;
+    let n = null;
+    let typed: i32 = 1;
+    let mut counter = 0;
+    counter = counter + 1;
+}
+
+// === EXPECTED AST ===
+(Program
+  (FuncDecl
+    (FuncSign
+      (Identifier "demo")
+      (ArgList)
+    )
+    (BlockExpr
+      (LetStmt
+        (Identifier "a")
+        (Integer 42)
+      )
+      (LetStmt
+        (Identifier "b")
+        (Decimal 3.14)
+      )
+      (LetStmt
+        (Identifier "s")
+        (String "text")
+      )
+      (LetStmt
+        (Identifier "t")
+        (Bool true)
+      )
+      (LetStmt
+        (Identifier "n")
+        (Null)
+      )
+      (LetStmt
+        (TypedIdentifier :mut false
+          (Identifier "typed")
+          (NamedType "i32")
+        )
+        (Integer 1)
+      )
+      (LetStmt
+        (TypedIdentifier :mut true
+          (Identifier "counter")
+        )
+        (Integer 0)
+      )
+      (AssignStmt :op "="
+        (Identifier "counter")
+        (BinaryExpr :op "+"
+          (Identifier "counter")
+          (Integer 1)
+        )
+      )
+    )
+  )
+)

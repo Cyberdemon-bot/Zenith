@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include <string_view>
+#include <iostream>
 #include "Zenith/Compiler/Node.h"
 #include "Zenith/Compiler/Lexer.h"
 
@@ -58,8 +59,10 @@ namespace Zenith {
     public:
         Parser(std::string_view source);
         uint32_t parse_program();
-        void dump_ast() const;
-        void dump_errors() const;
+
+        void dump_errors(std::ostream& out = std::cerr) const;
+        void dump_flat_ast(std::ostream& out = std::cout) const;
+        void dump_tree_ast(std::ostream& out = std::cout, uint32_t root_idx = ERROR_NODE) const;
 
         bool has_errors() const { return !m_Errors.empty(); }
         uint32_t get_errors_count() const { return static_cast<uint32_t>(m_Errors.size()); }
@@ -77,6 +80,11 @@ namespace Zenith {
         // error handler
         void synchronize();
         uint32_t add_error(std::string_view message, uint32_t node = ERROR_NODE, ErrorScope scope = ErrorScope::Token);
+
+        // dump helpers
+        void dump_tree_node(std::ostream& out, uint32_t node_idx, int depth) const;
+        void dump_tree_list(std::ostream& out, uint32_t start, uint32_t count, int depth) const;
+        std::string node_type_to_string(NodeType type) const;
 
         // buffer's methods
         size_t get_scratch_marker() const { return m_Scratch.size(); }
@@ -130,6 +138,8 @@ namespace Zenith {
 
         uint32_t parse_prefix_expr();
         uint32_t parse_infix_expr(uint32_t left);
+        uint32_t parse_block_like_expr();
+        uint32_t parse_labeled_expr();
         uint32_t parse_expr(PrecedenceType precedence);
 
         uint32_t parse_numeric_expr(uint32_t left);
@@ -178,6 +188,18 @@ namespace Zenith {
                 case TokenType::LPAREN:     return PrecedenceType::P_CALL;
                 case TokenType::LBRACKET:   return PrecedenceType::P_INDEX;
                 default:                    return PrecedenceType::P_LOWEST;
+            }
+        }
+
+        constexpr bool is_block_like_start(TokenType type) noexcept
+        {
+            switch (type)
+            {
+                case TokenType::LBRACE:
+                case TokenType::IF:
+                case TokenType::FOR:
+                case TokenType::LABEL:  return true;
+                default:                return false;
             }
         }
 

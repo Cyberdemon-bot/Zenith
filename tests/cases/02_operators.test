@@ -1,0 +1,88 @@
+func demo() {
+    let sum = 1 + 2 * 3;
+    let grouped = (1 + 2) * 3;
+    let neg = -a;
+    let not = !a;
+    let cmp = a >= 1 == (b < 2);
+    let logic = a or b and !c;
+    let deref = *p;
+}
+
+// === EXPECTED AST ===
+(Program
+  (FuncDecl
+    (FuncSign
+      (Identifier "demo")
+      (ArgList)
+    )
+    (BlockExpr
+      (LetStmt
+        (Identifier "sum")
+        (BinaryExpr :op "+"
+          (Integer 1)
+          (BinaryExpr :op "*"
+            (Integer 2)
+            (Integer 3)
+          )
+        )
+      )
+      (LetStmt
+        (Identifier "grouped")
+        (BinaryExpr :op "*"
+          (ParenExpr
+            (BinaryExpr :op "+"
+              (Integer 1)
+              (Integer 2)
+            )
+          )
+          (Integer 3)
+        )
+      )
+      (LetStmt
+        (Identifier "neg")
+        (UnaryExpr :op "-"
+          (Identifier "a")
+        )
+      )
+      (LetStmt
+        (Identifier "not")
+        (UnaryExpr :op "!"
+          (Identifier "a")
+        )
+      )
+      (LetStmt
+        (Identifier "cmp")
+        (BinaryExpr :op "=="
+          (BinaryExpr :op ">="
+            (Identifier "a")
+            (Integer 1)
+          )
+          (ParenExpr
+            (BinaryExpr :op "<"
+              (Identifier "b")
+              (Integer 2)
+            )
+          )
+        )
+      )
+      (LetStmt
+        (Identifier "logic")
+        (BinaryExpr :op "or"
+          (Identifier "a")
+          (BinaryExpr :op "and"
+            (Identifier "b")
+            (UnaryExpr :op "!"
+              (Identifier "c")
+            )
+          )
+        )
+      )
+      (LetStmt
+        (Identifier "deref")
+        (DerefExpr
+          (Identifier "p")
+        )
+      )
+    )
+  )
+)

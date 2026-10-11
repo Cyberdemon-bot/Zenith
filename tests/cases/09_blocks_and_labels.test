@@ -1,0 +1,78 @@
+func demo() {
+    let v = 'outer: {
+        'inner: {
+            if ready { break 'outer 1; }
+        }
+        break 'outer 2;
+    };
+    { process(v); }
+    {}
+    'solo: { break 'solo; }
+}
+
+// === EXPECTED AST ===
+(Program
+  (FuncDecl
+    (FuncSign
+      (Identifier "demo")
+      (ArgList)
+    )
+    (BlockExpr
+      (LetStmt
+        (Identifier "v")
+        (LabeledExpr
+          (Label "outer")
+          (BlockExpr
+            (ExprStmt
+              (LabeledExpr
+                (Label "inner")
+                (BlockExpr
+                  (ExprStmt
+                    (IfExpr
+                      (Identifier "ready")
+                      (BlockExpr
+                        (BreakStmt
+                          (Label "outer")
+                          (Integer 1)
+                        )
+                      )
+                    )
+                  )
+                )
+              )
+            )
+            (BreakStmt
+              (Label "outer")
+              (Integer 2)
+            )
+          )
+        )
+      )
+      (ExprStmt
+        (BlockExpr
+          (ExprStmt
+            (CallExpr
+              (Identifier "process")
+              (ArgList
+                (Identifier "v")
+              )
+            )
+          )
+        )
+      )
+      (ExprStmt
+        (BlockExpr)
+      )
+      (ExprStmt
+        (LabeledExpr
+          (Label "solo")
+          (BlockExpr
+            (BreakStmt
+              (Label "solo")
+            )
+          )
+        )
+      )
+    )
+  )
+)
