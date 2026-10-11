@@ -214,22 +214,73 @@ namespace Zenith {
                               << " | Target: " << node_ref(node.data.borrow.operand);
                     break;
 
-                case NodeType::TypeAnnotation:
+                case NodeType::NamedType:
                 {
-                    uint8_t flags = node.data.type_annot.flags;
-                    uint32_t ident_tok = node.data.type_annot.ident;
-
+                    uint32_t ident_tok = node.data.named_type.ident;
                     std::string_view type_name =
                         (ident_tok < m_Tokens.size()) ? m_Tokens[ident_tok].literal
                                                     : std::string_view{};
 
-                    std::cout << std::setw(20) << "[TypeAnnotation]"
-                            << "Type: "
-                            << ((flags & TYPE_FLAG_BORROW) ? "&" : "")
-                            << ((flags & TYPE_FLAG_MUT)    ? "mut " : "")
-                            << type_name;
+                    std::cout << std::setw(20) << "[NamedType]"
+                              << "Name: " << type_name
+                              << " | Args: " << node_ref(node.data.named_type.args);
                     break;
                 }
+
+                case NodeType::RefType:
+                    std::cout << std::setw(20) << "[RefType]"
+                              << "Mut: " << (node.data.ref_type.is_mut ? "yes" : "no")
+                              << " | Inner: " << node_ref(node.data.ref_type.inner);
+                    break;
+
+                case NodeType::TupleType:
+                    std::cout << std::setw(20) << "[TupleType]";
+                    dump_list(node.data.list.start, node.data.list.count, "Elems");
+                    break;
+
+                case NodeType::TypeArgList:
+                    std::cout << std::setw(20) << "[TypeArgList]";
+                    dump_list(node.data.list.start, node.data.list.count, "Types");
+                    break;
+
+                case NodeType::Tuple:
+                    std::cout << std::setw(20) << "[Tuple]";
+                    dump_list(node.data.list.start, node.data.list.count, "Elems");
+                    break;
+
+                case NodeType::ParenExpr:
+                    std::cout << std::setw(20) << "[ParenExpr]"
+                              << "Expr: " << node_ref(node.data.child);
+                    break;
+
+                case NodeType::DerefExpr:
+                    std::cout << std::setw(20) << "[DerefExpr]"
+                              << "Expr: " << node_ref(node.data.child);
+                    break;
+
+                case NodeType::NewExpr:
+                    std::cout << std::setw(20) << "[NewExpr]"
+                              << "Mut: " << (node.data.new_expr.is_mut ? "yes" : "no")
+                              << " | Type: " << node_ref(node.data.new_expr.type)
+                              << " | Args: " << node_ref(node.data.new_expr.args);
+                    break;
+
+                case NodeType::StructInit:
+                    std::cout << std::setw(20) << "[StructInit]"
+                              << "Name: " << node_ref(node.data.pair.first)
+                              << " | Fields: " << node_ref(node.data.pair.second);
+                    break;
+
+                case NodeType::FieldInit:
+                    std::cout << std::setw(20) << "[FieldInit]"
+                              << "Name: " << node_ref(node.data.pair.first)
+                              << " | Value: " << node_ref(node.data.pair.second);
+                    break;
+
+                case NodeType::FieldInitList:
+                    std::cout << std::setw(20) << "[FieldInitList]";
+                    dump_list(node.data.list.start, node.data.list.count, "Fields");
+                    break;
 
                 case NodeType::LetStmt:
                     std::cout << std::setw(20) << "[LetStmt]"
@@ -300,8 +351,8 @@ namespace Zenith {
                               << "Expr: " << node_ref(node.data.child);
                     break;
 
-                case NodeType::LabeledBlockExpr:
-                    std::cout << std::setw(20) << "[LabeledBlockExpr]"
+                case NodeType::LabeledExpr:
+                    std::cout << std::setw(20) << "[LabeledExpr]"
                               << "Label: " << node_ref(node.data.labeled.label)
                               << " | Body: " << node_ref(node.data.labeled.body);
                     break;
@@ -327,13 +378,6 @@ namespace Zenith {
                               << "Name: " << node_ref(node.data.func_sign.name)
                               << " | Params: " << node_ref(node.data.func_sign.params)
                               << " | Ret: " << node_ref(node.data.func_sign.ret_type);
-                    break;
-
-                case NodeType::FuncArgDecl:
-                    std::cout << std::setw(20) << "[FuncArgDecl]"
-                              << "Name: " << node_ref(node.data.func_arg.ident)
-                              << " | Type: " << node_ref(node.data.func_arg.type)
-                              << " | Default: " << node_ref(node.data.func_arg.default_val);
                     break;
 
                 case NodeType::StructDecl:

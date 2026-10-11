@@ -1,5 +1,6 @@
 #pragma once
 
+#include <string>
 #include <vector>
 #include <string_view>
 #include "Zenith/Compiler/Node.h"
@@ -30,15 +31,24 @@ namespace Zenith {
         uint32_t count;
     };
 
+    struct StructLitScope
+    {
+        bool& flag;
+        bool saved;
+        StructLitScope(bool& f, bool restrict_literals) : flag(f), saved(f) { flag = restrict_literals; }
+        ~StructLitScope() { flag = saved; }
+    };
+
     enum class PrecedenceType : uint8_t 
     {
         P_LOWEST = 0,
+        P_OR,
+        P_AND,
         P_EQUALS,
         P_LESSGREATER,
         P_SUM,
         P_PRODUCT,
         P_UNARY,
-        P_EXPONENT,
         P_CALL,
         P_INDEX
     };
@@ -62,6 +72,7 @@ namespace Zenith {
         std::vector<uint32_t> m_Scratch;
         std::vector<ParseError> m_Errors;
         Lexer m_Lexer;
+        bool m_NoStructLit = false;
 
         // error handler
         void synchronize();
@@ -79,6 +90,12 @@ namespace Zenith {
 
         const Token& get_curr_token() const { return get_token(m_Cursor); }
         const Token& get_peek_token() const { return get_token(m_Cursor + 1); }
+        TokenType peek_type(uint32_t n) const
+        {
+            size_t idx = m_Cursor + n;
+            if (idx >= m_Tokens.size()) idx = m_Tokens.size() - 1;
+            return m_Tokens[idx].type;
+        }
         bool curr_token_is(TokenType type) { return get_token(m_Cursor).type == type; }
         bool peek_token_is(TokenType type) { return get_token(m_Cursor + 1).type == type; }
 
@@ -108,7 +125,7 @@ namespace Zenith {
         uint32_t parse_continue_stmt();
         uint32_t parse_assign_stmt(uint32_t lhs);
         uint32_t parse_func_decl(uint32_t start);
-        uint32_t parse_func_arg_decl();
+        uint32_t parse_typed_ident(std::string_view missing_name_message);
         uint32_t parse_struct_decl(uint32_t start);
 
         uint32_t parse_prefix_expr();
@@ -119,18 +136,33 @@ namespace Zenith {
         uint32_t parse_field_access_expr(uint32_t left);
         uint32_t parse_call_expr(uint32_t left);
         uint32_t parse_index_expr(uint32_t left);
-        uint32_t parse_borrow_expr();
+        uint32_t parse_borrow_expr(uint32_t start, uint8_t is_mut);
+        uint32_t parse_mut_expr();
+        uint32_t parse_new_expr(uint32_t start, uint8_t is_mut);
+        uint32_t parse_paren_expr();
+        uint32_t parse_struct_init();
+        uint32_t parse_field_init();
+        uint32_t parse_arrow_body();
         uint32_t parse_block_expr();
         uint32_t parse_if_expr();
+        uint32_t parse_for_expr();
 
         uint32_t parse_identifier();
         uint32_t parse_type_annotation();
+        uint32_t parse_ref_type(uint32_t start, uint8_t is_mut);
+        uint32_t parse_named_type();
+        uint32_t parse_tuple_type();
+
+        bool is_tuple_ahead() const;
+        bool is_struct_init_ahead() const;
 
         //utils
         constexpr PrecedenceType get_precedence(TokenType type) noexcept 
         {
             switch (type) 
             {
+                case TokenType::OR:         return PrecedenceType::P_OR;
+                case TokenType::AND:        return PrecedenceType::P_AND;
                 case TokenType::EE:         
                 case TokenType::NE:         return PrecedenceType::P_EQUALS;
                 case TokenType::LT:
@@ -142,7 +174,6 @@ namespace Zenith {
                 case TokenType::ASTERISK:
                 case TokenType::SLASH:
                 case TokenType::MODULUS:    return PrecedenceType::P_PRODUCT;
-                case TokenType::POW:        return PrecedenceType::P_EXPONENT;
                 case TokenType::DOT:
                 case TokenType::LPAREN:     return PrecedenceType::P_CALL;
                 case TokenType::LBRACKET:   return PrecedenceType::P_INDEX;

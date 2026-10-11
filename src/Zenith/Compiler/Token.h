@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <cstdint>
 #include <string_view>
 
 namespace Zenith {
@@ -10,13 +11,14 @@ namespace Zenith {
         END_OF_FILE, ILLEGAL,
         IDENT, INTEGER, DECIMAL, STRING, LABEL,
         // +      -         *      /        %    ^
-        PLUS, MINUS, ASTERISK, SLASH, MODULUS, POW,
+        PLUS, MINUS, ASTERISK, SLASH, MODULUS,
         EQ, LT, LTE, GT, GTE, EE, NE, // EE -> ==, NE -> !=
         BANG, QUESTION, AMPERSAND, DOT, // !, ?, &, .
         ARROW, FATARROW, // ->, =>
 
         SEMICOLON, COLON, COMMA, LPAREN, RPAREN, LBRACE, RBRACE, LBRACKET, RBRACKET,
         BREAK, CLASS, CONTINUE, ELSE, FOR, FUNC, IF, LET, MATCH, MUT, NATIVE, NEW, PUB, RETURN, STRUCT,
+        AND, OR, IN,
         FALSE, NULL_LIT, TRUE,
         COUNT
     };
@@ -26,7 +28,7 @@ namespace Zenith {
         "END_OF_FILE", "ILLEGAL",
         "IDENT", "INTEGER", "DECIMAL", "STRING", "LABEL",
 
-        "PLUS", "MINUS", "ASTERISK", "SLASH", "MODULUS", "POW",
+        "PLUS", "MINUS", "ASTERISK", "SLASH", "MODULUS",
         "EQ", "LT", "LTE", "GT", "GTE", "EE", "NE",
         "BANG", "QUESTION", "AMPERSAND", "DOT", 
         "ARROW", "FATARROW",
@@ -34,6 +36,7 @@ namespace Zenith {
         "SEMICOLON", "COLON", "COMMA", "LPAREN", "RPAREN", "LBRACE", "RBRACE", "LBRACKET", "RBRACKET",
 
         "BREAK", "CLASS", "CONTINUE", "ELSE", "FOR", "FUNC", "IF", "LET", "MATCH", "MUT", "NATIVE", "NEW", "PUB", "RETURN", "STRUCT",
+        "AND", "OR", "IN",
         "FALSE", "NULL", "TRUE"
     };
 

@@ -11,7 +11,8 @@ namespace Zenith {
             TokenType type;
         };
 
-        constexpr std::array<KeyPair, 18> KEYWORDS = {{
+        constexpr std::array<KeyPair, 21> KEYWORDS = {{
+            {"and",      TokenType::AND},
             {"break",    TokenType::BREAK},
             {"class",    TokenType::CLASS},
             {"continue", TokenType::CONTINUE},
@@ -20,17 +21,21 @@ namespace Zenith {
             {"for",      TokenType::FOR},
             {"func",     TokenType::FUNC}, 
             {"if",       TokenType::IF},
+            {"in",       TokenType::IN},
             {"let",      TokenType::LET},
             {"match",    TokenType::MATCH},
             {"mut",      TokenType::MUT},
             {"native",   TokenType::NATIVE},
             {"new",      TokenType::NEW},
             {"null",     TokenType::NULL_LIT},
+            {"or",       TokenType::OR},
             {"pub",      TokenType::PUB},
             {"return",   TokenType::RETURN},
             {"struct",   TokenType::STRUCT},
             {"true",     TokenType::TRUE}
         }};
+
+        static_assert(std::ranges::is_sorted(KEYWORDS, {}, &KeyPair::name), "KEYWORDS must stay sorted");
 
         TokenType lookup_ident(std::string_view ident) 
         {
@@ -100,11 +105,6 @@ namespace Zenith {
             }
             case '*':
             {
-                if (peek_char() == '*')
-                {
-                    read_char(); read_char();
-                    return new_token(TokenType::POW, get_lil(start_pos), start_pos);
-                }
                 read_char();
                 return new_token(TokenType::ASTERISK, get_lil(start_pos), start_pos);
             }

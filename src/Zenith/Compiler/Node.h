@@ -16,14 +16,19 @@ namespace Zenith {
 
         UnaryExpr,
         BinaryExpr,
+        DerefExpr,
+        ParenExpr,
         CallExpr, ArgList,
         IndexExpr,
         FieldAccess,
         BorrowExpr,
         NewExpr,
-        LabeledBlockExpr,
+        StructInit, FieldInit, FieldInitList,
+
+        LabeledExpr,
         BlockExpr,
         IfExpr,
+        ForExpr, ForInExpr,
         MatchExpr, MatchArm,
 
         ExprStmt,
@@ -33,17 +38,11 @@ namespace Zenith {
         ContinueStmt,
         AssignStmt, 
 
-        TypeAnnotation, 
-        FuncDecl, FuncSign, FuncArgDecl,
+        NamedType, RefType, TupleType, TypeArgList,
+        FuncDecl, FuncSign,
         StructDecl,
         ClassDecl,
         Program
-    };
-
-    enum TypeAnnotationFlags : uint8_t
-    {
-        TYPE_FLAG_BORROW = 1 << 0,
-        TYPE_FLAG_MUT    = 1 << 1,
     };
 
     struct Node
@@ -67,18 +66,21 @@ namespace Zenith {
             struct { uint32_t label, body; }                    labeled;
             struct { uint32_t ident, type; uint8_t is_mut; }    typed_ident;
             struct { uint32_t operand; uint8_t is_mut; }        borrow;
-            struct { uint32_t ident; uint8_t flags; }           type_annot;
+            struct { uint32_t ident, args; }                    named_type;
+            struct { uint32_t inner; uint8_t is_mut; }          ref_type;
 
             struct { uint32_t name, params, ret_type; }         func_sign;
             struct { uint32_t sign, body; }                     func_decl;
-            struct { uint32_t ident, type, default_val; }       func_arg;
             struct { uint32_t name, fields; }                   struct_decl;
             struct { uint32_t target, value; }                  let;
 
             struct { uint32_t pattern, guard, body; }           match_arm;
 
-            struct { uint32_t type, args; }                     new_expr;
+            struct { uint32_t type, args; uint8_t is_mut; }     new_expr;
             struct { uint32_t label, value; }                   break_stmt;
+
+            struct { uint32_t cond, body; }                     for_expr;
+            struct { uint32_t var, iterable, body; }            for_in;
         } data;
     };
 }

@@ -111,15 +111,17 @@ namespace Zenith {
                 return push_node(NodeType::UnaryExpr, op_tok, get_node(expr).end_token,
                     { .unary = { .op = op_tok, .operand = expr } });
             }
-            case TokenType::LPAREN:
+            case TokenType::ASTERISK:
             {
-                next_token(); 
-                uint32_t expr = parse_expr(PrecedenceType::P_LOWEST);
+                uint32_t op_tok = curr_token();
+                next_token();
+                uint32_t expr = parse_expr(PrecedenceType::P_UNARY);
                 if (expr == ERROR_NODE) return ERROR_NODE;
-                if (!curr_token_is(TokenType::RPAREN)) return add_error("Expected ')' after expression", expr);
-                next_token(); 
-                return expr;
+                uint32_t end = get_node(expr).end_token;
+                uint32_t node = push_node(NodeType::DerefExpr, op_tok, end, { .child = expr });
+                return node;
             }
+            case TokenType::LPAREN: return parse_paren_expr();
             case TokenType::LABEL:
             {
                 uint32_t start = curr_token(), end; next_token();
@@ -133,11 +135,18 @@ namespace Zenith {
                 end = get_node(expr).end_token;
 
                 uint32_t label = push_node(NodeType::Label, start);
-                return push_node(NodeType::LabeledBlockExpr, start, end,
+                return push_node(NodeType::LabeledExpr, start, end,
                     { .labeled = { .label = label, .body = expr } });
             }
-            case TokenType::IDENT:     return parse_identifier();
-            case TokenType::AMPERSAND: return parse_borrow_expr();
+            case TokenType::IDENT:
+            {
+                if (peek_token_is(TokenType::LBRACE) && !m_NoStructLit && is_struct_init_ahead())
+                    return parse_struct_init();
+                return parse_identifier();
+            }
+            case TokenType::AMPERSAND: return parse_borrow_expr(curr_token(), 0);
+            case TokenType::MUT:       return parse_mut_expr();
+            case TokenType::NEW:       return parse_new_expr(curr_token(), 0);
             case TokenType::LBRACE:    return parse_block_expr();
             case TokenType::IF:        return parse_if_expr();
             default: return add_error("Unexpected token in prefix expression");
@@ -155,13 +164,14 @@ namespace Zenith {
             case TokenType::ASTERISK:
             case TokenType::SLASH:
             case TokenType::MODULUS:
-            case TokenType::POW:
             case TokenType::EE:
             case TokenType::NE:
             case TokenType::LT:
             case TokenType::GT:
             case TokenType::LTE:
-            case TokenType::GTE: return parse_numeric_expr(left);
+            case TokenType::GTE:
+            case TokenType::AND:
+            case TokenType::OR: return parse_numeric_expr(left);
             case TokenType::DOT: return parse_field_access_expr(left);
             case TokenType::LPAREN:  return parse_call_expr(left);
             case TokenType::LBRACKET: return parse_index_expr(left);
@@ -173,11 +183,9 @@ namespace Zenith {
     {
         uint32_t op_tok = curr_token();
         const auto& token = get_curr_token(); next_token();
-        PrecedenceType precedence = get_precedence(token.type), right_precedence = precedence;
+        PrecedenceType precedence = get_precedence(token.type);
         
-        if (token.type == TokenType::POW) 
-            right_precedence = static_cast<PrecedenceType>(static_cast<uint8_t>(precedence) - 1);
-        uint32_t right = parse_expr(right_precedence);
+        uint32_t right = parse_expr(precedence);
         if (right == ERROR_NODE) return ERROR_NODE;
 
         uint32_t start = get_node(left).start_token, end = get_node(right).end_token;
@@ -197,6 +205,7 @@ namespace Zenith {
 
     uint32_t Parser::parse_call_expr(uint32_t left)
     {
+        StructLitScope allow(m_NoStructLit, false);
         uint32_t args = parse_delimited_list(
             NodeType::ArgList,
             TokenType::RPAREN,
@@ -213,6 +222,7 @@ namespace Zenith {
 
     uint32_t Parser::parse_index_expr(uint32_t left)
     {
+        StructLitScope allow(m_NoStructLit, false);
         next_token(); // consume '['
         uint32_t index_expr = parse_expr(PrecedenceType::P_LOWEST);
         if (index_expr == ERROR_NODE) return ERROR_NODE;
@@ -225,21 +235,135 @@ namespace Zenith {
             { .access = { .target = left, .member = index_expr } });
     }
 
-    uint32_t Parser::parse_borrow_expr()
+    uint32_t Parser::parse_borrow_expr(uint32_t start, uint8_t is_mut)
     {
-        uint32_t amp_tok = curr_token(); next_token(); // consume '&'
-        uint8_t is_mut = 0;
-        if (curr_token_is(TokenType::MUT)) { is_mut = 1; next_token(); }
+        next_token(); // consume '&'
+        if (curr_token_is(TokenType::MUT)) return add_error("Write 'mut &x' instead of '&mut x'");
 
         uint32_t expr = parse_expr(PrecedenceType::P_UNARY);
         if (expr == ERROR_NODE) return ERROR_NODE;
 
-        return push_node(NodeType::BorrowExpr, amp_tok, get_node(expr).end_token,
+        return push_node(NodeType::BorrowExpr, start, get_node(expr).end_token,
             { .borrow = { .operand = expr, .is_mut = is_mut } });
+    }
+
+    uint32_t Parser::parse_mut_expr()
+    {
+        uint32_t mut_tok = curr_token(); next_token(); // consume 'mut'
+        if (curr_token_is(TokenType::AMPERSAND)) return parse_borrow_expr(mut_tok, 1);
+        if (curr_token_is(TokenType::NEW))       return parse_new_expr(mut_tok, 1);
+        return add_error("Expected '&' or 'new' after 'mut'");
+    }
+
+    uint32_t Parser::parse_new_expr(uint32_t start, uint8_t is_mut)
+    {
+        next_token(); // consume 'new'
+        uint32_t type = parse_named_type();
+        if (type == ERROR_NODE) return ERROR_NODE;
+
+        uint32_t args;
+        if (curr_token_is(TokenType::LPAREN))
+        {
+            StructLitScope allow(m_NoStructLit, false);
+            args = parse_delimited_list(
+                NodeType::ArgList,
+                TokenType::RPAREN,
+                TokenType::COMMA,
+                [this]() { return parse_expr(PrecedenceType::P_LOWEST); },
+                "Expected ',' or ')' in constructor argument list"
+            );
+        }
+        else if (curr_token_is(TokenType::LBRACE))
+        {
+            if (m_NoStructLit)
+                return add_error("Struct initializer is not allowed here; wrap the expression in parentheses");
+            StructLitScope allow(m_NoStructLit, false);
+            args = parse_delimited_list(
+                NodeType::FieldInitList,
+                TokenType::RBRACE,
+                TokenType::COMMA,
+                [this]() { return parse_field_init(); },
+                "Expected ',' or '}' in field initializer list"
+            );
+        }
+        else return add_error("Expected '(' or '{' after type in new expression", type);
+
+        if (args == ERROR_NODE) return ERROR_NODE;
+        return push_node(NodeType::NewExpr, start, get_node(args).end_token,
+            { .new_expr = { .type = type, .args = args, .is_mut = is_mut } });
+    }
+
+    uint32_t Parser::parse_paren_expr()
+    {
+        StructLitScope allow(m_NoStructLit, false);
+
+        // '()' and '(a, b)' are tuples, '(a)' is grouping
+        if (peek_token_is(TokenType::RPAREN) || is_tuple_ahead())
+        {
+            return parse_delimited_list(
+                NodeType::Tuple,
+                TokenType::RPAREN,
+                TokenType::COMMA,
+                [this]() { return parse_expr(PrecedenceType::P_LOWEST); },
+                "Expected ',' or ')' in tuple expression"
+            );
+        }
+
+        uint32_t open = curr_token(); next_token(); // consume '('
+        uint32_t expr = parse_expr(PrecedenceType::P_LOWEST);
+        if (expr == ERROR_NODE) return ERROR_NODE;
+        if (!curr_token_is(TokenType::RPAREN)) return add_error("Expected ')' after expression", expr);
+
+        uint32_t close = curr_token(); next_token(); // consume ')'
+        return push_node(NodeType::ParenExpr, open, close, { .child = expr });
+    }
+
+    uint32_t Parser::parse_struct_init()
+    {
+        uint32_t name = parse_identifier();
+        StructLitScope allow(m_NoStructLit, false);
+
+        uint32_t fields = parse_delimited_list(
+            NodeType::FieldInitList,
+            TokenType::RBRACE,
+            TokenType::COMMA,
+            [this]() { return parse_field_init(); },
+            "Expected ',' or '}' in field initializer list"
+        );
+        if (fields == ERROR_NODE) return ERROR_NODE;
+
+        return push_node(NodeType::StructInit, get_node(name).start_token, get_node(fields).end_token,
+            { .pair = { .first = name, .second = fields } });
+    }
+
+    uint32_t Parser::parse_field_init()
+    {
+        if (!curr_token_is(TokenType::IDENT)) return add_error("Expected field name in initializer");
+        uint32_t name = parse_identifier();
+
+        uint32_t value = name; // shorthand 'x' means 'x: x'
+        if (curr_token_is(TokenType::COLON))
+        {
+            next_token();
+            value = parse_expr(PrecedenceType::P_LOWEST);
+            if (value == ERROR_NODE) return ERROR_NODE;
+        }
+
+        return push_node(NodeType::FieldInit, get_node(name).start_token, get_node(value).end_token,
+            { .pair = { .first = name, .second = value } });
+    }
+
+    uint32_t Parser::parse_arrow_body()
+    {
+        next_token(); // consume '=>'
+        if (curr_token_is(TokenType::LBRACE) || curr_token_is(TokenType::LABEL))
+            return add_error("'=>' takes a single expression; use '{ }' or '=>', not both");
+        return parse_expr(PrecedenceType::P_LOWEST);
     }
 
     uint32_t Parser::parse_block_expr()
     {
+        StructLitScope allow(m_NoStructLit, false);
         uint32_t start = curr_token(), end; next_token(); // consume '{'
         size_t marker = get_scratch_marker();
 
@@ -250,7 +374,11 @@ namespace Zenith {
             else push_scratch(stmt);
         }
 
-        if (!curr_token_is(TokenType::RBRACE)) return add_error("Expected '}' at end of block expression");
+        if (!curr_token_is(TokenType::RBRACE))
+        {
+            rollback_scratch(marker);
+            return add_error("Expected '}' at end of block expression");
+        }
         end = curr_token(); next_token(); // consume '}'
 
         auto list = commit_list(marker);
@@ -262,15 +390,15 @@ namespace Zenith {
     {
         uint32_t if_tok = curr_token(); next_token(); // consume 'if'
 
-        uint32_t cond = parse_expr(PrecedenceType::P_LOWEST);
+        uint32_t cond;
+        {
+            StructLitScope restrict_literals(m_NoStructLit, true);
+            cond = parse_expr(PrecedenceType::P_LOWEST);
+        }
         if (cond == ERROR_NODE) return ERROR_NODE;
 
         uint32_t then_branch = ERROR_NODE;
-        if (curr_token_is(TokenType::FATARROW))
-        {
-            next_token(); // consume '=>'
-            then_branch = parse_expr(PrecedenceType::P_LOWEST);
-        }
+        if (curr_token_is(TokenType::FATARROW)) then_branch = parse_arrow_body();
         else if (curr_token_is(TokenType::LBRACE)) then_branch = parse_block_expr();
         else return add_error("Expected '=>' or '{' after if condition", cond);
 
@@ -282,11 +410,7 @@ namespace Zenith {
             next_token(); // consume 'else'
             if (curr_token_is(TokenType::IF)) else_branch = parse_if_expr();
             else if (curr_token_is(TokenType::LBRACE)) else_branch = parse_block_expr();
-            else if (curr_token_is(TokenType::FATARROW))
-            {
-                next_token(); // consume '=>'
-                else_branch = parse_expr(PrecedenceType::P_LOWEST);
-            }
+            else if (curr_token_is(TokenType::FATARROW)) else_branch = parse_arrow_body();
             else return add_error("Expected 'if', '=>', or '{' after 'else'");
 
             if (else_branch == ERROR_NODE) return ERROR_NODE;
@@ -296,6 +420,11 @@ namespace Zenith {
 
         return push_node(NodeType::IfExpr, if_tok, end,
             { .if_expr = { .cond = cond, .then_branch = then_branch, .else_branch = else_branch } });
+    }
+
+    uint32_t Parser::parse_for_expr()
+    {
+        
     }
 
     // statements
@@ -326,14 +455,19 @@ namespace Zenith {
 
     uint32_t Parser::default_parser()
     {
-        uint32_t expr = parse_expr(PrecedenceType::P_LOWEST);
+        bool block_like = curr_token_is(TokenType::LBRACE) ||
+                          curr_token_is(TokenType::IF)     ||
+                          curr_token_is(TokenType::LABEL);
+
+        // a block-like statement stops at its own expression, no infix continuation
+        uint32_t expr = block_like ? parse_prefix_expr() : parse_expr(PrecedenceType::P_LOWEST);
         if (expr == ERROR_NODE) return ERROR_NODE;
-        if (curr_token_is(TokenType::EQ)) return parse_assign_stmt(expr);
+        if (!block_like && curr_token_is(TokenType::EQ)) return parse_assign_stmt(expr);
 
         NodeType t = m_Nodes[expr].type;
         bool is_expr_as_stmt_node =
             t == NodeType::BlockExpr        ||
-            t == NodeType::LabeledBlockExpr ||
+            t == NodeType::LabeledExpr ||
             t == NodeType::IfExpr           ||
             t == NodeType::CallExpr;
 
@@ -341,9 +475,10 @@ namespace Zenith {
             return add_error("Expression is not valid as a statement; expected call, block, if, or assignment", expr, ErrorScope::NodeStart);
 
         uint32_t start = get_node(expr).start_token, end = get_node(expr).end_token;
+        bool closed_by_brace = block_like && m_Tokens[end].type == TokenType::RBRACE;
 
         if (curr_token_is(TokenType::SEMICOLON)) { end = curr_token(); next_token(); }
-        else if (!curr_token_is(TokenType::RBRACE) && !curr_token_is(TokenType::END_OF_FILE))
+        else if (!closed_by_brace)
             return add_error("Expected ';' after expression statement", expr, ErrorScope::TokenBefore);
 
         return push_node(NodeType::ExprStmt, start, end, { .child = expr });
@@ -354,7 +489,8 @@ namespace Zenith {
         NodeType lt = m_Nodes[lhs].type;
         if (lt != NodeType::Identifier &&
             lt != NodeType::FieldAccess &&
-            lt != NodeType::IndexExpr)
+            lt != NodeType::IndexExpr   &&
+            lt != NodeType::DerefExpr)
             return add_error("Invalid assignment target", lhs, ErrorScope::NodeStart);
 
         uint32_t op_tok = curr_token(); next_token();
@@ -382,11 +518,6 @@ namespace Zenith {
         if (curr_token_is(TokenType::COLON))
         {
             next_token();
-            if (!curr_token_is(TokenType::AMPERSAND) && 
-                !curr_token_is(TokenType::MUT) && 
-                !curr_token_is(TokenType::IDENT))
-                return add_error("Expected type annotation after ':'", ident);
-
             type_annot = parse_type_annotation();
             if (type_annot == ERROR_NODE) return ERROR_NODE;
         }
@@ -438,18 +569,10 @@ namespace Zenith {
         uint32_t break_tok = curr_token(), end; next_token();
         uint32_t label = ERROR_NODE, value = ERROR_NODE;
 
-        if (curr_token_is(TokenType::SEMICOLON))
-        {
-            uint32_t end = curr_token(); next_token();
-            return push_node(NodeType::BreakStmt, break_tok, end,
-                { .break_stmt = { .label = ERROR_NODE, .value = ERROR_NODE } });
-        }
-
-        if (curr_token_is(TokenType::LABEL))
-        {
-            label = push_node(NodeType::Label, curr_token());
-            next_token();
-        }
+        if (!curr_token_is(TokenType::LABEL))
+            return add_error("Expected a label after 'break'; unlabeled break is not allowed");
+        label = push_node(NodeType::Label, curr_token());
+        next_token();
 
         if (!curr_token_is(TokenType::SEMICOLON))
         {
@@ -486,35 +609,16 @@ namespace Zenith {
         uint32_t name = parse_identifier();
 
         if (!curr_token_is(TokenType::LPAREN)) return add_error("Expected '(' after function name", name);
-        uint32_t lparen = curr_token(); next_token(); // consume '('
-        size_t marker = get_scratch_marker();
 
-        if (!curr_token_is(TokenType::RPAREN))
-        {
-            while (true)
-            {
-                uint32_t arg = parse_func_arg_decl();
-                if (arg == ERROR_NODE) { rollback_scratch(marker); return ERROR_NODE; }
-                push_scratch(arg);
-
-                if (curr_token_is(TokenType::COMMA)) { next_token(); continue; }
-                if (curr_token_is(TokenType::RPAREN)) break;
-
-                rollback_scratch(marker);
-                return add_error("Expected ',' or ')' in parameter list");
-            }
-        }
-
-        if (!curr_token_is(TokenType::RPAREN))
-        {
-            rollback_scratch(marker);
-            return add_error("Expected ')' after parameter list");
-        }
-        uint32_t rparen = curr_token(); next_token(); // consume ')'
-
-        auto params = commit_list(marker);
-        uint32_t params_node = push_node(NodeType::ArgList, lparen, rparen,
-            { .list = { .start = params.start, .count = params.count } });
+        uint32_t params = parse_delimited_list(
+            NodeType::ArgList,
+            TokenType::RPAREN,
+            TokenType::COMMA,
+            [this]() { return parse_typed_ident("Expected parameter name"); },
+            "Expected ',' or ')' in parameter list"
+        );
+        if (params == ERROR_NODE) return ERROR_NODE;
+        uint32_t rparen = get_node(params).end_token;
 
         uint32_t ret_type = ERROR_NODE;
         if (curr_token_is(TokenType::ARROW))
@@ -527,7 +631,7 @@ namespace Zenith {
         uint32_t sign_end = (ret_type != ERROR_NODE) ? get_node(ret_type).end_token : rparen;
         uint32_t sign = push_node(NodeType::FuncSign,
             get_node(name).start_token, sign_end,
-            { .func_sign = { .name = name, .params = params_node, .ret_type = ret_type } });
+            { .func_sign = { .name = name, .params = params, .ret_type = ret_type } });
 
         if (!curr_token_is(TokenType::LBRACE))
             return add_error("Expected '{' for function body", sign);
@@ -538,22 +642,6 @@ namespace Zenith {
         uint32_t end = get_node(body).end_token;
         return push_node(NodeType::FuncDecl, start, end,
             { .func_decl = { .sign = sign, .body = body } });
-    }
-
-    uint32_t Parser::parse_func_arg_decl()
-    {
-        if (!curr_token_is(TokenType::IDENT)) return add_error("Expected parameter name");
-        uint32_t ident = parse_identifier();
-
-        if (!curr_token_is(TokenType::COLON)) return add_error("Expected ':' after parameter name", ident);
-        next_token();
-
-        uint32_t type = parse_type_annotation();
-        if (type == ERROR_NODE) return ERROR_NODE;
-
-        uint32_t start = get_node(ident).start_token, end = get_node(type).end_token;
-        return push_node(NodeType::FuncArgDecl, start, end,
-            { .func_arg = { .ident = ident, .type = type, .default_val = ERROR_NODE } });
     }
 
     uint32_t Parser::parse_struct_decl(uint32_t start)
@@ -574,53 +662,33 @@ namespace Zenith {
         if (!curr_token_is(TokenType::LBRACE))
             return add_error("Expected '{' or ';' after struct name", name);
 
-        uint32_t lbrace = curr_token(); next_token(); // consume '{'
-        size_t marker = get_scratch_marker();
+        uint32_t fields = parse_delimited_list(
+            NodeType::ArgList,
+            TokenType::RBRACE,
+            TokenType::COMMA,
+            [this]() { return parse_typed_ident("Expected field name in struct body"); },
+            "Expected ',' or '}' in struct body"
+        );
+        if (fields == ERROR_NODE) return ERROR_NODE;
 
-        while (!curr_token_is(TokenType::RBRACE) && !curr_token_is(TokenType::END_OF_FILE))
-        {
-            if (!curr_token_is(TokenType::IDENT))
-            {
-                rollback_scratch(marker);
-                return add_error("Expected field name in struct body");
-            }
-            uint32_t field_ident = parse_identifier();
+        return push_node(NodeType::StructDecl, start, get_node(fields).end_token,
+            { .struct_decl = { .name = name, .fields = fields } });
+    }
 
-            if (!curr_token_is(TokenType::COLON))
-            {
-                rollback_scratch(marker);
-                return add_error("Expected ':' after field name", field_ident);
-            }
-            next_token();
+    uint32_t Parser::parse_typed_ident(std::string_view missing_name_message)
+    {
+        if (!curr_token_is(TokenType::IDENT)) return add_error(missing_name_message);
+        uint32_t ident = parse_identifier();
 
-            uint32_t field_type = parse_type_annotation();
-            if (field_type == ERROR_NODE) { rollback_scratch(marker); return ERROR_NODE; }
+        if (!curr_token_is(TokenType::COLON)) return add_error("Expected ':' after name", ident);
+        next_token();
 
-            uint32_t field = push_node(NodeType::TypedIdentifier,
-                get_node(field_ident).start_token, get_node(field_type).end_token,
-                { .typed_ident = { .ident = field_ident, .type = field_type, .is_mut = 0 } });
-            push_scratch(field);
+        uint32_t type = parse_type_annotation();
+        if (type == ERROR_NODE) return ERROR_NODE;
 
-            if (curr_token_is(TokenType::COMMA)) { next_token(); continue; }
-            if (curr_token_is(TokenType::RBRACE)) break;
-
-            rollback_scratch(marker);
-            return add_error("Expected ',' or '}' in struct body");
-        }
-
-        if (!curr_token_is(TokenType::RBRACE))
-        {
-            rollback_scratch(marker);
-            return add_error("Expected '}' at end of struct");
-        }
-        uint32_t end = curr_token(); next_token();
-
-        auto fields = commit_list(marker);
-        uint32_t fields_node = push_node(NodeType::ArgList, lbrace, end,
-            { .list = { .start = fields.start, .count = fields.count } });
-
-        return push_node(NodeType::StructDecl, start, end,
-            { .struct_decl = { .name = name, .fields = fields_node } });
+        return push_node(NodeType::TypedIdentifier,
+            get_node(ident).start_token, get_node(type).end_token,
+            { .typed_ident = { .ident = ident, .type = type, .is_mut = 0 } });
     }
 
     // helpers
@@ -633,22 +701,115 @@ namespace Zenith {
 
     uint32_t Parser::parse_type_annotation()
     {
-        uint32_t start = curr_token(), end;
-        uint8_t flags = 0;
+        uint32_t start = curr_token();
 
-        if (curr_token_is(TokenType::AMPERSAND)) { flags |= TYPE_FLAG_BORROW; next_token(); }
-        if (curr_token_is(TokenType::MUT)) { flags |= TYPE_FLAG_MUT;    next_token(); }
+        switch (get_curr_token().type)
+        {
+            case TokenType::MUT:
+            {
+                next_token();
+                if (!curr_token_is(TokenType::AMPERSAND))
+                    return add_error("Expected '&' after 'mut' in type; 'mut' only applies to references");
+                return parse_ref_type(start, 1);
+            }
+            case TokenType::AMPERSAND:
+            {
+                if (peek_token_is(TokenType::MUT))
+                {
+                    next_token();
+                    return add_error("Write 'mut &T' instead of '&mut T'");
+                }
+                return parse_ref_type(start, 0);
+            }
+            case TokenType::LPAREN: return parse_tuple_type();
+            case TokenType::IDENT:  return parse_named_type();
+            default: return add_error("Expected type annotation");
+        }
+    }
+
+    uint32_t Parser::parse_ref_type(uint32_t start, uint8_t is_mut)
+    {
+        next_token(); // consume '&'
+        uint32_t inner = parse_type_annotation();
+        if (inner == ERROR_NODE) return ERROR_NODE;
+
+        return push_node(NodeType::RefType, start, get_node(inner).end_token,
+            { .ref_type = { .inner = inner, .is_mut = is_mut } });
+    }
+
+    uint32_t Parser::parse_named_type()
+    {
         if (!curr_token_is(TokenType::IDENT)) return add_error("Expected type identifier in type annotation");
 
-        uint32_t ident_tok = curr_token();  // record type name
-        end = curr_token();
+        uint32_t ident_tok = curr_token(), end = ident_tok;
         next_token();
 
-        return push_node(NodeType::TypeAnnotation, start, end,
-            { .type_annot = { .ident = ident_tok, .flags = flags } });
+        uint32_t args = ERROR_NODE;
+        if (curr_token_is(TokenType::LT))
+        {
+            args = parse_delimited_list(
+                NodeType::TypeArgList,
+                TokenType::GT,
+                TokenType::COMMA,
+                [this]() { return parse_type_annotation(); },
+                "Expected ',' or '>' in type arguments"
+            );
+            if (args == ERROR_NODE) return ERROR_NODE;
+            end = get_node(args).end_token;
+        }
+
+        return push_node(NodeType::NamedType, ident_tok, end,
+            { .named_type = { .ident = ident_tok, .args = args } });
+    }
+
+    uint32_t Parser::parse_tuple_type()
+    {
+        return parse_delimited_list(
+            NodeType::TupleType,
+            TokenType::RPAREN,
+            TokenType::COMMA,
+            [this]() { return parse_type_annotation(); },
+            "Expected ',' or ')' in tuple type"
+        );
     }
 
     // other
+    bool Parser::is_tuple_ahead() const
+    {
+        uint32_t depth = 0;
+        for (size_t i = m_Cursor + 1; i < m_Tokens.size(); ++i)
+        {
+            switch (m_Tokens[i].type)
+            {
+                case TokenType::END_OF_FILE: return false;
+                case TokenType::LPAREN:
+                case TokenType::LBRACKET:
+                case TokenType::LBRACE: ++depth; break;
+                case TokenType::RPAREN:
+                case TokenType::RBRACKET:
+                case TokenType::RBRACE:
+                    if (depth == 0) return false;
+                    --depth;
+                    break;
+                case TokenType::COMMA:
+                    if (depth == 0) return true;
+                    break;
+                default: break;
+            }
+        }
+        return false;
+    }
+
+    bool Parser::is_struct_init_ahead() const
+    {
+        TokenType first = peek_type(2);
+        if (first == TokenType::RBRACE) return true;
+        if (first != TokenType::IDENT) return false;
+
+        TokenType second = peek_type(3);
+        return second == TokenType::COLON || second == TokenType::COMMA || second == TokenType::RBRACE;
+    }
+
     void Parser::synchronize()
     {
         while (!curr_token_is(TokenType::END_OF_FILE))
