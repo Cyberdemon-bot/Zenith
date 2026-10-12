@@ -77,6 +77,16 @@ namespace Zenith {
         Lexer m_Lexer;
         bool m_NoStructLit = false;
 
+        // recursion guard: chống stack overflow với input lồng quá sâu
+        static constexpr uint32_t MAX_DEPTH = 256;
+        uint32_t m_Depth = 0;
+        struct DepthGuard
+        {
+            uint32_t& depth;
+            explicit DepthGuard(uint32_t& d) : depth(d) { ++depth; }
+            ~DepthGuard() { --depth; }
+        };
+
         // error handler
         void synchronize();
         uint32_t add_error(std::string_view message, uint32_t node = ERROR_NODE, ErrorScope scope = ErrorScope::Token);
@@ -163,7 +173,6 @@ namespace Zenith {
         uint32_t parse_named_type();
         uint32_t parse_tuple_type();
 
-        bool is_tuple_ahead() const;
         bool is_struct_init_ahead() const;
 
         //utils

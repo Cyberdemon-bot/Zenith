@@ -4,7 +4,7 @@
 namespace Zenith {
 
     Parser::Parser(std::string_view source)
-         : m_Lexer(source), m_Source(source)
+         : m_Source(source), m_Lexer(source)
     {
         m_Tokens.reserve(256);
         m_Nodes.push_back({});
@@ -43,6 +43,8 @@ namespace Zenith {
     // expression parsing
     uint32_t Parser::parse_expr(PrecedenceType precedence)
     {
+        DepthGuard guard(m_Depth);
+        if (m_Depth > MAX_DEPTH) return add_error("Nesting is too deep");
         uint32_t left = parse_prefix_expr();
         if (left == ERROR_NODE) return ERROR_NODE;
         while (precedence < get_precedence(get_curr_token().type))
@@ -310,25 +312,46 @@ namespace Zenith {
     {
         StructLitScope allow(m_NoStructLit, false);
 
-        // '()' and '(a, b)' are tuples, '(a)' is grouping
-        if (peek_token_is(TokenType::RPAREN) || is_tuple_ahead())
+        // '()' is the unit tuple
+        if (peek_token_is(TokenType::RPAREN))
         {
             return parse_delimited_list(
-                NodeType::Tuple,
-                TokenType::RPAREN,
-                TokenType::COMMA,
+                NodeType::Tuple, TokenType::RPAREN, TokenType::COMMA,
                 [this]() { return parse_expr(PrecedenceType::P_LOWEST); },
                 "Expected ',' or ')' in tuple expression"
             );
         }
 
         uint32_t open = curr_token(); next_token(); // consume '('
-        uint32_t expr = parse_expr(PrecedenceType::P_LOWEST);
-        if (expr == ERROR_NODE) return ERROR_NODE;
-        if (!curr_token_is(TokenType::RPAREN)) return add_error("Expected ')' after expression", expr);
+        uint32_t first = parse_expr(PrecedenceType::P_LOWEST);
+        if (first == ERROR_NODE) return ERROR_NODE;
 
+        // '(a)' is grouping, '(a,)' and '(a, b)' are tuples
+        if (curr_token_is(TokenType::COMMA))
+        {
+            size_t marker = get_scratch_marker();
+            push_scratch(first);
+            while (curr_token_is(TokenType::COMMA))
+            {
+                next_token(); // consume ','
+                if (curr_token_is(TokenType::RPAREN)) break; // trailing comma
+                uint32_t elem = parse_expr(PrecedenceType::P_LOWEST);
+                if (elem == ERROR_NODE) { rollback_scratch(marker); return ERROR_NODE; }
+                push_scratch(elem);
+            }
+            if (!curr_token_is(TokenType::RPAREN))
+            {
+                rollback_scratch(marker);
+                return add_error("Expected ',' or ')' in tuple expression");
+            }
+            uint32_t close = curr_token(); next_token(); // consume ')'
+            auto list = commit_list(marker);
+            return push_node(NodeType::Tuple, open, close, { .list = { .start = list.start, .count = list.count } });
+        }
+
+        if (!curr_token_is(TokenType::RPAREN)) return add_error("Expected ')' after expression", first);
         uint32_t close = curr_token(); next_token(); // consume ')'
-        return push_node(NodeType::ParenExpr, open, close, { .child = expr });
+        return push_node(NodeType::ParenExpr, open, close, { .child = first });
     }
 
     uint32_t Parser::parse_struct_init()
@@ -375,6 +398,8 @@ namespace Zenith {
 
     uint32_t Parser::parse_block_expr()
     {
+        DepthGuard guard(m_Depth);
+        if (m_Depth > MAX_DEPTH) return add_error("Nesting is too deep");
         StructLitScope allow(m_NoStructLit, false);
         uint32_t start = curr_token(), end; next_token(); // consume '{'
         size_t marker = get_scratch_marker();
@@ -400,6 +425,8 @@ namespace Zenith {
 
     uint32_t Parser::parse_if_expr()
     {
+        DepthGuard guard(m_Depth);
+        if (m_Depth > MAX_DEPTH) return add_error("Nesting is too deep");
         uint32_t start = curr_token(), end, cond; next_token(); // consume 'if'
         {
             StructLitScope restrict_literals(m_NoStructLit, true);
@@ -517,7 +544,7 @@ namespace Zenith {
         if (!block_like && curr_token_is(TokenType::EQ)) return parse_assign_stmt(expr);
 
         if (!block_like && m_Nodes[expr].type != NodeType::CallExpr)
-            return add_error("Expression is not valid as a statement; ...", expr, ErrorScope::NodeStart);
+            return add_error("Expression is not valid as a statement; only calls can be used as statements", expr, ErrorScope::NodeStart);
 
         uint32_t start = get_node(expr).start_token, end = get_node(expr).end_token;
         bool closed_by_brace = block_like && m_Tokens[end].type == TokenType::RBRACE;
@@ -744,6 +771,8 @@ namespace Zenith {
 
     uint32_t Parser::parse_type_annotation()
     {
+        DepthGuard guard(m_Depth);
+        if (m_Depth > MAX_DEPTH) return add_error("Nesting is too deep");
         uint32_t start = curr_token();
 
         switch (get_curr_token().type)
@@ -817,32 +846,6 @@ namespace Zenith {
     }
 
     // other
-    bool Parser::is_tuple_ahead() const
-    {
-        uint32_t depth = 0;
-        for (size_t i = m_Cursor + 1; i < m_Tokens.size(); ++i)
-        {
-            switch (m_Tokens[i].type)
-            {
-                case TokenType::END_OF_FILE: return false;
-                case TokenType::LPAREN:
-                case TokenType::LBRACKET:
-                case TokenType::LBRACE: ++depth; break;
-                case TokenType::RPAREN:
-                case TokenType::RBRACKET:
-                case TokenType::RBRACE:
-                    if (depth == 0) return false;
-                    --depth;
-                    break;
-                case TokenType::COMMA:
-                    if (depth == 0) return true;
-                    break;
-                default: break;
-            }
-        }
-        return false;
-    }
-
     bool Parser::is_struct_init_ahead() const
     {
         TokenType first = peek_type(2);
@@ -855,19 +858,25 @@ namespace Zenith {
 
     void Parser::synchronize()
     {
+        // Bỏ qua token cho tới ranh giới câu lệnh tiếp theo. Các cặp {} lồng nhau được bỏ qua
+        // nguyên khối, để ';' và '}' bên trong không bị nhầm là kết thúc câu lệnh đang lỗi.
+        uint32_t depth = 0;
         while (!curr_token_is(TokenType::END_OF_FILE))
         {
-            if (curr_token_is(TokenType::SEMICOLON)) { next_token(); return; }
-            if (curr_token_is(TokenType::RBRACE)) return;
-
-            if (curr_token_is(TokenType::LET)      ||
-                curr_token_is(TokenType::RETURN)   ||
-                curr_token_is(TokenType::BREAK)    ||
-                curr_token_is(TokenType::CONTINUE) ||
-                curr_token_is(TokenType::FUNC)     ||
-                curr_token_is(TokenType::STRUCT)   ||
-                curr_token_is(TokenType::PUB)) return;
-
+            TokenType t = get_curr_token().type;
+            if (t == TokenType::LBRACE) ++depth;
+            else if (t == TokenType::RBRACE)
+            {
+                if (depth == 0) return; // '}' đóng block chứa câu lệnh lỗi
+                --depth;
+            }
+            else if (depth == 0)
+            {
+                if (t == TokenType::SEMICOLON) { next_token(); return; }
+                if (t == TokenType::LET      || t == TokenType::RETURN || t == TokenType::BREAK ||
+                    t == TokenType::CONTINUE || t == TokenType::FUNC   || t == TokenType::STRUCT ||
+                    t == TokenType::PUB) return;
+            }
             next_token();
         }
     }
@@ -889,7 +898,6 @@ namespace Zenith {
         }
         if (pos >= m_Tokens.size()) pos = static_cast<uint32_t>(m_Tokens.size()) - 1;
 
-        const Token& tok = m_Tokens[pos];
         m_Errors.push_back(ParseError
         {
             .message = std::string(message),

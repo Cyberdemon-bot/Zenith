@@ -1,0 +1,8 @@
+let e = new Foo;
+new;
+pub x;
+
+// === EXPECTED ERRORS ===
+1:16 Expected '(' or '{' after type in new expression
+2:4 Expected type identifier in type annotation
+3:5 Expected 'func' or 'struct' after 'pub'

@@ -1,0 +1,10 @@
+if x;
+if x => 1 else 42;
+if x { } else 5;
+if x => { y(); }
+
+// === EXPECTED ERRORS ===
+1:5 Expected '=>' or '{' after if condition
+2:16 Expected 'if', '=>', or '{' after 'else'
+3:15 Expected 'if', '=>', or '{' after 'else'
+4:9 '=>' takes a single expression; use '{ }' or '=>', not both

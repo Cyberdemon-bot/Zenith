@@ -1,0 +1,10 @@
+'foo;
+'bar: 5;
+break x y;
+break;
+
+// === EXPECTED ERRORS ===
+1:5 Expected ':' after label
+2:7 A label must be followed by a block, 'if', or 'for'
+3:7 Expected a label after 'break'; unlabeled break is not allowed
+4:6 Expected a label after 'break'; unlabeled break is not allowed

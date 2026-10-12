@@ -1,0 +1,10 @@
+struct;
+func f( {}
+func f() -> {}
+func f(a) {}
+
+// === EXPECTED ERRORS ===
+1:7 Expected struct name after 'struct'
+2:9 Expected parameter name
+3:13 Expected type annotation
+4:9 Expected ':' after name

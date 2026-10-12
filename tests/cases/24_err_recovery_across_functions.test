@@ -1,0 +1,56 @@
+func a() {
+    let x = ;
+    let y = 1;
+}
+
+func b() {
+    break;
+    foo(y);
+}
+
+func c() { return; }
+
+// === EXPECTED ERRORS ===
+2:13 Unexpected token in prefix expression
+7:10 Expected a label after 'break'; unlabeled break is not allowed
+
+// === EXPECTED AST ===
+(Program
+  (FuncDecl
+    (FuncSign
+      (Identifier "a")
+      (ArgList)
+    )
+    (BlockExpr
+      (LetStmt
+        (Identifier "y")
+        (Integer 1)
+      )
+    )
+  )
+  (FuncDecl
+    (FuncSign
+      (Identifier "b")
+      (ArgList)
+    )
+    (BlockExpr
+      (ExprStmt
+        (CallExpr
+          (Identifier "foo")
+          (ArgList
+            (Identifier "y")
+          )
+        )
+      )
+    )
+  )
+  (FuncDecl
+    (FuncSign
+      (Identifier "c")
+      (ArgList)
+    )
+    (BlockExpr
+      (ReturnStmt)
+    )
+  )
+)

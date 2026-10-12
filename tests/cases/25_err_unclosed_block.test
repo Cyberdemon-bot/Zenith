@@ -1,0 +1,5 @@
+func f() {
+    let a = 1;
+
+// === EXPECTED ERRORS ===
+4:1 Expected '}' at end of block expression
