@@ -858,8 +858,6 @@ namespace Zenith {
 
     void Parser::synchronize()
     {
-        // Bỏ qua token cho tới ranh giới câu lệnh tiếp theo. Các cặp {} lồng nhau được bỏ qua
-        // nguyên khối, để ';' và '}' bên trong không bị nhầm là kết thúc câu lệnh đang lỗi.
         uint32_t depth = 0;
         while (!curr_token_is(TokenType::END_OF_FILE))
         {
@@ -867,7 +865,7 @@ namespace Zenith {
             if (t == TokenType::LBRACE) ++depth;
             else if (t == TokenType::RBRACE)
             {
-                if (depth == 0) return; // '}' đóng block chứa câu lệnh lỗi
+                if (depth == 0) return; 
                 --depth;
             }
             else if (depth == 0)
