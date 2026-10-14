@@ -327,11 +327,7 @@ namespace Zenith {
     Token Lexer::read_label()
     {
         read_char(); 
-        if (!is_letter(curr_char))
-        {
-            return new_token(TokenType::ILLEGAL, "", pos);
-        }
-
+        if (!is_letter(curr_char)) return new_token(TokenType::ILLEGAL, "", pos);
         uint32_t start_pos = pos;
         while (curr_char != NONE_CHAR && is_alnum(curr_char)) read_char();
         return new_token(TokenType::LABEL, get_lil(start_pos), start_pos);
