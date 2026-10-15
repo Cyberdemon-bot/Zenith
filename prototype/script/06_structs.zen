@@ -1,0 +1,45 @@
+// 06_structs.zen: Struct declarations, literals, shorthand init, new allocations, and field mutation
+
+struct Marker;
+
+pub struct Vec2 {
+    x: i32,
+    y: i32,
+}
+
+func scale(v: &Vec2, factor: i32) -> Vec2 {
+    return Vec2 { x: v.x * factor, y: v.y * factor };
+}
+
+func translate(v: mut &Vec2, dx: i32, dy: i32) {
+    v.x = v.x + dx;
+    v.y = v.y + dy;
+}
+
+func main() {
+    print("=== 06: Structs & Heap Allocations ===");
+
+    let origin = Vec2 { x: 0, y: 0 };
+    let x = 3;
+    let y = 4;
+    let mut pt = Vec2 { x, y };
+    print("origin:", origin, "| pt:", pt);
+
+    pt.x = 10;
+    translate(mut &pt, 5, -1);
+    print("pt after mutation and translate:", pt);
+
+    let scaled_pt = scale(&pt, 2);
+    print("scaled_pt:", scaled_pt);
+
+    // Heap allocations via `new` and `mut new`
+    let boxed = new Vec2(7, 8);
+    let mut_boxed = mut new Vec2 { x: 1, y: 2 };
+    mut_boxed.x = 42;
+    print("boxed:", *boxed, "| mut_boxed:", *mut_boxed);
+
+    assert(pt.x == 15 and pt.y == 3, "pt coordinates mismatch");
+    assert(scaled_pt.x == 30 and scaled_pt.y == 6, "scaled_pt coordinates mismatch");
+    assert(boxed.x == 7 and boxed.y == 8, "boxed coordinates mismatch");
+    assert(mut_boxed.x == 42 and mut_boxed.y == 2, "mut_boxed coordinates mismatch");
+}

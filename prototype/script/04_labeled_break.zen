@@ -1,0 +1,41 @@
+// 04_labeled_break.zen: Labeled blocks, nested break with values, and block fallthrough to ()
+
+func main() {
+    print("=== 04: Labeled Blocks & Break Values ===");
+
+    let ready = true;
+    let computed = 'outer: {
+        'inner: {
+            if ready {
+                break 'outer 42;
+            }
+            break 'inner;
+        }
+        break 'outer 0;
+    };
+    print("computed from 'outer:", computed);
+
+    // Fallthrough without break evaluates to unit ()
+    let fallthrough = 'maybe: {
+        if false {
+            break 'maybe 100;
+        }
+    };
+    print("fallthrough value:", fallthrough);
+
+    // Labeled loop search returning an index
+    let items = (10, 25, 40, 55, 70);
+    let target = 40;
+    let mut idx = 0;
+    let found_idx = 'search: for item in items {
+        if item == target {
+            break 'search idx;
+        }
+        idx = idx + 1;
+    };
+    print("found", target, "at index:", found_idx);
+
+    assert(computed == 42, "computed should be 42");
+    assert(fallthrough == (), "fallthrough block should return unit ()");
+    assert(found_idx == 2, "found_idx should be 2");
+}

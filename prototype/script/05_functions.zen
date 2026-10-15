@@ -1,0 +1,43 @@
+// 05_functions.zen: Function declarations, recursion, tuple returns, and reference parameters
+
+func factorial(n: i32) -> i32 {
+    if n <= 1 {
+        return 1;
+    }
+    return n * factorial(n - 1);
+}
+
+func fib(n: i32) -> i32 {
+    return if n <= 0 => 0
+           else if n == 1 => 1
+           else => fib(n - 1) + fib(n - 2);
+}
+
+func add_to(target: mut &i32, delta: i32) {
+    *target = *target + delta;
+}
+
+func divmod(a: i32, b: i32) -> (i32, i32) {
+    return (a / b, a % b);
+}
+
+func main() {
+    print("=== 05: Functions & Recursion ===");
+
+    let f5 = factorial(5);
+    let fib8 = fib(8);
+    print("factorial(5) =", f5);
+    print("fib(8) =", fib8);
+
+    let mut score = 10;
+    add_to(mut &score, 25);
+    print("score after add_to(mut &score, 25) =", score);
+
+    let dm = divmod(29, 6);
+    print("divmod(29, 6) =", dm, "-> quot:", dm[0], "rem:", dm[1]);
+
+    assert(f5 == 120, "factorial(5) should be 120");
+    assert(fib8 == 21, "fib(8) should be 21");
+    assert(score == 35, "score should be 35");
+    assert(dm[0] == 4 and dm[1] == 5, "divmod result mismatch");
+}
