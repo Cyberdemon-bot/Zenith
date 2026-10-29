@@ -26,7 +26,7 @@ namespace Zenith {
         uint8_t variants;
     };
 
-    constexpr uint32_t OPCODE_COUNT = static_cast<uint32_t>(Opcode::Count);
+    inline constexpr uint32_t OPCODE_COUNT = static_cast<uint32_t>(Opcode::Count);
 
     inline constexpr std::array<OpcodeInfo, OPCODE_COUNT> OPCODE_INFO = {{
         { Opcode::LoadConst, Format::iABx,  1 },
@@ -68,8 +68,8 @@ namespace Zenith {
         return b;
     }();
 
-    constexpr uint32_t DISPATCH_SIZE   = OPCODE_BASE[OPCODE_COUNT];
-    constexpr uint32_t INVALID_HANDLER = DISPATCH_SIZE;
+    inline constexpr uint32_t DISPATCH_SIZE = OPCODE_BASE[OPCODE_COUNT];
+    inline constexpr uint32_t INVALID_HANDLER = DISPATCH_SIZE;
     static_assert(DISPATCH_SIZE <= 256, "dispatch exceeds byte opcode field");
 
     struct VariantList 
