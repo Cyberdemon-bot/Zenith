@@ -171,6 +171,7 @@ namespace Zenith {
         uint32_t parse_type_annotation();
         uint32_t parse_ref_type(uint32_t start, uint8_t is_mut);
         uint32_t parse_named_type();
+        uint32_t parse_dyn_type();
         uint32_t parse_tuple_type();
 
         bool is_struct_init_ahead() const;

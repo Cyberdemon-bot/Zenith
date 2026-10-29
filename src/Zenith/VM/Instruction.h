@@ -39,8 +39,7 @@ namespace Zenith {
 
             if constexpr (sizeof...(Args) == 0) 
             {
-                ZN_CORE_ASSERT(OPCODE_INFO[oi].variants == 1,
-                               "Untyped opcode required");
+                ZN_CORE_ASSERT(OPCODE_INFO[oi].variants == 1, "Untyped opcode required");
                 inst.raw = OPCODE_BASE[oi] << 24;
             } 
             else if constexpr (detail::starts_with_type<Args...>) 
@@ -48,21 +47,15 @@ namespace Zenith {
                 auto full = std::tuple{args...};
                 const Type ty = std::get<0>(full);
                 const uint32_t slot = OPCODE_DISPATCH[oi][static_cast<uint32_t>(ty)];
-                ZN_CORE_ASSERT(slot != INVALID_HANDLER,
-                               "Type not supported by this opcode");
-                auto operands = std::apply(
-                    [](auto&&, auto&&... rest) { return std::tuple{rest...}; }, full);
-                inst.raw = pack<F>(slot, operands,
-                            std::make_index_sequence<sizeof...(Args) - 1>{});
+                ZN_CORE_ASSERT(slot != INVALID_HANDLER, "Type not supported by this opcode");
+                auto operands = std::apply([](auto&&, auto&&... rest) { return std::tuple{rest...}; }, full);
+                inst.raw = pack<F>(slot, operands, std::make_index_sequence<sizeof...(Args) - 1>{});
             } 
             else 
             {
-                ZN_CORE_ASSERT(OPCODE_INFO[oi].variants == 1,
-                               "Untyped opcode required");
-                ZN_CORE_ASSERT(OPCODE_VARIANTS[OPCODE_BASE[oi]] == Type::None,
-                               "Untyped opcode must have Type::None variant");
-                inst.raw = pack<F>(OPCODE_BASE[oi], std::tuple{args...},
-                            std::make_index_sequence<sizeof...(Args)>{});
+                ZN_CORE_ASSERT(OPCODE_INFO[oi].variants == 1, "Untyped opcode required");
+                ZN_CORE_ASSERT(OPCODE_VARIANTS[OPCODE_BASE[oi]] == Type::None, "Untyped opcode must have Type::None variant");
+                inst.raw = pack<F>(OPCODE_BASE[oi], std::tuple{args...}, std::make_index_sequence<sizeof...(Args)>{});
             }
             return inst;
         }

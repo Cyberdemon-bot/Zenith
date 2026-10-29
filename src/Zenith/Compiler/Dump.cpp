@@ -64,6 +64,7 @@ namespace Zenith {
             case NodeType::ContinueStmt: return "ContinueStmt";
             case NodeType::AssignStmt: return "AssignStmt";
             case NodeType::NamedType: return "NamedType";
+            case NodeType::DynType:   return "DynType";
             case NodeType::RefType: return "RefType";
             case NodeType::TupleType: return "TupleType";
             case NodeType::TypeArgList: return "TypeArgList";
@@ -256,6 +257,10 @@ namespace Zenith {
                 out << std::setw(20) << "[RefType]"
                     << "Mut: " << (node.data.ref_type.is_mut ? "yes" : "no")
                     << " | Inner: " << node_ref(node.data.ref_type.inner);
+                break;
+            case NodeType::DynType:
+                out << std::setw(20) << "[DynType]"
+                    << "Inner: " << node_ref(node.data.child);
                 break;
             case NodeType::TupleType:
                 out << std::setw(20) << "[TupleType]";
@@ -471,6 +476,7 @@ namespace Zenith {
                 break;
             case NodeType::DerefExpr:
             case NodeType::ParenExpr:
+            case NodeType::DynType:
             case NodeType::ExprStmt:
             case NodeType::ReturnStmt:
                 print_child(node.data.child);

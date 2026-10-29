@@ -38,7 +38,7 @@ namespace Zenith {
         ContinueStmt,
         AssignStmt, 
 
-        NamedType, RefType, TupleType, TypeArgList,
+        NamedType, DynType, RefType, TupleType, TypeArgList,
         FuncDecl, FuncSign,
         StructDecl,
         ClassDecl,

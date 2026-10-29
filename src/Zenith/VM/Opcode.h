@@ -12,6 +12,9 @@ namespace Zenith {
     {
         LoadConst = 0,
         Add, Sub, Mul, Div, DivS, DivU, RemS, RemU, Neg,
+        Mov, LoadImm,        
+        Eq, Lt, LNot,      
+        Jmp, Jz, Jnz,  
         Halt,
         Count
     };
@@ -25,17 +28,25 @@ namespace Zenith {
 
     constexpr uint32_t OPCODE_COUNT = static_cast<uint32_t>(Opcode::Count);
 
-    constexpr std::array<OpcodeInfo, OPCODE_COUNT> OPCODE_INFO = {{
-        { Opcode::LoadConst, Format::iABx, 7 },
-        { Opcode::Add,       Format::iABC, 6 },
-        { Opcode::Sub,       Format::iABC, 6 },
-        { Opcode::Mul,       Format::iABC, 6 },
-        { Opcode::Div,       Format::iABC, 2 },
-        { Opcode::DivS,      Format::iABC, 2 },
-        { Opcode::DivU,      Format::iABC, 2 },
-        { Opcode::RemS,      Format::iABC, 2 },
-        { Opcode::RemU,      Format::iABC, 2 },
-        { Opcode::Neg,       Format::iABC, 4 },
+    inline constexpr std::array<OpcodeInfo, OPCODE_COUNT> OPCODE_INFO = {{
+        { Opcode::LoadConst, Format::iABx,  1 },
+        { Opcode::Add,       Format::iABC,  4 },
+        { Opcode::Sub,       Format::iABC,  4 },
+        { Opcode::Mul,       Format::iABC,  4 },
+        { Opcode::Div,       Format::iABC,  2 },
+        { Opcode::DivS,      Format::iABC,  2 },
+        { Opcode::DivU,      Format::iABC,  2 },
+        { Opcode::RemS,      Format::iABC,  2 },
+        { Opcode::RemU,      Format::iABC,  2 },
+        { Opcode::Neg,       Format::iABC,  4 },
+        { Opcode::Mov,       Format::iABC,  1 },
+        { Opcode::LoadImm,   Format::iAsBx, 1 },
+        { Opcode::Eq,        Format::iABC,  5 },
+        { Opcode::Lt,        Format::iABC,  6 },
+        { Opcode::LNot,      Format::iABC,  1 },
+        { Opcode::Jmp,       Format::iAsBx, 1 },
+        { Opcode::Jz,        Format::iAsBx, 1 },
+        { Opcode::Jnz,       Format::iAsBx, 1 },
         { Opcode::Halt,      Format::iNone, 1 },
     }};
 
@@ -50,7 +61,7 @@ namespace Zenith {
     }
     static_assert(opcode_table_is_consistent(), "OPCODE_INFO out of order or empty");
 
-    constexpr auto OPCODE_BASE = []{
+    inline constexpr auto OPCODE_BASE = []{
         std::array<uint32_t, OPCODE_COUNT + 1> b{};
         for (uint32_t i = 0; i < OPCODE_COUNT; ++i)
             b[i + 1] = b[i] + OPCODE_INFO[i].variants;
@@ -102,37 +113,45 @@ namespace Zenith {
         }
     };
 
-    constexpr VariantList OPCODE_VARIANTS_BUILD = VariantList{}
+    inline constexpr VariantList OPCODE_VARIANTS_BUILD = VariantList{}
         .op(Opcode::LoadConst)
-            .add(Type::U32).add(Type::I32).add(Type::F32).add(Type::U64)
-            .add(Type::I64).add(Type::F64).add(Type::REF)
+            .add(Type::None)
         .op(Opcode::Add)
-            .add(Type::U32).add(Type::I32).add(Type::F32)
-            .add(Type::U64).add(Type::I64).add(Type::F64)
+            .add(Type::I32).add(Type::I64).add(Type::F32).add(Type::F64)
         .op(Opcode::Sub)
-            .add(Type::U32).add(Type::I32).add(Type::F32)
-            .add(Type::U64).add(Type::I64).add(Type::F64)
+            .add(Type::I32).add(Type::I64).add(Type::F32).add(Type::F64)
         .op(Opcode::Mul)
+            .add(Type::I32).add(Type::I64).add(Type::F32).add(Type::F64)
+        .op(Opcode::Div)
+            .add(Type::F32).add(Type::F64)
+        .op(Opcode::DivS)
+            .add(Type::I32).add(Type::I64)
+        .op(Opcode::DivU)
+            .add(Type::U32).add(Type::U64)
+        .op(Opcode::RemS)
+            .add(Type::I32).add(Type::I64)
+        .op(Opcode::RemU)
+            .add(Type::U32).add(Type::U64)
+        .op(Opcode::Neg)
+            .add(Type::I32).add(Type::I64).add(Type::F32).add(Type::F64)
+        .op(Opcode::Mov)
+            .add(Type::None)
+        .op(Opcode::LoadImm)
+            .add(Type::None)
+        .op(Opcode::Eq)
+            .add(Type::I32).add(Type::I64).add(Type::F32).add(Type::F64)
+            .add(Type::REF)
+        .op(Opcode::Lt)
             .add(Type::U32).add(Type::I32).add(Type::F32)
             .add(Type::U64).add(Type::I64).add(Type::F64)
-        .op(Opcode::Div)
-            .add(Type::F32)
-            .add(Type::F64)
-        .op(Opcode::DivS)
-            .add(Type::I32)
-            .add(Type::I64)
-        .op(Opcode::DivU)
-            .add(Type::U32)
-            .add(Type::U64)
-        .op(Opcode::RemS)
-            .add(Type::I32)
-            .add(Type::I64)
-        .op(Opcode::RemU)
-            .add(Type::U32)
-            .add(Type::U64)
-        .op(Opcode::Neg)
-            .add(Type::I32).add(Type::I64)
-            .add(Type::F32).add(Type::F64)
+        .op(Opcode::LNot)
+            .add(Type::None)
+        .op(Opcode::Jmp)
+            .add(Type::None)
+        .op(Opcode::Jz)
+            .add(Type::None)
+        .op(Opcode::Jnz)
+            .add(Type::None)
         .op(Opcode::Halt)
             .add(Type::None)
         .op(Opcode::Count);
@@ -140,7 +159,7 @@ namespace Zenith {
     static_assert(OPCODE_VARIANTS_BUILD.is_sealed(),
                 "OPCODE_VARIANTS must be sealed with .op(Opcode::Count)");
 
-    constexpr std::array<Type, DISPATCH_SIZE> OPCODE_VARIANTS = OPCODE_VARIANTS_BUILD.data;
+    inline constexpr std::array<Type, DISPATCH_SIZE> OPCODE_VARIANTS = OPCODE_VARIANTS_BUILD.data;
 
     constexpr bool no_duplicate_types() 
     {
@@ -158,15 +177,62 @@ namespace Zenith {
     }
     static_assert(no_duplicate_types(), "duplicate type within one opcode's variant list");
 
-    constexpr auto OPCODE_DISPATCH = []{
+    struct SlotAlias 
+    {
+        Opcode op;
+        Type from;
+        Type to;
+    };
+
+    inline constexpr std::array<SlotAlias, 8> SLOT_ALIASES = {{
+        { Opcode::Add, Type::U32, Type::I32 },
+        { Opcode::Add, Type::U64, Type::I64 },
+        { Opcode::Sub, Type::U32, Type::I32 },
+        { Opcode::Sub, Type::U64, Type::I64 },
+        { Opcode::Mul, Type::U32, Type::I32 },
+        { Opcode::Mul, Type::U64, Type::I64 },
+        { Opcode::Eq,  Type::U32, Type::I32 },
+        { Opcode::Eq,  Type::U64, Type::I64 },
+    }};
+
+    constexpr bool aliases_are_valid() 
+    {
+        for (const auto& a : SLOT_ALIASES) {
+            uint32_t i = static_cast<uint32_t>(a.op);
+            bool found = false;
+            for (uint32_t v = 0; v < OPCODE_INFO[i].variants; ++v) {
+                if (OPCODE_VARIANTS[OPCODE_BASE[i] + v] == a.to) { found = true; break; }
+            }
+            if (!found) return false;
+        }
+        return true;
+    }
+    static_assert(aliases_are_valid(), "alias target not present in OPCODE_VARIANTS");
+
+    constexpr bool aliases_no_conflict() 
+    {
+        for (const auto& a : SLOT_ALIASES) 
+        {
+            uint32_t i = static_cast<uint32_t>(a.op);
+            for (uint32_t v = 0; v < OPCODE_INFO[i].variants; ++v)
+                if (OPCODE_VARIANTS[OPCODE_BASE[i] + v] == a.from) return false;
+        }
+        return true;
+    }
+    static_assert(aliases_no_conflict(), "alias source is also a real variant");
+
+
+    inline constexpr auto OPCODE_DISPATCH = []{
         std::array<std::array<uint32_t, TYPE_COUNT>, OPCODE_COUNT> t{};
         for (auto& row : t) for (auto& v : row) v = INVALID_HANDLER;
         for (uint32_t i = 0; i < OPCODE_COUNT; ++i)
-            for (uint32_t v = 0; v < OPCODE_INFO[i].variants; ++v) 
-            {
+            for (uint32_t v = 0; v < OPCODE_INFO[i].variants; ++v) {
                 uint32_t slot = OPCODE_BASE[i] + v;
                 t[i][static_cast<uint32_t>(OPCODE_VARIANTS[slot])] = slot;
             }
+        for (const auto& a : SLOT_ALIASES)
+            t[static_cast<uint32_t>(a.op)][static_cast<uint32_t>(a.from)] =
+                t[static_cast<uint32_t>(a.op)][static_cast<uint32_t>(a.to)];
         return t;
     }();
 
@@ -177,7 +243,7 @@ namespace Zenith {
         Format format; 
     };
 
-    constexpr std::array<SlotInfo, DISPATCH_SIZE> SLOT_INFO = []{
+    inline constexpr std::array<SlotInfo, DISPATCH_SIZE> SLOT_INFO = []{
         std::array<SlotInfo, DISPATCH_SIZE> s{};
         for (uint32_t i = 0; i < OPCODE_COUNT; ++i)
             for (uint32_t v = 0; v < OPCODE_INFO[i].variants; ++v) 
@@ -187,4 +253,4 @@ namespace Zenith {
             }
         return s;
     }();
-} 
+}

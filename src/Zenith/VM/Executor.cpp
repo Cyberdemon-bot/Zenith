@@ -13,7 +13,7 @@ namespace Zenith {
         if constexpr (op == Opcode::LoadConst) 
         {
             auto [a, bx] = inst.extract<Format::iABx>();
-            regs[a].get_as<ty>() = consts[bx].get_as<ty>();
+            regs[a].u64 = consts[bx].u64;
         }
         else if constexpr (op == Opcode::Add) 
         {
@@ -44,6 +44,46 @@ namespace Zenith {
         {
             auto [a, b, c] = inst.extract<Format::iABC>();
             regs[a].get_as<ty>() = -regs[b].get_as<ty>();
+        }
+        else if constexpr (op == Opcode::Mov) 
+        {
+            auto [a, b, c] = inst.extract<Format::iABC>();
+            regs[a].u64 = regs[b].u64;
+        }
+        else if constexpr (op == Opcode::LoadImm) 
+        {
+            auto [a, sbx] = inst.extract<Format::iAsBx>();
+            regs[a].i64 = static_cast<int64_t>(sbx);
+        }
+        else if constexpr (op == Opcode::Eq) 
+        {
+            auto [a, b, c] = inst.extract<Format::iABC>();
+            regs[a].u64 = static_cast<uint64_t>(regs[b].get_as<ty>() == regs[c].get_as<ty>());
+        }
+        else if constexpr (op == Opcode::Lt) 
+        {
+            auto [a, b, c] = inst.extract<Format::iABC>();
+            regs[a].u64 = static_cast<uint64_t>(regs[b].get_as<ty>() < regs[c].get_as<ty>());
+        }
+        else if constexpr (op == Opcode::LNot) 
+        {
+            auto [a, b, c] = inst.extract<Format::iABC>();
+            regs[a].u64 = (regs[b].u64 == 0) ? 1 : 0;
+        }
+        else if constexpr (op == Opcode::Jmp) 
+        {
+            auto [a, sbx] = inst.extract<Format::iAsBx>();
+            ip += sbx;
+        }
+        else if constexpr (op == Opcode::Jz) 
+        {
+            auto [a, sbx] = inst.extract<Format::iAsBx>();
+            if (regs[a].u64 == 0) ip += sbx;
+        }
+        else if constexpr (op == Opcode::Jnz) 
+        {
+            auto [a, sbx] = inst.extract<Format::iAsBx>();
+            if (regs[a].u64 != 0) ip += sbx;
         }
         else if constexpr (op == Opcode::Halt) 
         {

@@ -90,23 +90,55 @@ int main(int argc, char* argv[])
     {
         using namespace Zenith;
 
-        Proto proto(0, 5);
+        Proto proto(0, 8);
 
-        Value v10; v10.i32 = 10;
-        Value v20; v20.i32 = 20;
-        Value v3;  v3.i32  = 3;
+        proto.commit_instruction(Instruction::make<Format::iAsBx>(Opcode::LoadImm, Type::None, 0, 27));
+        proto.commit_instruction(Instruction::make<Format::iAsBx>(Opcode::LoadImm, Type::None, 1, 0));
+        proto.commit_instruction(Instruction::make<Format::iAsBx>(Opcode::LoadImm, Type::None, 2, 1));
+        proto.commit_instruction(Instruction::make<Format::iAsBx>(Opcode::LoadImm, Type::None, 3, 2));
+        proto.commit_instruction(Instruction::make<Format::iAsBx>(Opcode::LoadImm, Type::None, 4, 3));
 
-        uint16_t c0 = proto.push_constant(v10);
-        uint16_t c1 = proto.push_constant(v20);
-        uint16_t c2 = proto.push_constant(v3);
+        uint32_t loop_start = proto.commit_instruction(
+            Instruction::make<Format::iABC>(Opcode::Eq, Type::I32, 5, 0, 2)
+        );
+        uint32_t exit_jmp = proto.commit_instruction(
+            Instruction::make<Format::iAsBx>(Opcode::Jnz, 5, 0)
+        );
 
-        proto.commit_instruction(Instruction::make<Format::iABx>(Opcode::LoadConst, Type::I32, 0, c0));
-        proto.commit_instruction(Instruction::make<Format::iABx>(Opcode::LoadConst, Type::I32, 1, c1));
-        proto.commit_instruction(Instruction::make<Format::iABC>(Opcode::Add, Type::I32, 2, 0, 1));
-        proto.commit_instruction(Instruction::make<Format::iABx>(Opcode::LoadConst, Type::I32, 3, c2));
-        proto.commit_instruction(Instruction::make<Format::iABC>(Opcode::Neg, Type::I32, 3, 3, 0));
-        proto.commit_instruction(Instruction::make<Format::iABC>(Opcode::Mul, Type::I32, 4, 2, 3));
-        proto.commit_instruction(Instruction::make<Format::iNone>(Opcode::Halt));
+        proto.commit_instruction(Instruction::make<Format::iABC>(Opcode::RemS, Type::I32, 5, 0, 3));
+        proto.commit_instruction(Instruction::make<Format::iABC>(Opcode::LNot, Type::None, 6, 5, 0));
+
+        uint32_t odd_jmp = proto.commit_instruction(
+            Instruction::make<Format::iAsBx>(Opcode::Jz, 6, 0)
+        );
+
+        proto.commit_instruction(Instruction::make<Format::iABC>(Opcode::DivU, Type::U32, 0, 0, 3));
+
+        uint32_t continue_jmp = proto.commit_instruction(
+            Instruction::make<Format::iAsBx>(Opcode::Jmp, 0, 0)
+        );
+
+        uint32_t odd_case = proto.commit_instruction(
+            Instruction::make<Format::iABC>(Opcode::Mul, Type::I32, 5, 0, 4)
+        );
+        proto.commit_instruction(Instruction::make<Format::iABC>(Opcode::Add, Type::I32, 0, 5, 2));
+
+        uint32_t continue_label = proto.commit_instruction(
+            Instruction::make<Format::iABC>(Opcode::Add, Type::I32, 1, 1, 2)
+        );
+
+        uint32_t loop_back = proto.commit_instruction(
+            Instruction::make<Format::iAsBx>(Opcode::Jmp, 0, 0)
+        );
+        proto.patch_jmp(loop_back, static_cast<int16_t>(int32_t(loop_start) - int32_t(loop_back + 1)));
+
+        uint32_t done_label = proto.commit_instruction(
+            Instruction::make<Format::iNone>(Opcode::Halt)
+        );
+
+        proto.patch_jmp(exit_jmp,     static_cast<int16_t>(int32_t(done_label)     - int32_t(exit_jmp + 1)));
+        proto.patch_jmp(odd_jmp,      static_cast<int16_t>(int32_t(odd_case)       - int32_t(odd_jmp + 1)));
+        proto.patch_jmp(continue_jmp, static_cast<int16_t>(int32_t(continue_label) - int32_t(continue_jmp + 1)));
 
         State state;
         uint16_t id = state.add_proto(std::move(proto));
@@ -114,10 +146,12 @@ int main(int argc, char* argv[])
 
         Executor::execute(state);
 
-        std::cout << state.reg(4).i32 << "\n";
+        std::cout << "Collatz(27): " << state.reg(1).i32
+                << " steps (n=" << state.reg(0).i32 << ")\n";
         std::cout.flush();
         return 0;
     }
+
 
     if (file_path.empty())
     {

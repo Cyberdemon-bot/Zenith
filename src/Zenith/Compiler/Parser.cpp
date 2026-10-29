@@ -794,6 +794,7 @@ namespace Zenith {
                 return parse_ref_type(start, 0);
             }
             case TokenType::LPAREN: return parse_tuple_type();
+            case TokenType::DYN:    return parse_dyn_type(); 
             case TokenType::IDENT:  return parse_named_type();
             default: return add_error("Expected type annotation");
         }
@@ -832,6 +833,19 @@ namespace Zenith {
 
         return push_node(NodeType::NamedType, ident_tok, end,
             { .named_type = { .ident = ident_tok, .args = args } });
+    }
+
+    uint32_t Parser::parse_dyn_type()
+    {
+        uint32_t start = curr_token();
+        next_token(); // consume 'dyn'
+
+        uint32_t inner = parse_named_type();
+        if (inner == ERROR_NODE)
+            return add_error("Expected trait/class name after 'dyn'");
+
+        return push_node(NodeType::DynType, start, get_node(inner).end_token,
+            { .child = inner });
     }
 
     uint32_t Parser::parse_tuple_type()
