@@ -1,5 +1,10 @@
 #include "Zenith/VM/Executor.h"
 
+#define ZN_EXTRACT(fmt, ...)                                            \
+    static_assert(fm == Format::fmt,                                    \
+                  "opcode format mismatch: " #fmt " expected");         \
+    auto [__VA_ARGS__] = inst.extract<Format::fmt>()
+
 namespace Zenith {
 
     template<uint32_t Slot>
@@ -8,82 +13,91 @@ namespace Zenith {
         constexpr SlotInfo info = SLOT_INFO[Slot];
         constexpr Opcode op = info.op;
         constexpr Type ty = info.ty;
+        constexpr Format fm = info.format;
         const Instruction inst = *ip++;
 
         if constexpr (op == Opcode::LoadConst) 
         {
-            auto [a, bx] = inst.extract<Format::iABx>();
+            ZN_EXTRACT(iABx, a, bx);
             regs[a].u64 = consts[bx].u64;
+        }
+        else if constexpr (op == Opcode::LoadImm) 
+        {
+            ZN_EXTRACT(iAsBx, a, sbx);
+            regs[a].i64 = static_cast<int64_t>(sbx);
+        }
+        else if constexpr (op == Opcode::Mov) 
+        {
+            ZN_EXTRACT(iABC, a, b, c);
+            regs[a].u64 = regs[b].u64;
         }
         else if constexpr (op == Opcode::Add) 
         {
-            auto [a, b, c] = inst.extract<Format::iABC>();
+            ZN_EXTRACT(iABC, a, b, c);
             regs[a].get_as<ty>() = regs[b].get_as<ty>() + regs[c].get_as<ty>();
         }
         else if constexpr (op == Opcode::Sub) 
         {
-            auto [a, b, c] = inst.extract<Format::iABC>();
+            ZN_EXTRACT(iABC, a, b, c);
             regs[a].get_as<ty>() = regs[b].get_as<ty>() - regs[c].get_as<ty>();
         }
         else if constexpr (op == Opcode::Mul) 
         {
-            auto [a, b, c] = inst.extract<Format::iABC>();
+            ZN_EXTRACT(iABC, a, b, c);
             regs[a].get_as<ty>() = regs[b].get_as<ty>() * regs[c].get_as<ty>();
         }
         else if constexpr (op == Opcode::Div || op == Opcode::DivS || op == Opcode::DivU) 
         {
-            auto [a, b, c] = inst.extract<Format::iABC>();
+            ZN_EXTRACT(iABC, a, b, c);
             regs[a].get_as<ty>() = regs[b].get_as<ty>() / regs[c].get_as<ty>();
         }
         else if constexpr (op == Opcode::RemS || op == Opcode::RemU) 
         {
-            auto [a, b, c] = inst.extract<Format::iABC>();
+            ZN_EXTRACT(iABC, a, b, c);
             regs[a].get_as<ty>() = regs[b].get_as<ty>() % regs[c].get_as<ty>();
         }
         else if constexpr (op == Opcode::Neg) 
         {
-            auto [a, b, c] = inst.extract<Format::iABC>();
+            ZN_EXTRACT(iABC, a, b, c);
             regs[a].get_as<ty>() = -regs[b].get_as<ty>();
-        }
-        else if constexpr (op == Opcode::Mov) 
-        {
-            auto [a, b, c] = inst.extract<Format::iABC>();
-            regs[a].u64 = regs[b].u64;
-        }
-        else if constexpr (op == Opcode::LoadImm) 
-        {
-            auto [a, sbx] = inst.extract<Format::iAsBx>();
-            regs[a].i64 = static_cast<int64_t>(sbx);
         }
         else if constexpr (op == Opcode::Eq) 
         {
-            auto [a, b, c] = inst.extract<Format::iABC>();
+            ZN_EXTRACT(iABC, a, b, c);
             regs[a].u64 = static_cast<uint64_t>(regs[b].get_as<ty>() == regs[c].get_as<ty>());
         }
         else if constexpr (op == Opcode::Lt) 
         {
-            auto [a, b, c] = inst.extract<Format::iABC>();
+            ZN_EXTRACT(iABC, a, b, c);
             regs[a].u64 = static_cast<uint64_t>(regs[b].get_as<ty>() < regs[c].get_as<ty>());
         }
         else if constexpr (op == Opcode::LNot) 
         {
-            auto [a, b, c] = inst.extract<Format::iABC>();
+            ZN_EXTRACT(iABC, a, b, c);
             regs[a].u64 = (regs[b].u64 == 0) ? 1 : 0;
         }
         else if constexpr (op == Opcode::Jmp) 
         {
-            auto [a, sbx] = inst.extract<Format::iAsBx>();
+            ZN_EXTRACT(iAsBx, a, sbx);
             ip += sbx;
         }
         else if constexpr (op == Opcode::Jz) 
         {
-            auto [a, sbx] = inst.extract<Format::iAsBx>();
+            ZN_EXTRACT(iAsBx, a, sbx);
             if (regs[a].u64 == 0) ip += sbx;
         }
         else if constexpr (op == Opcode::Jnz) 
         {
-            auto [a, sbx] = inst.extract<Format::iAsBx>();
+            ZN_EXTRACT(iAsBx, a, sbx);
             if (regs[a].u64 != 0) ip += sbx;
+        }
+        else if constexpr (op == Opcode::Call)
+        {
+
+        }
+        else if constexpr (op == Opcode::Return)
+        {
+
         }
         else if constexpr (op == Opcode::Halt) 
         {
