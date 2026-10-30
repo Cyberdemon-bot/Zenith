@@ -332,7 +332,7 @@ int main(int argc, char* argv[])
 
         std::cout << "Iterative Fibonacci, n = " << LIMIT
                   << "  (best of " << RUNS << " runs)\n"
-                  << "  native C (-O3):  " << c_fib  << ", " << c_best << " ms\n"
+                  << "  native C:        " << c_fib  << ", " << c_best << " ms\n"
                   << "  bytecode VM:     " << vm_fib << ", " << vm_best << " ms\n"
                   << "  ratio:           " << ratio  << "x\n"
                   << "  match:           " << (match ? "yes" : "NO — BUG!") << "\n";

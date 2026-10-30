@@ -6,7 +6,7 @@ target("ZenithCore")
 
     if is_mode("debug") then
         add_defines("ZENITH_DEBUG", {public = true})
-        add_defines("ZN_ENABLE_ASSERTS", {public = true})
+        add_defines("ZN_ENABLE_ASSERT", {public = true})
         set_symbols("debug")
     end
 
