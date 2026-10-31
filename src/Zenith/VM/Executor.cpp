@@ -107,7 +107,9 @@ namespace Zenith {
         else if constexpr (op == Opcode::Return)
         {
             ZN_EXTRACT(iABC, a, b, c);
-            if (b != 0 && a != 0) regs[0] = regs[a]; // copy return value back to regs[0] of callee
+            if (b != 0 && a != 0) // copy return values back to regs[0] of callee
+                for (uint8_t i = 0; i < b; ++i)
+                    regs[i] = regs[a + i];
             if (state->frame_depth() == 1) 
             {
                 state->current_frame().ip = ip;

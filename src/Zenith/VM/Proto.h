@@ -21,6 +21,7 @@ namespace Zenith {
         uint16_t child_count  = 0;
         uint8_t  num_param    = 0;
         uint8_t  max_regs     = 0;
+        uint8_t  num_return   = 0;
     };
 
     class ProtoBuilder
@@ -33,9 +34,11 @@ namespace Zenith {
 
         void patch_jmp(uint32_t idx, int16_t sbx);
         void set_num_params(uint8_t n) { m_NumParams = n; }
+        void set_num_return(uint8_t n) { m_NumReturn = n; }
         void set_max_regs(uint8_t n) { m_MaxRegs = n; }
 
         uint8_t num_params() const { return m_NumParams; }
+        uint8_t num_return() const { return m_NumReturn; }
         uint8_t max_regs() const { return m_MaxRegs; }
         uint32_t code_size() const  { return static_cast<uint32_t>(m_Code.size()); }
         uint16_t const_size() const { return static_cast<uint16_t>(m_Constants.size()); }
@@ -56,7 +59,7 @@ namespace Zenith {
         std::vector<Instruction> m_Code;
         std::vector<Value> m_Constants;
         uint16_t m_FirstChild = 0, m_ChildCount = 0;
-        uint8_t m_NumParams = 0, m_MaxRegs = 0;
+        uint8_t m_NumParams = 0, m_NumReturn = 0, m_MaxRegs = 0;
 
         friend class Module;
     };
