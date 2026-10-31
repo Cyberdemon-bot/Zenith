@@ -2,6 +2,7 @@
 build/
 bin/
 obj/
+scripts/output
 
 *.o
 *.obj
