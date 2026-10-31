@@ -142,9 +142,9 @@ namespace Zenith {
         uint32_t parse_break_stmt();
         uint32_t parse_continue_stmt();
         uint32_t parse_assign_stmt(uint32_t lhs);
-        uint32_t parse_func_decl(uint32_t start);
+        uint32_t parse_func_decl(uint32_t start, uint8_t is_pub = 0);
         uint32_t parse_typed_ident(std::string_view missing_name_message);
-        uint32_t parse_struct_decl(uint32_t start);
+        uint32_t parse_struct_decl(uint32_t start, uint8_t is_pub = 0);
 
         uint32_t parse_prefix_expr();
         uint32_t parse_infix_expr(uint32_t left);

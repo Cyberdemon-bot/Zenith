@@ -522,14 +522,14 @@ namespace Zenith {
             case TokenType::RETURN: return parse_return_stmt();
             case TokenType::BREAK: return parse_break_stmt();
             case TokenType::CONTINUE: return parse_continue_stmt();
-            case TokenType::FUNC: return parse_func_decl(curr_token());
-            case TokenType::STRUCT: return parse_struct_decl(curr_token());
+            case TokenType::FUNC: return parse_func_decl(curr_token(), 0);
+            case TokenType::STRUCT: return parse_struct_decl(curr_token(), 0);
             case TokenType::PUB:
             {
                 uint32_t start = curr_token();
                 next_token();
-                if (curr_token_is(TokenType::FUNC))   return parse_func_decl(start);
-                if (curr_token_is(TokenType::STRUCT)) return parse_struct_decl(start);
+                if (curr_token_is(TokenType::FUNC))   return parse_func_decl(start, 1);
+                if (curr_token_is(TokenType::STRUCT)) return parse_struct_decl(start, 1);
                 return add_error("Expected 'func' or 'struct' after 'pub'", start);
             }
             default: return default_parser();
@@ -673,7 +673,7 @@ namespace Zenith {
     }
 
     // declarations
-    uint32_t Parser::parse_func_decl(uint32_t start)
+    uint32_t Parser::parse_func_decl(uint32_t start, uint8_t is_pub)
     {
         next_token(); // consume 'func'
         if (!curr_token_is(TokenType::IDENT)) return add_error("Expected function name after 'func'");
@@ -712,10 +712,10 @@ namespace Zenith {
 
         uint32_t end = get_node(body).end_token;
         return push_node(NodeType::FuncDecl, start, end,
-            { .func_decl = { .sign = sign, .body = body } });
+            { .func_decl = { .sign = sign, .body = body, .is_pub = is_pub } });
     }
 
-    uint32_t Parser::parse_struct_decl(uint32_t start)
+    uint32_t Parser::parse_struct_decl(uint32_t start, uint8_t is_pub)
     {
         next_token(); // consume 'struct'
         if (!curr_token_is(TokenType::IDENT)) return add_error("Expected struct name after 'struct'");
@@ -726,7 +726,7 @@ namespace Zenith {
         {
             uint32_t end = curr_token(); next_token();
             return push_node(NodeType::StructDecl, start, end,
-                { .struct_decl = { .name = name, .fields = ERROR_NODE } });
+                { .struct_decl = { .name = name, .fields = ERROR_NODE, .is_pub = is_pub } });
         }
 
         if (!curr_token_is(TokenType::LBRACE))
@@ -742,7 +742,7 @@ namespace Zenith {
         if (fields == ERROR_NODE) return ERROR_NODE;
 
         return push_node(NodeType::StructDecl, start, get_node(fields).end_token,
-            { .struct_decl = { .name = name, .fields = fields } });
+            { .struct_decl = { .name = name, .fields = fields, .is_pub = is_pub } });
     }
 
     uint32_t Parser::parse_typed_ident(std::string_view missing_name_message)

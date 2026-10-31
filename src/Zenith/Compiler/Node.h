@@ -70,8 +70,8 @@ namespace Zenith {
             struct { uint32_t inner; uint8_t is_mut; }          ref_type;
 
             struct { uint32_t name, params, ret_type; }         func_sign;
-            struct { uint32_t sign, body; }                     func_decl;
-            struct { uint32_t name, fields; }                   struct_decl;
+            struct { uint32_t sign, body; uint8_t is_pub; }     func_decl;
+            struct { uint32_t name, fields; uint8_t is_pub; }   struct_decl;
             struct { uint32_t target, value; }                  let;
 
             struct { uint32_t pattern, guard, body; }           match_arm;

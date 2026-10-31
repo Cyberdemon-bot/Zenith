@@ -3,15 +3,13 @@
 #include "Zenith/VM/Proto.h"
 #include "Zenith/VM/Instruction.h"
 
-#include <span>
-
 namespace Zenith {
 
     struct CallFrame
     {
         Value* stack_base;
-        const Proto* proto;
         const Instruction* ip;
+        uint16_t proto_id;
     };
 
     class State
@@ -19,18 +17,27 @@ namespace Zenith {
     public:
         State();
 
-        uint16_t add_proto(Proto&& proto);
+        void set_module(std::shared_ptr<const Module> module);
         void prepare(uint16_t entry_proto_id = 0);
 
-        Value& reg(uint8_t idx) noexcept { return m_Frames.back().stack_base[idx]; }
-        const Value& reg(uint8_t idx) const noexcept { return m_Frames.back().stack_base[idx]; }
+        Value& reg(uint8_t idx) noexcept;
+        const Value& reg(uint8_t idx) const noexcept;
+
+        const Module& module() const noexcept { return *m_Module; }
     private:
         std::vector<Value> m_Stack;
-        std::vector<Proto> m_Protos;
         std::vector<CallFrame> m_Frames;
 
+        std::shared_ptr<const Module> m_Module;
+
         CallFrame& current_frame() noexcept { return m_Frames.back(); }
-        const Value& get_stack_value(size_t idx) const noexcept { return m_Stack[idx]; }
+        const CallFrame& current_frame() const noexcept { return m_Frames.back(); }
+
+        void push_frame(Value* stack_base, uint16_t proto_id, const Instruction* ip);
+        void pop_frame() noexcept { m_Frames.pop_back(); }
+
+        size_t frame_depth() const noexcept { return m_Frames.size(); }
+        bool frames_empty() const noexcept { return m_Frames.empty(); }
 
         friend class Executor;
     };

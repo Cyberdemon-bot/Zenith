@@ -55,6 +55,7 @@ namespace Zenith {
 		#define ZN_NEXT() [[clang::musttail]] return STEP_TABLE[ip->slot()](state, ip, regs, consts)
 		#define ZN_HALT() return
 	#else
+		struct Instruction;
 		using StepRet = const Instruction*; 
 		#define ZN_NEXT() return ip
 		#define ZN_HALT() return nullptr

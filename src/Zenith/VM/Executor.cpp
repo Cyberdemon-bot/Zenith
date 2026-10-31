@@ -1,9 +1,11 @@
 #include "Zenith/VM/Executor.h"
+#include "Zenith/Core/Base.h"
+#include "Zenith/VM/State.h"
 
 #define ZN_EXTRACT(fmt, ...)                                            \
     static_assert(fm == Format::fmt,                                    \
                   "opcode format mismatch: " #fmt " expected");         \
-    auto [__VA_ARGS__] = inst.extract<Format::fmt>()
+    auto [__VA_ARGS__] = inst.extract<Format::fmt>();
 
 namespace Zenith {
 
@@ -34,32 +36,32 @@ namespace Zenith {
         else if constexpr (op == Opcode::Add) 
         {
             ZN_EXTRACT(iABC, a, b, c);
-            regs[a].get_as<ty>() = regs[b].get_as<ty>() + regs[c].get_as<ty>();
+            regs[a].set_as<ty>(regs[b].get_as<ty>() + regs[c].get_as<ty>());
         }
         else if constexpr (op == Opcode::Sub) 
         {
             ZN_EXTRACT(iABC, a, b, c);
-            regs[a].get_as<ty>() = regs[b].get_as<ty>() - regs[c].get_as<ty>();
+            regs[a].set_as<ty>(regs[b].get_as<ty>() - regs[c].get_as<ty>());
         }
         else if constexpr (op == Opcode::Mul) 
         {
             ZN_EXTRACT(iABC, a, b, c);
-            regs[a].get_as<ty>() = regs[b].get_as<ty>() * regs[c].get_as<ty>();
+            regs[a].set_as<ty>(regs[b].get_as<ty>() * regs[c].get_as<ty>());
         }
         else if constexpr (op == Opcode::Div || op == Opcode::DivS || op == Opcode::DivU) 
         {
             ZN_EXTRACT(iABC, a, b, c);
-            regs[a].get_as<ty>() = regs[b].get_as<ty>() / regs[c].get_as<ty>();
+            regs[a].set_as<ty>(regs[b].get_as<ty>() / regs[c].get_as<ty>());
         }
         else if constexpr (op == Opcode::RemS || op == Opcode::RemU) 
         {
             ZN_EXTRACT(iABC, a, b, c);
-            regs[a].get_as<ty>() = regs[b].get_as<ty>() % regs[c].get_as<ty>();
+            regs[a].set_as<ty>(regs[b].get_as<ty>() % regs[c].get_as<ty>());
         }
         else if constexpr (op == Opcode::Neg) 
         {
             ZN_EXTRACT(iABC, a, b, c);
-            regs[a].get_as<ty>() = -regs[b].get_as<ty>();
+            regs[a].set_as<ty>(-regs[b].get_as<ty>());
         }
         else if constexpr (op == Opcode::Eq) 
         {
@@ -93,11 +95,32 @@ namespace Zenith {
         }
         else if constexpr (op == Opcode::Call)
         {
+            ZN_EXTRACT(iABx, a, Bx);
+            state->current_frame().ip = ip;
+            const Module& module = state->module();
 
+            regs += a;
+            ip = module.code(Bx).data();        
+            consts = module.consts(Bx).data();    
+            state->push_frame(regs, Bx, ip);
         }
         else if constexpr (op == Opcode::Return)
         {
+            ZN_EXTRACT(iABC, a, b, c);
+            if (b != 0 && a != 0) regs[0] = regs[a]; // copy return value back to regs[0] of callee
+            if (state->frame_depth() == 1) 
+            {
+                state->current_frame().ip = ip;
+                ZN_HALT();
+            }
 
+            state->current_frame().ip = ip;
+            state->pop_frame();
+            
+            const CallFrame& caller = state->current_frame();
+            ip = caller.ip;
+            regs = caller.stack_base;
+            consts = state->module().consts(caller.proto_id).data();
         }
         else if constexpr (op == Opcode::Halt) 
         {
@@ -116,14 +139,20 @@ namespace Zenith {
     void Executor::execute(State& state) noexcept 
     {
         CallFrame& frame = state.current_frame();
+        const Module& module = state.module();
+
         const Instruction* ip = frame.ip;
         Value* regs = frame.stack_base;
-        const Value* consts = frame.proto->get_constants().data();
+        const Value* consts = module.consts(frame.proto_id).data();
 
     #if ZN_HAS_MUSTTAIL
         STEP_TABLE[ip->slot()](&state, ip, regs, consts);
     #else
-        while ((ip = STEP_TABLE[ip->slot()](&state, ip, regs, consts)) != nullptr) {}
+        while (ip != nullptr)
+        {
+            const CallFrame& cur = state.current_frame();
+            ip = STEP_TABLE[ip->slot()](&state, ip, cur.stack_base, module.consts(cur.proto_id).data());
+        }
     #endif
     }
 }

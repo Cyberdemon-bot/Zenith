@@ -191,7 +191,7 @@ namespace Zenith {
                 out << std::setw(20) << "[Decimal]" << "Val: " << fmt_f64(node.data.f64);
                 break;
             case NodeType::String:
-                out << std::setw(20) << "[String]" << "Val: \"" << string_content(tok.literal) << "\"";
+                out << std::setw(20) << "[String]" << "Val: \"" << tok.literal << "\"";
                 break;
             case NodeType::Bool:
                 out << std::setw(20) << "[Bool]" << "Val: " << (node.data.i64 ? "true" : "false");
@@ -360,7 +360,8 @@ namespace Zenith {
             case NodeType::FuncDecl:
                 out << std::setw(20) << "[FuncDecl]"
                     << "Sign: " << node_ref(node.data.func_decl.sign)
-                    << " | Body: " << node_ref(node.data.func_decl.body);
+                    << " | Body: " << node_ref(node.data.func_decl.body)
+                    << " | Pub: " << (node.data.func_decl.is_pub ? "yes" : "no");
                 break;
             case NodeType::FuncSign:
                 out << std::setw(20) << "[FuncSign]"
@@ -378,6 +379,7 @@ namespace Zenith {
                     dump_list(f.data.list.start, f.data.list.count, "Fields");
                 }
                 else out << " | Fields: (unit)";
+                out << " | Pub: " << (node.data.struct_decl.is_pub ? "yes" : "no");
                 break;
             }
             case NodeType::ForExpr:
@@ -426,7 +428,7 @@ namespace Zenith {
         switch (node.type) {
             case NodeType::Integer: out << " " << node.data.i64; break;
             case NodeType::Decimal: out << " " << fmt_f64(node.data.f64); break;
-            case NodeType::String:  out << " \"" << string_content(tok.literal) << "\""; break;
+            case NodeType::String:  out << " \"" << tok.literal << "\""; break;
             case NodeType::Bool:    out << " " << (node.data.i64 ? "true" : "false"); break;
             case NodeType::Null:    break;
             case NodeType::Identifier: out << " \"" << tok.literal << "\""; break;
@@ -509,6 +511,7 @@ namespace Zenith {
                 print_child(node.data.typed_ident.type);
                 break;
             case NodeType::FuncDecl:
+                if (node.data.func_decl.is_pub) out << " :pub true";
                 print_child(node.data.func_decl.sign);
                 print_child(node.data.func_decl.body);
                 break;
@@ -518,6 +521,7 @@ namespace Zenith {
                 print_child(node.data.func_sign.ret_type);
                 break;
             case NodeType::StructDecl:
+                if (node.data.struct_decl.is_pub) out << " :pub true";
                 print_child(node.data.struct_decl.name);
                 print_child(node.data.struct_decl.fields);
                 break;

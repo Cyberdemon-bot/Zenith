@@ -13,8 +13,10 @@ struct ProfileTimer
 	{
 		auto end = std::chrono::steady_clock::now();
 		float duration = std::chrono::duration<float, std::milli>(end - start).count();
-		if (duration > minTime) *result = duration;
+		if (result && duration > minTime) *result = duration;
 	}
 };
 
-#define ZN_PROFILE_SCOPE(res) ProfileTimer timer##__LINE__(res)
+#define ZN_CONCAT_IMPL(a, b) a##b
+#define ZN_CONCAT(a, b) ZN_CONCAT_IMPL(a, b)
+#define ZN_PROFILE_SCOPE(res) ProfileTimer ZN_CONCAT(timer, __LINE__)(res)
