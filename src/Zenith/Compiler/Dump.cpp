@@ -314,7 +314,8 @@ namespace Zenith {
                     << " | Expr: " << node_ref(node.data.break_stmt.value);
                 break;
             case NodeType::ContinueStmt:
-                out << std::setw(20) << "[ContinueStmt]";
+                out << std::setw(20) << "[ContinueStmt]"
+                    << "Label: " << node_ref(node.data.continue_stmt.label);
                 break;
             case NodeType::CallExpr:
             {
@@ -539,6 +540,11 @@ namespace Zenith {
                 if (node.data.break_stmt.label != ERROR_NODE || node.data.break_stmt.value != ERROR_NODE) {
                     print_child(node.data.break_stmt.label);
                     print_child(node.data.break_stmt.value);
+                }
+                break;
+            case NodeType::ContinueStmt:
+                if (node.data.continue_stmt.label != ERROR_NODE) {
+                    print_child(node.data.continue_stmt.label);
                 }
                 break;
             case NodeType::LabeledExpr:

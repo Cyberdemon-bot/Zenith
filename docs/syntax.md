@@ -79,20 +79,23 @@ let mut counter = 0;
 ```
 
 ### Control Statements
-*Note:* Unlabeled `break` is not allowed; a target label is mandatory.
+`break` and `continue` can optionally specify a target label to break out of or continue an outer enclosing loop (or labeled block for `break`). `break` can also optionally return an expression value, while `continue` takes no value and must be terminated immediately by `;`. When the label is omitted, they apply to the innermost enclosing loop.
 
 ```ebnf
 return_stmt      := "return" expr? ";"
-break_stmt       := "break" LABEL expr? ";"
-continue_stmt    := "continue" ";"
+break_stmt       := "break" LABEL? expr? ";"
+continue_stmt    := "continue" LABEL? ";"
 ```
 
 *Example:*
 ```zenith
 return (v.x, v.y);
-break 'outer 42;
+break;
+break 42;
 break 'loop;
+break 'outer 42;
 continue;
+continue 'loop;
 ```
 
 ### Assignments
@@ -133,18 +136,16 @@ type_annotation  := named_type
 named_type       := IDENT ( "<" type_arg_list ">" )?
 type_arg_list    := type_annotation ( "," type_annotation )* ","?
 
-ref_type         := "mut"? "&" type_annotation
+ref_type         := "&" "mut"? type_annotation
 tuple_type       := "(" ( type_annotation ( "," type_annotation )* ","? )? ")"
 ```
-
-*Important:* Mutable references use prefix `mut &T` (writing `&mut T` produces a syntax error).
 
 *Example:*
 ```zenith
 i32
 Vec<i32>
 &Vec2
-mut &Vec2
+&mut Vec2
 (i32, i32)
 ()
 ```
@@ -181,8 +182,7 @@ prefix_expr      := literal
                   | "-" expr
                   | "*" expr                          (* deref_expr *)
                   | "(" expr ")"                      (* paren_expr or tuple *)
-                  | "&" expr                          (* immutable borrow *)
-                  | "mut" "&" expr                    (* mutable borrow *)
+                  | "&" "mut"? expr                   (* borrow: &x or &mut x *)
                   | "new" named_type constructor_args (* heap allocation *)
                   | "mut" "new" named_type constructor_args
                   | struct_init
@@ -193,7 +193,6 @@ constructor_args := "(" arg_list? ")"
 ```
 
 *Notes:*
-* Mutable borrows must be written as `mut &x` (writing `&mut x` produces a syntax error).
 * Heap allocations with `new` can take either constructor argument lists `( ... )` or field initializer lists `{ ... }`.
 
 ### Struct Initializers
@@ -250,7 +249,7 @@ for { process(1); }
 for ready { process(x); }
 for item in items { process(item); }
 for item in &list { process(item); }
-for item in mut &list { process(item); }
+for item in &mut list { process(item); }
 'scan: for item in items { if item == target { break 'scan; } }
 ```
 
@@ -286,6 +285,6 @@ Precedence is strictly enforced during expression climbing:
 | **4** | `P_LESSGREATER` | `<`, `<=`, `>`, `>=` | Left | Relational comparisons |
 | **5** | `P_SUM` | `+`, `-` | Left | Addition, subtraction |
 | **6** | `P_PRODUCT` | `*`, `/`, `%` | Left | Multiplication, division, remainder |
-| **7** | `P_UNARY` | `!`, `-`, `*` (deref), `&`, `mut &`, `new`, `mut new` | Right | Unary prefix operators |
+| **7** | `P_UNARY` | `!`, `-`, `*` (deref), `&`, `&mut`, `new`, `mut new` | Right | Unary prefix operators |
 | **8** | `P_CALL` | `.`, `(args)` | Left | Member access, function call |
 | **9** | `P_INDEX` | `[index]` | Left | Array / collection indexing |

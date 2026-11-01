@@ -156,7 +156,7 @@ namespace Zenith {
         uint32_t parse_field_access_expr(uint32_t left);
         uint32_t parse_call_expr(uint32_t left);
         uint32_t parse_index_expr(uint32_t left);
-        uint32_t parse_borrow_expr(uint32_t start, uint8_t is_mut);
+        uint32_t parse_borrow_expr(uint32_t start);
         uint32_t parse_mut_expr();
         uint32_t parse_new_expr(uint32_t start, uint8_t is_mut);
         uint32_t parse_paren_expr();

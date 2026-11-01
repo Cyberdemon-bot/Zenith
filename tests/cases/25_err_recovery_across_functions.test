@@ -4,7 +4,7 @@ func a() {
 }
 
 func b() {
-    break;
+    break x y;
     foo(y);
 }
 
@@ -12,7 +12,7 @@ func c() { return; }
 
 // === EXPECTED ERRORS ===
 2:13 Unexpected token in prefix expression
-7:10 Expected a label after 'break'; unlabeled break is not allowed
+7:11 Expected ';' after break statement
 
 // === EXPECTED AST ===
 (Program

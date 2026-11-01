@@ -3,8 +3,9 @@ func demo() {
     for { process(1); }
     for item in items { process(item); }
     for item in &list { process(item); }
-    for item in mut &list { process(item); }
+    for item in &mut list { process(item); }
     for item in range(10) { continue; }
+    'outer: for item in range(10) { continue 'outer; }
     'forever: for { break 'forever; }
     'scan: for item in items { if item == target { break 'scan; } }
     'maybe: if ready { break 'maybe; }
@@ -110,6 +111,25 @@ func demo() {
           )
           (BlockExpr
             (ContinueStmt)
+          )
+        )
+      )
+      (ExprStmt
+        (LabeledExpr
+          (Label "outer")
+          (ForInExpr
+            (Identifier "item")
+            (CallExpr
+              (Identifier "range")
+              (ArgList
+                (Integer 10)
+              )
+            )
+            (BlockExpr
+              (ContinueStmt
+                (Label "outer")
+              )
+            )
           )
         )
       )

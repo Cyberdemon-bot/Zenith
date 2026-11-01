@@ -1,7 +1,7 @@
 func demo() {
     let a: i32 = 1;
     let b: &String = &s;
-    let c: mut &String = mut &s;
+    let c: &mut String = &mut s;
     let d: (i32, &Vec2) = (1, &v);
     let e: Vec<Vec<i32>> = grid;
     let f: () = ();

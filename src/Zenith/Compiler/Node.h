@@ -78,6 +78,7 @@ namespace Zenith {
 
             struct { uint32_t type, args; uint8_t is_mut; }     new_expr;
             struct { uint32_t label, value; }                   break_stmt;
+            struct { uint32_t label; }                          continue_stmt;
 
             struct { uint32_t cond, body; }                     for_expr;
             struct { uint32_t var, iterable, body; }            for_in;

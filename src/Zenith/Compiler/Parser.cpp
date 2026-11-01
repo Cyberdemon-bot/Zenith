@@ -131,7 +131,7 @@ namespace Zenith {
                     return parse_struct_init();
                 return parse_identifier();
             }
-            case TokenType::AMPERSAND: return parse_borrow_expr(curr_token(), 0);
+            case TokenType::AMPERSAND: return parse_borrow_expr(curr_token());
             case TokenType::MUT: return parse_mut_expr();
             case TokenType::NEW: return parse_new_expr(curr_token(), 0);
             default: return add_error("Unexpected token in prefix expression");
@@ -250,10 +250,15 @@ namespace Zenith {
             { .access = { .target = left, .member = index_expr } });
     }
 
-    uint32_t Parser::parse_borrow_expr(uint32_t start, uint8_t is_mut)
+    uint32_t Parser::parse_borrow_expr(uint32_t start)
     {
         next_token(); // consume '&'
-        if (curr_token_is(TokenType::MUT)) return add_error("Write 'mut &x' instead of '&mut x'");
+        uint8_t is_mut = 0;
+        if (curr_token_is(TokenType::MUT))
+        {
+            is_mut = 1;
+            next_token(); // consume 'mut'
+        }
 
         uint32_t expr = parse_expr(PrecedenceType::P_UNARY);
         if (expr == ERROR_NODE) return ERROR_NODE;
@@ -265,9 +270,11 @@ namespace Zenith {
     uint32_t Parser::parse_mut_expr()
     {
         uint32_t mut_tok = curr_token(); next_token(); // consume 'mut'
-        if (curr_token_is(TokenType::AMPERSAND)) return parse_borrow_expr(mut_tok, 1);
-        if (curr_token_is(TokenType::NEW))       return parse_new_expr(mut_tok, 1);
-        return add_error("Expected '&' or 'new' after 'mut'");
+        if (curr_token_is(TokenType::AMPERSAND))
+            return add_error("Write '&mut x' instead of 'mut &x'", mut_tok);
+        if (curr_token_is(TokenType::NEW))
+            return parse_new_expr(mut_tok, 1);
+        return add_error("Expected 'new' after 'mut'", mut_tok);
     }
 
     uint32_t Parser::parse_new_expr(uint32_t start, uint8_t is_mut)
@@ -637,13 +644,14 @@ namespace Zenith {
 
     uint32_t Parser::parse_break_stmt()
     {   
-        uint32_t break_tok = curr_token(), end; next_token();
+        uint32_t break_tok = curr_token(); next_token(); // consume 'break'
         uint32_t label = ERROR_NODE, value = ERROR_NODE;
 
-        if (!curr_token_is(TokenType::LABEL))
-            return add_error("Expected a label after 'break'; unlabeled break is not allowed");
-        label = push_node(NodeType::Label, curr_token());
-        next_token();
+        if (curr_token_is(TokenType::LABEL))
+        {
+            label = push_node(NodeType::Label, curr_token());
+            next_token();
+        }
 
         if (!curr_token_is(TokenType::SEMICOLON))
         {
@@ -653,23 +661,37 @@ namespace Zenith {
 
         if (!curr_token_is(TokenType::SEMICOLON)) 
         {
-            uint32_t ref = (value != ERROR_NODE) ? value : label;
+            uint32_t ref = (value != ERROR_NODE) ? value 
+                        : (label != ERROR_NODE ? label : break_tok);
             return add_error("Expected ';' after break statement", ref, ErrorScope::TokenBefore);
         }
-        end = curr_token(); next_token();
+
+        uint32_t end = curr_token(); next_token(); // consume ';'
 
         return push_node(NodeType::BreakStmt, break_tok, end,
             { .break_stmt = { .label = label, .value = value } });
-    }   
+    }
+
 
     uint32_t Parser::parse_continue_stmt()
     {
         uint32_t cont_tok = curr_token(), end; next_token();
+        uint32_t label = ERROR_NODE;
+
+        if (curr_token_is(TokenType::LABEL))
+        {
+            label = push_node(NodeType::Label, curr_token());
+            next_token();
+        }
 
         if (!curr_token_is(TokenType::SEMICOLON)) 
-            return add_error("Expected ';' after continue statement", ERROR_NODE, ErrorScope::TokenBefore);
+        {
+            uint32_t ref = (label != ERROR_NODE) ? label : cont_tok;
+            return add_error("Expected ';' after continue statement", ref, ErrorScope::TokenBefore);
+        }
         end = curr_token(); next_token();
-        return push_node(NodeType::ContinueStmt, cont_tok, end);
+        return push_node(NodeType::ContinueStmt, cont_tok, end,
+            { .continue_stmt = { .label = label } });
     }
 
     // declarations
@@ -779,19 +801,21 @@ namespace Zenith {
         {
             case TokenType::MUT:
             {
-                next_token();
-                if (!curr_token_is(TokenType::AMPERSAND))
-                    return add_error("Expected '&' after 'mut' in type; 'mut' only applies to references");
-                return parse_ref_type(start, 1);
+                uint32_t mut_tok = curr_token(); next_token();
+                if (curr_token_is(TokenType::AMPERSAND))
+                    return add_error("Write '&mut T' instead of 'mut &T'", mut_tok);
+                return add_error("Expected '&' after 'mut' in type; 'mut' only applies to references", mut_tok);
             }
             case TokenType::AMPERSAND:
             {
-                if (peek_token_is(TokenType::MUT))
+                next_token(); // consume '&'
+                uint8_t is_mut = 0;
+                if (curr_token_is(TokenType::MUT))
                 {
-                    next_token();
-                    return add_error("Write 'mut &T' instead of '&mut T'");
+                    is_mut = 1;
+                    next_token(); // consume 'mut'
                 }
-                return parse_ref_type(start, 0);
+                return parse_ref_type(start, is_mut);
             }
             case TokenType::LPAREN: return parse_tuple_type();
             case TokenType::DYN:    return parse_dyn_type(); 
@@ -802,7 +826,6 @@ namespace Zenith {
 
     uint32_t Parser::parse_ref_type(uint32_t start, uint8_t is_mut)
     {
-        next_token(); // consume '&'
         uint32_t inner = parse_type_annotation();
         if (inner == ERROR_NODE) return ERROR_NODE;
 
