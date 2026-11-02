@@ -1,7 +1,11 @@
 #pragma once
 
 #include "Zenith/VM/Proto.h"
-#include "Zenith/VM/Instruction.h"
+
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <vector>
 
 namespace Zenith {
 

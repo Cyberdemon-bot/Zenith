@@ -1,6 +1,12 @@
 #include "Zenith/VM/Executor.h"
+
 #include "Zenith/Core/Base.h"
+#include "Zenith/VM/Instruction.h"
 #include "Zenith/VM/State.h"
+
+#include <cstddef>
+#include <cstdint>
+#include <utility>
 
 #define ZN_EXTRACT(fmt, ...)                                            \
     static_assert(fm == Format::fmt,                                    \

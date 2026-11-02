@@ -1,8 +1,9 @@
 #pragma once
 
 #include "Zenith/Core/Base.h"
-#include <cstdint>
+
 #include <bit>
+#include <cstdint>
 
 namespace Zenith {
 

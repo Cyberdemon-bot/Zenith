@@ -1,12 +1,16 @@
 #pragma once
 
 #include "Zenith/Core/Base.h"
-#include "Zenith/VM/State.h"
-#include "Zenith/VM/Instruction.h"
+#include "Zenith/VM/Opcode.h"
 
-#include <utility>
+#include <array>
+#include <cstdint>
 
 namespace Zenith {
+
+    class State;
+    struct Instruction;
+    union Value;
 
     class Executor 
     {

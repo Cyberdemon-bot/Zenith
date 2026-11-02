@@ -1,10 +1,11 @@
 #pragma once
 
-#include "Zenith/VM/Value.h"
 #include "Zenith/VM/Instruction.h"
+#include "Zenith/VM/Value.h"
 
-#include <vector>
+#include <cstdint>
 #include <span>
+#include <vector>
 
 namespace Zenith {
 

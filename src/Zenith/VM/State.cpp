@@ -1,5 +1,9 @@
-#include "Zenith/Core/Base.h"
 #include "Zenith/VM/State.h"
+
+#include "Zenith/Core/Assert.h"
+#include "Zenith/Core/Base.h"
+
+#include <utility>
 
 namespace Zenith {
 

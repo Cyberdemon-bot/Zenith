@@ -2,7 +2,7 @@
 
 #include "Zenith/VM/Proto.h"
 
-#include <iostream>
+#include <iosfwd>
 #include <string>
 #include <string_view>
 

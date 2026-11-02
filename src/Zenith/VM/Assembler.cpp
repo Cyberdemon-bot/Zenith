@@ -1,9 +1,14 @@
-#include "Zenith/VM/Opcode.h"
 #include "Zenith/VM/Assembler.h"
+
+#include "Zenith/VM/Instruction.h"
+#include "Zenith/VM/Opcode.h"
 
 #include <algorithm>
 #include <bit>
 #include <charconv>
+#include <cstddef>
+#include <cstdint>
+#include <istream>
 #include <iterator>
 #include <optional>
 #include <string>
@@ -488,4 +493,4 @@ bool Assembler::assemble(ProtoBuilder& builder, std::string_view source, std::st
     return true;
 }
 
-} // namespace Zenith
+} 

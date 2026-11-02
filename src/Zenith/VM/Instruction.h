@@ -1,14 +1,14 @@
 #pragma once
 
+#include "Zenith/Core/Assert.h"
+#include "Zenith/VM/Opcode.h"
+
+#include <bit>
+#include <cstddef>
 #include <cstdint>
 #include <tuple>
-#include <bit>
 #include <type_traits>
-
-#include "Zenith/Core/Assert.h"
-#include "Zenith/VM/Format.h"
-#include "Zenith/VM/Opcode.h"
-#include "Zenith/VM/Value.h"
+#include <utility>
 
 namespace Zenith {
 

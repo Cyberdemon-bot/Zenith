@@ -2,6 +2,8 @@
 
 #include "Zenith/VM/Proto.h"
 
+#include <cstddef>
+#include <cstdint>
 #include <iostream>
 #include <string>
 
