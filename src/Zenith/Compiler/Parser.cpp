@@ -11,12 +11,12 @@ namespace Zenith {
         Token token;
         do 
         {
-            token = m_Lexer.next_token();
+            token = m_Lexer.NextToken();
             m_Tokens.push_back(token);
         } while (token.type != TokenType::END_OF_FILE);
     }
 
-    uint32_t Parser::parse_program()
+    AstView Parser::ParseProgram()
     {
         size_t marker = get_scratch_marker();
         uint32_t start = curr_token(), end;
@@ -37,7 +37,15 @@ namespace Zenith {
 
         end = curr_token();
         auto list = commit_list(marker);
-        return push_node(NodeType::Program, start, end, { .list = { .start = list.start, .count = list.count } });
+        auto root = push_node(NodeType::Program, start, end, { .list = { .start = list.start, .count = list.count } });
+        return AstView
+        {
+            .source = m_Source,
+            .nodes = m_Nodes,
+            .tokens = m_Tokens,
+            .extra = m_Extra,
+            .root = root
+        };
     }
 
     // expression parsing

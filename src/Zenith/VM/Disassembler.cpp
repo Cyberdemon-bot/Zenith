@@ -60,7 +60,7 @@ namespace {
         }
     }
 
-} // namespace
+} 
 
 void Disassembler::dump(const Module& module, uint16_t proto_id, std::ostream& os)
 {
@@ -186,4 +186,4 @@ void Disassembler::dump_instruction(const Module& module, uint16_t proto_id,
     }
 }
 
-} // namespace Zenith
+}

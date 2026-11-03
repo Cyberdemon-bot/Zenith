@@ -4,8 +4,8 @@
 #include <vector>
 #include <string_view>
 #include <iostream>
-#include "Zenith/Compiler/Node.h"
 #include "Zenith/Compiler/Lexer.h"
+#include "Zenith/Compiler/Ast.h"
 
 namespace Zenith {
 
@@ -58,7 +58,7 @@ namespace Zenith {
     {
     public:
         Parser(std::string_view source);
-        uint32_t parse_program();
+        AstView ParseProgram();
 
         void dump_errors(std::ostream& out = std::cerr) const;
         void dump_flat_ast(std::ostream& out = std::cout) const;
@@ -236,12 +236,13 @@ namespace Zenith {
                         return ERROR_NODE;
                     }
                     push_scratch(elem);
-                    if (curr_token_is(sep_type))
+
+                    if (curr_token_is(close_type)) break; 
+                    else if (curr_token_is(sep_type))
                     {
                         next_token(); // consume separator
                         if (allow_trailing && curr_token_is(close_type)) break; // trailing: (1, 2, )
                     }
-                    else if (curr_token_is(close_type)) break; 
                     else
                     {
                         rollback_scratch(marker);

@@ -159,7 +159,7 @@ int main(int argc, char* argv[])
         State state;
         state.set_module(shared_module);
         state.prepare(main_id);
-        Executor::execute(state);
+        Executor::Execute(state);
 
         bool pass = (state.reg(6).i32 == 16)
                  && (state.reg(2).f32 == 25.0f)
@@ -186,7 +186,7 @@ int main(int argc, char* argv[])
     }
 
     Zenith::Parser parser(source);
-    uint32_t root = parser.parse_program();
+    auto ast = parser.ParseProgram();
 
     if (parser.has_errors()) {
         parser.dump_errors(std::cerr);
@@ -194,7 +194,7 @@ int main(int argc, char* argv[])
     }
 
     if (mode == Mode::Flat) parser.dump_flat_ast(std::cout);
-    else if (mode == Mode::Ast) parser.dump_tree_ast(std::cout, root);
+    else if (mode == Mode::Ast) parser.dump_tree_ast(std::cout, ast.root);
     std::cout.flush();
     return 0;
 }

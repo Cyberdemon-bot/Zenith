@@ -126,12 +126,12 @@ namespace {
 
     struct PendingJump
     {
-        size_t      inst_idx;
+        size_t inst_idx;
         std::string label;
-        size_t      line_no;
+        size_t line_no;
     };
 
-} // namespace
+}
 
 bool Assembler::assemble(ProtoBuilder& builder, std::istream& is, std::string* out_error)
 {

@@ -59,7 +59,7 @@ namespace Zenith {
         read_char();
     }
 
-    Token Lexer::next_token()
+    Token Lexer::NextToken()
     {
         skip_whitespace(); 
 

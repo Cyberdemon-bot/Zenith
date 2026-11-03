@@ -103,7 +103,7 @@ namespace Zenith {
         {
             ZN_EXTRACT(iABx, a, Bx);
             state->current_frame().ip = ip;
-            const Module& module = state->module();
+            const Module& module = state->get_module();
 
             regs += a;
             ip = module.code(Bx).data();        
@@ -128,7 +128,7 @@ namespace Zenith {
             const CallFrame& caller = state->current_frame();
             ip = caller.ip;
             regs = caller.stack_base;
-            consts = state->module().consts(caller.proto_id).data();
+            consts = state->get_module().consts(caller.proto_id).data();
         }
         else if constexpr (op == Opcode::Halt) 
         {
@@ -144,10 +144,10 @@ namespace Zenith {
             return std::array<Executor::StepFn, DISPATCH_SIZE>{ &Executor::step<Is>... };
         }(std::make_index_sequence<DISPATCH_SIZE>{});
 
-    void Executor::execute(State& state) noexcept 
+    void Executor::Execute(State& state) noexcept 
     {
         CallFrame& frame = state.current_frame();
-        const Module& module = state.module();
+        const Module& module = state.get_module();
 
         const Instruction* ip = frame.ip;
         Value* regs = frame.stack_base;

@@ -27,7 +27,7 @@ namespace Zenith {
         Value& reg(uint8_t idx) noexcept;
         const Value& reg(uint8_t idx) const noexcept;
 
-        const Module& module() const noexcept { return *m_Module; }
+        const Module& get_module() const noexcept { return *m_Module; }
     private:
         std::vector<Value> m_Stack;
         std::vector<CallFrame> m_Frames;

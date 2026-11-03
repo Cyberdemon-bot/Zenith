@@ -290,10 +290,10 @@ namespace
         }
 
         Zenith::Parser parser(tc.source);
-        uint32_t root = parser.parse_program();
+        auto ast = parser.ParseProgram();
 
         std::ostringstream tree;
-        parser.dump_tree_ast(tree, root);
+        parser.dump_tree_ast(tree, ast.root);
         std::string actual_ast = trim(normalize_newlines(tree.str()));
         std::vector<ErrorInfo> actual_errors = collect_errors(parser);
         std::string actual_errors_text = render_errors(actual_errors);

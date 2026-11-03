@@ -15,7 +15,7 @@ namespace Zenith {
     class Executor 
     {
     public:
-        static void execute(State& state) noexcept;
+        static void Execute(State& state) noexcept;
 
     private:
         using StepFn = StepRet(*)(State*, const Instruction*, Value*, const Value*);
