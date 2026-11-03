@@ -62,13 +62,13 @@ namespace {
 
 } // namespace
 
-void Disassembler::Dump(const Module& module, uint16_t protoId, std::ostream& os)
+void Disassembler::Dump(const Module& module, uint16_t proto_id, std::ostream& os)
 {
-    const Proto& p     = module.GetProto(protoId);
-    auto         code  = module.GetCode(protoId);
-    auto         consts = module.GetConsts(protoId);
+    const Proto& p     = module.GetProto(proto_id);
+    auto         code  = module.GetCode(proto_id);
+    auto         consts = module.GetConsts(proto_id);
 
-    os << "; === Proto #" << protoId << " Header ===\n";
+    os << "; === Proto #" << proto_id << " Header ===\n";
     os << "; Params:   " << static_cast<int>(p.NumParams) << "\n";
     os << "; Max Regs: " << static_cast<int>(p.MaxRegs)   << "\n";
     os << "; Children: offset=" << p.FirstChild
@@ -93,22 +93,22 @@ void Disassembler::Dump(const Module& module, uint16_t protoId, std::ostream& os
     os << "; === Instruction Listing (" << code.size() << ") ===\n";
     for (size_t pc = 0; pc < code.size(); ++pc)
     {
-        DumpInstruction(module, protoId, pc, os);
+        DumpInstruction(module, proto_id, pc, os);
         os << "\n";
     }
 }
 
-std::string Disassembler::Dump(const Module& module, uint16_t protoId)
+std::string Disassembler::Dump(const Module& module, uint16_t proto_id)
 {
     std::ostringstream ss;
-    Dump(module, protoId, ss);
+    Dump(module, proto_id, ss);
     return ss.str();
 }
 
-void Disassembler::DumpInstruction(const Module& module, uint16_t protoId,
+void Disassembler::DumpInstruction(const Module& module, uint16_t proto_id,
                                     size_t pc, std::ostream& os)
 {
-    auto code = module.GetCode(protoId);
+    auto code = module.GetCode(proto_id);
     const Instruction& inst = code[pc];
     uint8_t slot = inst.Slot();
     const SlotInfo& info = SLOT_INFO[slot];
