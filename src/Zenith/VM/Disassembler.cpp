@@ -15,7 +15,7 @@
 namespace Zenith {
 namespace {
 
-    std::string_view opcode_name(Opcode op)
+    std::string_view OpcodeName(Opcode op)
     {
         switch (op)
         {
@@ -44,7 +44,7 @@ namespace {
         }
     }
 
-    std::string_view type_suffix(Type ty)
+    std::string_view TypeSuffix(Type ty)
     {
         switch (ty)
         {
@@ -60,19 +60,19 @@ namespace {
         }
     }
 
-} 
+} // namespace
 
-void Disassembler::dump(const Module& module, uint16_t proto_id, std::ostream& os)
+void Disassembler::Dump(const Module& module, uint16_t protoId, std::ostream& os)
 {
-    const Proto& p     = module.proto(proto_id);
-    auto         code  = module.code(proto_id);
-    auto         consts = module.consts(proto_id);
+    const Proto& p     = module.GetProto(protoId);
+    auto         code  = module.GetCode(protoId);
+    auto         consts = module.GetConsts(protoId);
 
-    os << "; === Proto #" << proto_id << " Header ===\n";
-    os << "; Params:   " << static_cast<int>(p.num_param) << "\n";
-    os << "; Max Regs: " << static_cast<int>(p.max_regs)  << "\n";
-    os << "; Children: offset=" << p.first_child
-       << ", count=" << p.child_count << "\n\n";
+    os << "; === Proto #" << protoId << " Header ===\n";
+    os << "; Params:   " << static_cast<int>(p.NumParams) << "\n";
+    os << "; Max Regs: " << static_cast<int>(p.MaxRegs)   << "\n";
+    os << "; Children: offset=" << p.FirstChild
+       << ", count=" << p.ChildCount << "\n\n";
 
     if (!consts.empty())
     {
@@ -93,28 +93,28 @@ void Disassembler::dump(const Module& module, uint16_t proto_id, std::ostream& o
     os << "; === Instruction Listing (" << code.size() << ") ===\n";
     for (size_t pc = 0; pc < code.size(); ++pc)
     {
-        dump_instruction(module, proto_id, pc, os);
+        DumpInstruction(module, protoId, pc, os);
         os << "\n";
     }
 }
 
-std::string Disassembler::dump(const Module& module, uint16_t proto_id)
+std::string Disassembler::Dump(const Module& module, uint16_t protoId)
 {
     std::ostringstream ss;
-    dump(module, proto_id, ss);
+    Dump(module, protoId, ss);
     return ss.str();
 }
 
-void Disassembler::dump_instruction(const Module& module, uint16_t proto_id,
+void Disassembler::DumpInstruction(const Module& module, uint16_t protoId,
                                     size_t pc, std::ostream& os)
 {
-    auto code = module.code(proto_id);
+    auto code = module.GetCode(protoId);
     const Instruction& inst = code[pc];
-    uint8_t slot = inst.slot();
+    uint8_t slot = inst.Slot();
     const SlotInfo& info = SLOT_INFO[slot];
 
-    std::string mnemonic = std::string(opcode_name(info.op))
-                         + std::string(type_suffix(info.ty));
+    std::string mnemonic = std::string(OpcodeName(info.op))
+                         + std::string(TypeSuffix(info.ty));
 
     os << "  [" << std::right << std::setw(4) << std::setfill('0') << pc << "] "
        << std::setfill(' ') << std::setw(14) << std::left << mnemonic;
@@ -126,7 +126,7 @@ void Disassembler::dump_instruction(const Module& module, uint16_t proto_id,
 
     case Format::iABC:
     {
-        auto [a, b, c] = inst.extract<Format::iABC>();
+        auto [a, b, c] = inst.Extract<Format::iABC>();
         if (info.op == Opcode::Mov || info.op == Opcode::Neg || info.op == Opcode::LNot)
             os << "R" << static_cast<int>(a) << ", R" << static_cast<int>(b);
         else if (info.op == Opcode::Return)
@@ -139,7 +139,7 @@ void Disassembler::dump_instruction(const Module& module, uint16_t proto_id,
 
     case Format::iABx:
     {
-        auto [a, bx] = inst.extract<Format::iABx>();
+        auto [a, bx] = inst.Extract<Format::iABx>();
         if (info.op == Opcode::LoadConst)
             os << "R" << static_cast<int>(a) << ", K" << bx;
         else if (info.op == Opcode::Call)
@@ -151,7 +151,7 @@ void Disassembler::dump_instruction(const Module& module, uint16_t proto_id,
 
     case Format::iAsBx:
     {
-        auto [a, sbx] = inst.extract<Format::iAsBx>();
+        auto [a, sbx] = inst.Extract<Format::iAsBx>();
         if (info.op == Opcode::LoadImm)
         {
             os << "R" << static_cast<int>(a) << ", " << sbx;
@@ -179,11 +179,11 @@ void Disassembler::dump_instruction(const Module& module, uint16_t proto_id,
 
     case Format::iAx:
     {
-        auto [ax] = inst.extract<Format::iAx>();
+        auto [ax] = inst.Extract<Format::iAx>();
         os << ax;
         break;
     }
     }
 }
 
-}
+} // namespace Zenith

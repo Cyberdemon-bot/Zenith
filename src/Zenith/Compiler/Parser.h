@@ -36,7 +36,7 @@ namespace Zenith {
     {
         bool& flag;
         bool saved;
-        StructLitScope(bool& f, bool restrict_literals) : flag(f), saved(f) { flag = restrict_literals; }
+        StructLitScope(bool& f, bool restrictLiterals) : flag(f), saved(f) { flag = restrictLiterals; }
         ~StructLitScope() { flag = saved; }
     };
 
@@ -60,12 +60,12 @@ namespace Zenith {
         Parser(std::string_view source);
         AstView ParseProgram();
 
-        void dump_errors(std::ostream& out = std::cerr) const;
-        void dump_flat_ast(std::ostream& out = std::cout) const;
-        void dump_tree_ast(std::ostream& out = std::cout, uint32_t root_idx = ERROR_NODE) const;
+        void DumpErrors(std::ostream& out = std::cerr) const;
+        void DumpFlatAst(std::ostream& out = std::cout) const;
+        void DumpTreeAst(std::ostream& out = std::cout, uint32_t rootIdx = ERROR_NODE) const;
 
-        bool has_errors() const { return !m_Errors.empty(); }
-        uint32_t get_errors_count() const { return static_cast<uint32_t>(m_Errors.size()); }
+        bool HasErrors() const { return !m_Errors.empty(); }
+        uint32_t GetErrorsCount() const { return static_cast<uint32_t>(m_Errors.size()); }
     private:
         std::string_view m_Source;
         uint32_t m_Cursor = 0;
@@ -88,96 +88,96 @@ namespace Zenith {
         };
 
         // error handler
-        void synchronize();
-        uint32_t add_error(std::string_view message, uint32_t node = ERROR_NODE, ErrorScope scope = ErrorScope::Token);
+        void Synchronize();
+        uint32_t AddError(std::string_view message, uint32_t node = ERROR_NODE, ErrorScope scope = ErrorScope::Token);
 
         // dump helpers
-        void dump_tree_node(std::ostream& out, uint32_t node_idx, int depth) const;
-        void dump_tree_list(std::ostream& out, uint32_t start, uint32_t count, int depth) const;
-        std::string node_type_to_string(NodeType type) const;
+        void DumpTreeNode(std::ostream& out, uint32_t nodeIdx, int depth) const;
+        void DumpTreeList(std::ostream& out, uint32_t start, uint32_t count, int depth) const;
+        std::string NodeTypeToString(NodeType type) const;
 
         // buffer's methods
-        size_t get_scratch_marker() const { return m_Scratch.size(); }
-        void push_scratch(uint32_t node) { m_Scratch.push_back(node); }
-        void rollback_scratch(size_t marker) { m_Scratch.resize(marker); }
-        ListHeader commit_list(size_t marker);
+        size_t GetScratchMarker() const { return m_Scratch.size(); }
+        void PushScratch(uint32_t node) { m_Scratch.push_back(node); }
+        void RollbackScratch(size_t marker) { m_Scratch.resize(marker); }
+        ListHeader CommitList(size_t marker);
 
-        uint32_t next_token() { return ++m_Cursor; }
-        uint32_t curr_token() { return m_Cursor; }
-        const Token& get_token(uint32_t idx) const { return m_Tokens[idx]; }
+        uint32_t NextToken() { return ++m_Cursor; }
+        uint32_t CurrToken() { return m_Cursor; }
+        const Token& GetToken(uint32_t idx) const { return m_Tokens[idx]; }
 
-        const Token& get_curr_token() const { return get_token(m_Cursor); }
-        const Token& get_peek_token() const { return get_token(m_Cursor + 1); }
-        TokenType peek_type(uint32_t n) const
+        const Token& GetCurrToken() const { return GetToken(m_Cursor); }
+        const Token& GetPeekToken() const { return GetToken(m_Cursor + 1); }
+        TokenType PeekType(uint32_t n) const
         {
             size_t idx = m_Cursor + n;
             if (idx >= m_Tokens.size()) idx = m_Tokens.size() - 1;
             return m_Tokens[idx].type;
         }
-        bool curr_token_is(TokenType type) { return get_token(m_Cursor).type == type; }
-        bool peek_token_is(TokenType type) { return get_token(m_Cursor + 1).type == type; }
+        bool CurrTokenIs(TokenType type) { return GetToken(m_Cursor).type == type; }
+        bool PeekTokenIs(TokenType type) { return GetToken(m_Cursor + 1).type == type; }
 
-        const Node& get_node(uint32_t idx) const { return m_Nodes[idx]; }
-        uint32_t get_curr_node() { return static_cast<uint32_t>(m_Nodes.size() - 1); }
-        uint32_t get_list_start() { return static_cast<uint32_t>(m_Extra.size()); }
-        void push_list(uint32_t elem, uint32_t& count) { m_Extra.push_back(elem); ++count; }
+        const Node& GetNode(uint32_t idx) const { return m_Nodes[idx]; }
+        uint32_t GetCurrNode() { return static_cast<uint32_t>(m_Nodes.size() - 1); }
+        uint32_t GetListStart() { return static_cast<uint32_t>(m_Extra.size()); }
+        void PushList(uint32_t elem, uint32_t& count) { m_Extra.push_back(elem); ++count; }
 
-        uint32_t push_node(NodeType type, uint32_t start, uint32_t end, Node::Data data = {}) 
+        uint32_t PushNode(NodeType type, uint32_t start, uint32_t end, Node::Data data = {}) 
         {
             m_Nodes.push_back(Node{ .type = type, .start_token = start, .end_token = end, .data = data });
             return static_cast<uint32_t>(m_Nodes.size() - 1);
         }
 
-        uint32_t push_node(NodeType type, uint32_t start, Node::Data data = {}) 
+        uint32_t PushNode(NodeType type, uint32_t start, Node::Data data = {}) 
         {
             m_Nodes.push_back(Node{ .type = type, .start_token = start, .end_token = start, .data = data });
             return static_cast<uint32_t>(m_Nodes.size() - 1);
         }
 
         // parsing methods
-        uint32_t parse_statement();
-        uint32_t default_parser();
-        uint32_t parse_let_stmt();
-        uint32_t parse_return_stmt();
-        uint32_t parse_break_stmt();
-        uint32_t parse_continue_stmt();
-        uint32_t parse_assign_stmt(uint32_t lhs);
-        uint32_t parse_func_decl(uint32_t start, uint8_t is_pub = 0);
-        uint32_t parse_typed_ident(std::string_view missing_name_message);
-        uint32_t parse_struct_decl(uint32_t start, uint8_t is_pub = 0);
+        uint32_t ParseStatement();
+        uint32_t DefaultParser();
+        uint32_t ParseLetStmt();
+        uint32_t ParseReturnStmt();
+        uint32_t ParseBreakStmt();
+        uint32_t ParseContinueStmt();
+        uint32_t ParseAssignStmt(uint32_t lhs);
+        uint32_t ParseFuncDecl(uint32_t start, uint8_t isPub = 0);
+        uint32_t ParseTypedIdent(std::string_view missingNameMessage);
+        uint32_t ParseStructDecl(uint32_t start, uint8_t isPub = 0);
 
-        uint32_t parse_prefix_expr();
-        uint32_t parse_infix_expr(uint32_t left);
-        uint32_t parse_block_like_expr();
-        uint32_t parse_labeled_expr();
-        uint32_t parse_expr(PrecedenceType precedence);
+        uint32_t ParsePrefixExpr();
+        uint32_t ParseInfixExpr(uint32_t left);
+        uint32_t ParseBlockLikeExpr();
+        uint32_t ParseLabeledExpr();
+        uint32_t ParseExpr(PrecedenceType precedence);
 
-        uint32_t parse_numeric_expr(uint32_t left);
-        uint32_t parse_field_access_expr(uint32_t left);
-        uint32_t parse_call_expr(uint32_t left);
-        uint32_t parse_index_expr(uint32_t left);
-        uint32_t parse_borrow_expr(uint32_t start);
-        uint32_t parse_mut_expr();
-        uint32_t parse_new_expr(uint32_t start, uint8_t is_mut);
-        uint32_t parse_paren_expr();
-        uint32_t parse_struct_init();
-        uint32_t parse_field_init();
-        uint32_t parse_arrow_body();
-        uint32_t parse_block_expr();
-        uint32_t parse_if_expr();
-        uint32_t parse_for_expr();
+        uint32_t ParseNumericExpr(uint32_t left);
+        uint32_t ParseFieldAccessExpr(uint32_t left);
+        uint32_t ParseCallExpr(uint32_t left);
+        uint32_t ParseIndexExpr(uint32_t left);
+        uint32_t ParseBorrowExpr(uint32_t start);
+        uint32_t ParseMutExpr();
+        uint32_t ParseNewExpr(uint32_t start, uint8_t isMut);
+        uint32_t ParseParenExpr();
+        uint32_t ParseStructInit();
+        uint32_t ParseFieldInit();
+        uint32_t ParseArrowBody();
+        uint32_t ParseBlockExpr();
+        uint32_t ParseIfExpr();
+        uint32_t ParseForExpr();
 
-        uint32_t parse_identifier();
-        uint32_t parse_type_annotation();
-        uint32_t parse_ref_type(uint32_t start, uint8_t is_mut);
-        uint32_t parse_named_type();
-        uint32_t parse_dyn_type();
-        uint32_t parse_tuple_type();
+        uint32_t ParseIdentifier();
+        uint32_t ParseTypeAnnotation();
+        uint32_t ParseRefType(uint32_t start, uint8_t isMut);
+        uint32_t ParseNamedType();
+        uint32_t ParseDynType();
+        uint32_t ParseTupleType();
 
-        bool is_struct_init_ahead() const;
+        bool IsStructInitAhead() const;
 
         //utils
-        constexpr PrecedenceType get_precedence(TokenType type) noexcept 
+        constexpr PrecedenceType GetPrecedence(TokenType type) noexcept 
         {
             switch (type) 
             {
@@ -201,7 +201,7 @@ namespace Zenith {
             }
         }
 
-        constexpr bool is_block_like_start(TokenType type) noexcept
+        constexpr bool IsBlockLikeStart(TokenType type) noexcept
         {
             switch (type)
             {
@@ -214,46 +214,46 @@ namespace Zenith {
         }
 
         template <typename Fn>
-        uint32_t parse_delimited_list(
-            NodeType res_type, 
-            TokenType close_type, 
-            TokenType sep_type, 
-            Fn parse_element, 
-            std::string_view error_message,
-            bool allow_trailing = true)
+        uint32_t ParseDelimitedList(
+            NodeType resType, 
+            TokenType closeType, 
+            TokenType sepType, 
+            Fn parseElement, 
+            std::string_view errorMessage,
+            bool allowTrailing = true)
         {
-            uint32_t start = curr_token(); next_token(); // consume open_token
-            size_t marker = get_scratch_marker();
+            uint32_t start = CurrToken(); NextToken(); // consume open_token
+            size_t marker = GetScratchMarker();
 
-            if (!curr_token_is(close_type))  
+            if (!CurrTokenIs(closeType))  
             {
                 while (true)
                 {
-                    uint32_t elem = parse_element();
+                    uint32_t elem = parseElement();
                     if (elem == ERROR_NODE)
                     {
-                        rollback_scratch(marker);
+                        RollbackScratch(marker);
                         return ERROR_NODE;
                     }
-                    push_scratch(elem);
+                    PushScratch(elem);
 
-                    if (curr_token_is(close_type)) break; 
-                    else if (curr_token_is(sep_type))
+                    if (CurrTokenIs(closeType)) break; 
+                    else if (CurrTokenIs(sepType))
                     {
-                        next_token(); // consume separator
-                        if (allow_trailing && curr_token_is(close_type)) break; // trailing: (1, 2, )
+                        NextToken(); // consume separator
+                        if (allowTrailing && CurrTokenIs(closeType)) break; // trailing: (1, 2, )
                     }
                     else
                     {
-                        rollback_scratch(marker);
-                        return add_error(error_message);
+                        RollbackScratch(marker);
+                        return AddError(errorMessage);
                     }
                 }
             }
 
-            uint32_t end = curr_token(); next_token(); // consume close_type
-            auto list = commit_list(marker);
-            return push_node(res_type, start, end, { .list = { .start = list.start, .count = list.count } });
+            uint32_t end = CurrToken(); NextToken(); // consume close_type
+            auto list = CommitList(marker);
+            return PushNode(resType, start, end, { .list = { .start = list.start, .count = list.count } });
         }
     };
 }

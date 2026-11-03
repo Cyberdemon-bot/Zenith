@@ -46,7 +46,7 @@ namespace Zenith {
         std::string_view literal;
         uint32_t line, column;
 
-        constexpr std::string_view type2string() const
+        constexpr std::string_view TypeToString() const
         {
             auto index = static_cast<std::size_t>(type);
             if (index < TOKEN_NAMES.size()) return TOKEN_NAMES[index];

@@ -11,12 +11,12 @@
 #define ZN_EXTRACT(fmt, ...)                                            \
     static_assert(fm == Format::fmt,                                    \
                   "opcode format mismatch: " #fmt " expected");         \
-    auto [__VA_ARGS__] = inst.extract<Format::fmt>();
+    auto [__VA_ARGS__] = inst.Extract<Format::fmt>();
 
 namespace Zenith {
 
     template<uint32_t Slot>
-    StepRet Executor::step(State* state, const Instruction* ip, Value* regs, const Value* consts)
+    StepRet Executor::Step(State* state, const Instruction* ip, Value* regs, const Value* consts)
     {
         constexpr SlotInfo info = SLOT_INFO[Slot];
         constexpr Opcode op = info.op;
@@ -42,42 +42,42 @@ namespace Zenith {
         else if constexpr (op == Opcode::Add) 
         {
             ZN_EXTRACT(iABC, a, b, c);
-            regs[a].set_as<ty>(regs[b].get_as<ty>() + regs[c].get_as<ty>());
+            regs[a].SetAs<ty>(regs[b].GetAs<ty>() + regs[c].GetAs<ty>());
         }
         else if constexpr (op == Opcode::Sub) 
         {
             ZN_EXTRACT(iABC, a, b, c);
-            regs[a].set_as<ty>(regs[b].get_as<ty>() - regs[c].get_as<ty>());
+            regs[a].SetAs<ty>(regs[b].GetAs<ty>() - regs[c].GetAs<ty>());
         }
         else if constexpr (op == Opcode::Mul) 
         {
             ZN_EXTRACT(iABC, a, b, c);
-            regs[a].set_as<ty>(regs[b].get_as<ty>() * regs[c].get_as<ty>());
+            regs[a].SetAs<ty>(regs[b].GetAs<ty>() * regs[c].GetAs<ty>());
         }
         else if constexpr (op == Opcode::Div || op == Opcode::DivS || op == Opcode::DivU) 
         {
             ZN_EXTRACT(iABC, a, b, c);
-            regs[a].set_as<ty>(regs[b].get_as<ty>() / regs[c].get_as<ty>());
+            regs[a].SetAs<ty>(regs[b].GetAs<ty>() / regs[c].GetAs<ty>());
         }
         else if constexpr (op == Opcode::RemS || op == Opcode::RemU) 
         {
             ZN_EXTRACT(iABC, a, b, c);
-            regs[a].set_as<ty>(regs[b].get_as<ty>() % regs[c].get_as<ty>());
+            regs[a].SetAs<ty>(regs[b].GetAs<ty>() % regs[c].GetAs<ty>());
         }
         else if constexpr (op == Opcode::Neg) 
         {
             ZN_EXTRACT(iABC, a, b, c);
-            regs[a].set_as<ty>(-regs[b].get_as<ty>());
+            regs[a].SetAs<ty>(-regs[b].GetAs<ty>());
         }
         else if constexpr (op == Opcode::Eq) 
         {
             ZN_EXTRACT(iABC, a, b, c);
-            regs[a].u64 = static_cast<uint64_t>(regs[b].get_as<ty>() == regs[c].get_as<ty>());
+            regs[a].u64 = static_cast<uint64_t>(regs[b].GetAs<ty>() == regs[c].GetAs<ty>());
         }
         else if constexpr (op == Opcode::Lt) 
         {
             ZN_EXTRACT(iABC, a, b, c);
-            regs[a].u64 = static_cast<uint64_t>(regs[b].get_as<ty>() < regs[c].get_as<ty>());
+            regs[a].u64 = static_cast<uint64_t>(regs[b].GetAs<ty>() < regs[c].GetAs<ty>());
         }
         else if constexpr (op == Opcode::LNot) 
         {
@@ -102,13 +102,13 @@ namespace Zenith {
         else if constexpr (op == Opcode::Call)
         {
             ZN_EXTRACT(iABx, a, Bx);
-            state->current_frame().ip = ip;
-            const Module& module = state->get_module();
+            state->CurrentFrame().IP = ip;
+            const Module& module = state->GetModule();
 
             regs += a;
-            ip = module.code(Bx).data();        
-            consts = module.consts(Bx).data();    
-            state->push_frame(regs, Bx, ip);
+            ip = module.GetCode(Bx).data();        
+            consts = module.GetConsts(Bx).data();    
+            state->PushFrame(regs, Bx, ip);
         }
         else if constexpr (op == Opcode::Return)
         {
@@ -116,23 +116,23 @@ namespace Zenith {
             if (b != 0 && a != 0) // copy return values back to regs[0] of callee
                 for (uint8_t i = 0; i < b; ++i)
                     regs[i] = regs[a + i];
-            if (state->frame_depth() == 1) 
+            if (state->GetFrameDepth() == 1) 
             {
-                state->current_frame().ip = ip;
+                state->CurrentFrame().IP = ip;
                 ZN_HALT();
             }
 
-            state->current_frame().ip = ip;
-            state->pop_frame();
+            state->CurrentFrame().IP = ip;
+            state->PopFrame();
             
-            const CallFrame& caller = state->current_frame();
-            ip = caller.ip;
-            regs = caller.stack_base;
-            consts = state->get_module().consts(caller.proto_id).data();
+            const CallFrame& caller = state->CurrentFrame();
+            ip = caller.IP;
+            regs = caller.StackBase;
+            consts = state->GetModule().GetConsts(caller.ProtoId).data();
         }
         else if constexpr (op == Opcode::Halt) 
         {
-            state->current_frame().ip = ip;
+            state->CurrentFrame().IP = ip;
             ZN_HALT();
         }
         else static_assert(always_false_v<Slot>, "unhandled opcode in step");
@@ -141,25 +141,25 @@ namespace Zenith {
 
     const std::array<Executor::StepFn, DISPATCH_SIZE> Executor::STEP_TABLE =
         []<std::size_t... Is>(std::index_sequence<Is...>) {
-            return std::array<Executor::StepFn, DISPATCH_SIZE>{ &Executor::step<Is>... };
+            return std::array<Executor::StepFn, DISPATCH_SIZE>{ &Executor::Step<Is>... };
         }(std::make_index_sequence<DISPATCH_SIZE>{});
 
     void Executor::Execute(State& state) noexcept 
     {
-        CallFrame& frame = state.current_frame();
-        const Module& module = state.get_module();
+        CallFrame& frame = state.CurrentFrame();
+        const Module& module = state.GetModule();
 
-        const Instruction* ip = frame.ip;
-        Value* regs = frame.stack_base;
-        const Value* consts = module.consts(frame.proto_id).data();
+        const Instruction* ip = frame.IP;
+        Value* regs = frame.StackBase;
+        const Value* consts = module.GetConsts(frame.ProtoId).data();
 
     #if ZN_HAS_MUSTTAIL
-        STEP_TABLE[ip->slot()](&state, ip, regs, consts);
+        STEP_TABLE[ip->Slot()](&state, ip, regs, consts);
     #else
         while (ip != nullptr)
         {
-            const CallFrame& cur = state.current_frame();
-            ip = STEP_TABLE[ip->slot()](&state, ip, cur.stack_base, module.consts(cur.proto_id).data());
+            const CallFrame& cur = state.CurrentFrame();
+            ip = STEP_TABLE[ip->Slot()](&state, ip, cur.StackBase, module.GetConsts(cur.ProtoId).data());
         }
     #endif
     }

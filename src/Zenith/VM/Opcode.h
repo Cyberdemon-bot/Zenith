@@ -72,22 +72,22 @@ namespace Zenith {
         { Opcode::Halt,      Format::iNone, Type::None },
     }};
 
-    constexpr bool opcode_defs_ordered() 
+    constexpr bool OpcodeDefsOrdered() 
     {
         for (uint32_t i = 0; i < OPCODE_COUNT; ++i)
             if (static_cast<uint32_t>(OPCODE_DEFS[i].op) != i) return false;
         return true;
     }
-    static_assert(opcode_defs_ordered(), "OPCODE_DEFS must follow Opcode enum order exactly");
+    static_assert(OpcodeDefsOrdered(), "OPCODE_DEFS must follow Opcode enum order exactly");
 
-    constexpr bool all_have_variants() 
+    constexpr bool AllHaveVariants() 
     {
         for (auto& d : OPCODE_DEFS) if (d.variant_count == 0) return false;
         return true;
     }
-    static_assert(all_have_variants(), "every opcode must declare >=1 variant");
+    static_assert(AllHaveVariants(), "every opcode must declare >=1 variant");
 
-    constexpr bool no_duplicate_types() 
+    constexpr bool NoDuplicateTypes() 
     {
         for (auto& d : OPCODE_DEFS) 
         {
@@ -101,7 +101,7 @@ namespace Zenith {
         }
         return true;
     }
-    static_assert(no_duplicate_types(), "duplicate type within one opcode's variant list");
+    static_assert(NoDuplicateTypes(), "duplicate type within one opcode's variant list");
 
     struct OpcodeInfo 
     {
@@ -154,7 +154,7 @@ namespace Zenith {
         { Opcode::Eq,  Type::REF, Type::U64 },
     });
 
-    constexpr bool aliases_are_valid() 
+    constexpr bool AliasesAreValid() 
     {
         for (const auto& a : SLOT_ALIASES) 
         {
@@ -166,9 +166,9 @@ namespace Zenith {
         }
         return true;
     }
-    static_assert(aliases_are_valid(), "alias target not present in OPCODE_DEFS");
+    static_assert(AliasesAreValid(), "alias target not present in OPCODE_DEFS");
 
-    constexpr bool aliases_no_conflict() 
+    constexpr bool AliasesNoConflict() 
     {
         for (const auto& a : SLOT_ALIASES) 
         {
@@ -178,9 +178,9 @@ namespace Zenith {
         }
         return true;
     }
-    static_assert(aliases_no_conflict(), "alias source is also a real variant");
+    static_assert(AliasesNoConflict(), "alias source is also a real variant");
 
-    constexpr bool aliases_no_dup_source() 
+    constexpr bool AliasesNoDupSource() 
     {
         for (std::size_t i = 0; i < SLOT_ALIASES.size(); ++i)
             for (std::size_t j = i + 1; j < SLOT_ALIASES.size(); ++j)
@@ -189,7 +189,7 @@ namespace Zenith {
                     return false;
         return true;
     }
-    static_assert(aliases_no_dup_source(), "duplicate (op, from) pair in SLOT_ALIASES");
+    static_assert(AliasesNoDupSource(), "duplicate (op, from) pair in SLOT_ALIASES");
 
     inline constexpr auto OPCODE_DISPATCH = []{
         std::array<std::array<uint32_t, TYPE_COUNT>, OPCODE_COUNT> t{};

@@ -13,13 +13,13 @@
 namespace Zenith {
 
     namespace detail {
-        template<typename...> struct first_or_void { using type = void; };
+        template<typename...> struct FirstOrVoid { using type = void; };
         template<typename T, typename... Rest>
-        struct first_or_void<T, Rest...> { using type = T; };
+        struct FirstOrVoid<T, Rest...> { using type = T; };
 
         template<typename... Args>
-        inline constexpr bool starts_with_type =
-            std::is_same_v<typename first_or_void<Args...>::type, Type>;
+        inline constexpr bool StartsWithType =
+            std::is_same_v<typename FirstOrVoid<Args...>::type, Type>;
     }
 
     struct Instruction 
@@ -30,7 +30,7 @@ namespace Zenith {
         Instruction() = default;
 
         template<Format F, typename... Args>
-        static constexpr Instruction make(Opcode op, Args... args) noexcept 
+        static constexpr Instruction Make(Opcode op, Args... args) noexcept 
         {
             Instruction inst;
             const uint32_t oi = static_cast<uint32_t>(op);
@@ -42,33 +42,33 @@ namespace Zenith {
                 ZN_CORE_ASSERT(OPCODE_INFO[oi].variants == 1, "Untyped opcode required");
                 inst.raw = OPCODE_BASE[oi] << 24;
             } 
-            else if constexpr (detail::starts_with_type<Args...>) 
+            else if constexpr (detail::StartsWithType<Args...>) 
             {
                 auto full = std::tuple{args...};
                 const Type ty = std::get<0>(full);
                 const uint32_t slot = OPCODE_DISPATCH[oi][static_cast<uint32_t>(ty)];
                 ZN_CORE_ASSERT(slot != INVALID_HANDLER, "Type not supported by this opcode");
                 auto operands = std::apply([](auto&&, auto&&... rest) { return std::tuple{rest...}; }, full);
-                inst.raw = pack<F>(slot, operands, std::make_index_sequence<sizeof...(Args) - 1>{});
+                inst.raw = Pack<F>(slot, operands, std::make_index_sequence<sizeof...(Args) - 1>{});
             } 
             else 
             {
                 ZN_CORE_ASSERT(OPCODE_INFO[oi].variants == 1, "Untyped opcode required");
                 ZN_CORE_ASSERT(OPCODE_VARIANTS[OPCODE_BASE[oi]] == Type::None, "Untyped opcode must have Type::None variant");
-                inst.raw = pack<F>(OPCODE_BASE[oi], std::tuple{args...}, std::make_index_sequence<sizeof...(Args)>{});
+                inst.raw = Pack<F>(OPCODE_BASE[oi], std::tuple{args...}, std::make_index_sequence<sizeof...(Args)>{});
             }
             return inst;
         }
 
-        constexpr void patch_sBx(int16_t sbx) noexcept 
+        constexpr void PatchSBx(int16_t sbx) noexcept 
         {
             raw = (raw & 0xFFFF0000u) | static_cast<uint32_t>(std::bit_cast<uint16_t>(sbx));
         }
 
-        constexpr uint8_t slot() const noexcept { return uint8_t(raw >> 24); }
+        constexpr uint8_t Slot() const noexcept { return uint8_t(raw >> 24); }
 
         template<Format F>
-        auto extract() const noexcept 
+        auto Extract() const noexcept 
         {
             if constexpr (F == Format::iNone) return std::tuple<>{};
             else if constexpr (F == Format::iABC)
@@ -84,7 +84,7 @@ namespace Zenith {
 
     private:
         template<Format F, typename Tuple, size_t... Is>
-        static constexpr uint32_t pack(uint32_t slot, const Tuple& t,
+        static constexpr uint32_t Pack(uint32_t slot, const Tuple& t,
                                     std::index_sequence<Is...>) noexcept 
         {
             uint32_t r = slot << 24;

@@ -9,23 +9,23 @@
 
 namespace Zenith {
 
-    std::string_view string_content(std::string_view lit)
+    std::string_view StringContent(std::string_view lit)
     {
         if (lit.size() >= 2 && lit.front() == '"' && lit.back() == '"')
             return lit.substr(1, lit.size() - 2);
         return lit;
     }
 
-    std::string_view label_name(std::string_view lit)
+    std::string_view LabelName(std::string_view lit)
     {
         if (!lit.empty() && lit.front() == '\'') lit.remove_prefix(1);
         if (!lit.empty() && lit.back() == ':')    lit.remove_suffix(1);
         return lit;
     }
 
-    std::string fmt_f64(double v) { return std::format("{}", v); }
+    std::string FmtF64(double v) { return std::format("{}", v); }
 
-    std::string Parser::node_type_to_string(NodeType type) const 
+    std::string Parser::NodeTypeToString(NodeType type) const 
     {
         switch (type) {
             case NodeType::Integer: return "Integer";
@@ -77,7 +77,7 @@ namespace Zenith {
         }
     }
 
-    void Parser::dump_errors(std::ostream& out) const 
+    void Parser::DumpErrors(std::ostream& out) const 
     {
         if (m_Errors.empty()) 
         {
@@ -138,7 +138,7 @@ namespace Zenith {
         }
     }
 
-    void Parser::dump_flat_ast(std::ostream& out) const
+    void Parser::DumpFlatAst(std::ostream& out) const
     {
         out << "\n================ FLAT AST DUMP ("
             << m_Nodes.size() << " nodes) ================\n";
@@ -188,7 +188,7 @@ namespace Zenith {
                 out << std::setw(20) << "[Integer]" << "Val: " << node.data.i64;
                 break;
             case NodeType::Decimal:
-                out << std::setw(20) << "[Decimal]" << "Val: " << fmt_f64(node.data.f64);
+                out << std::setw(20) << "[Decimal]" << "Val: " << FmtF64(node.data.f64);
                 break;
             case NodeType::String:
                 out << std::setw(20) << "[String]" << "Val: \"" << tok.literal << "\"";
@@ -209,7 +209,7 @@ namespace Zenith {
                     << " | Mut: "  << (node.data.typed_ident.is_mut ? "yes" : "no");
                 break;
             case NodeType::Label:
-                out << std::setw(20) << "[Label]" << "Name: " << label_name(tok.literal);
+                out << std::setw(20) << "[Label]" << "Name: " << LabelName(tok.literal);
                 break;
             case NodeType::UnaryExpr:
                 out << std::setw(20) << "[UnaryExpr]"
@@ -406,13 +406,13 @@ namespace Zenith {
         out << std::string(96, '=') << "\n";
     }
 
-    void Parser::dump_tree_list(std::ostream& out, uint32_t start, uint32_t count, int depth) const
+    void Parser::DumpTreeList(std::ostream& out, uint32_t start, uint32_t count, int depth) const
     {
         for (uint32_t i = 0; i < count; ++i) 
-            dump_tree_node(out, m_Extra[start + i], depth);
+            DumpTreeNode(out, m_Extra[start + i], depth);
     }
 
-    void Parser::dump_tree_node(std::ostream& out, uint32_t idx, int depth) const 
+    void Parser::DumpTreeNode(std::ostream& out, uint32_t idx, int depth) const 
     {
         std::string pad(depth * 2, ' ');
         
@@ -425,15 +425,15 @@ namespace Zenith {
         const auto& node = m_Nodes[idx];
         const auto& tok  = m_Tokens[node.start_token];
         
-        out << pad << "(" << node_type_to_string(node.type);
+        out << pad << "(" << NodeTypeToString(node.type);
         switch (node.type) {
             case NodeType::Integer: out << " " << node.data.i64; break;
-            case NodeType::Decimal: out << " " << fmt_f64(node.data.f64); break;
+            case NodeType::Decimal: out << " " << FmtF64(node.data.f64); break;
             case NodeType::String:  out << " \"" << tok.literal << "\""; break;
             case NodeType::Bool:    out << " " << (node.data.i64 ? "true" : "false"); break;
             case NodeType::Null:    break;
             case NodeType::Identifier: out << " \"" << tok.literal << "\""; break;
-            case NodeType::Label:   out << " \"" << label_name(tok.literal) << "\""; break;
+            case NodeType::Label:   out << " \"" << LabelName(tok.literal) << "\""; break;
             default: break;
         }
 
@@ -443,7 +443,7 @@ namespace Zenith {
             if (child_idx != ERROR_NODE) 
             {
                 if (!has_children) { out << "\n"; has_children = true; }
-                dump_tree_node(out, child_idx, depth + 1);
+                DumpTreeNode(out, child_idx, depth + 1);
             }
         };
 
@@ -452,7 +452,7 @@ namespace Zenith {
             if (count > 0) 
             {
                 if (!has_children) { out << "\n"; has_children = true; }
-                dump_tree_list(out, start, count, depth + 1);
+                DumpTreeList(out, start, count, depth + 1);
             }
         };
 
@@ -581,26 +581,26 @@ namespace Zenith {
         out << ")\n";
     }
 
-    void Parser::dump_tree_ast(std::ostream& out, uint32_t root_idx) const 
+    void Parser::DumpTreeAst(std::ostream& out, uint32_t rootIdx) const 
     {
-        if (root_idx == ERROR_NODE || root_idx >= m_Nodes.size() || m_Nodes[root_idx].type != NodeType::Program) 
+        if (rootIdx == ERROR_NODE || rootIdx >= m_Nodes.size() || m_Nodes[rootIdx].type != NodeType::Program) 
         {
             for (int32_t i = (int32_t)m_Nodes.size() - 1; i >= 1; --i) 
             {
                 if (m_Nodes[i].type == NodeType::Program) 
                 {
-                    root_idx = i;
+                    rootIdx = i;
                     break;
                 }
             }
         }
         
-        if (root_idx == ERROR_NODE || root_idx >= m_Nodes.size()) 
+        if (rootIdx == ERROR_NODE || rootIdx >= m_Nodes.size()) 
         {
             out << "(Error: No Program node found)\n";
             return;
         }
         
-        dump_tree_node(out, root_idx, 0);
+        DumpTreeNode(out, rootIdx, 0);
     }
 }

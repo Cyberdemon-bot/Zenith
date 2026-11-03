@@ -38,7 +38,7 @@ namespace Zenith {
 
         static_assert(std::ranges::is_sorted(KEYWORDS, {}, &KeyPair::name), "KEYWORDS must stay sorted");
 
-        TokenType lookup_ident(std::string_view ident) 
+        TokenType LookupIdent(std::string_view ident) 
         {
             auto it = std::lower_bound
             (
@@ -54,185 +54,185 @@ namespace Zenith {
     }
 
     Lexer::Lexer(std::string_view source)
-        : source(source)
+        : m_Source(source)
     {
-        read_char();
+        ReadChar();
     }
 
     Token Lexer::NextToken()
     {
-        skip_whitespace(); 
+        SkipWhitespace(); 
 
         if (m_HadUnterminatedComment)
         {
             m_HadUnterminatedComment = false;
-            return new_token(TokenType::ILLEGAL, "", pos);
+            return NewToken(TokenType::ILLEGAL, "", m_Pos);
         }
 
-        if (curr_char == NONE_CHAR) return new_token(TokenType::END_OF_FILE, "", pos); 
-        uint32_t start_pos = pos;
+        if (m_CurrChar == NONE_CHAR) return NewToken(TokenType::END_OF_FILE, "", m_Pos); 
+        uint32_t startPos = m_Pos;
 
-        if (is_letter(curr_char)) return read_identifier(); 
-        if (is_digit(curr_char))  return read_number();     
-        if (curr_char == '"')     return read_string();    
-        if (curr_char == '\'')    return read_label();
+        if (IsLetter(m_CurrChar)) return ReadIdentifier(); 
+        if (IsDigit(m_CurrChar))  return ReadNumber();     
+        if (m_CurrChar == '"')     return ReadString();    
+        if (m_CurrChar == '\'')    return ReadLabel();
 
-        switch (curr_char) 
+        switch (m_CurrChar) 
         {
-            case ';': read_char(); return new_token(TokenType::SEMICOLON, get_lil(start_pos), start_pos); 
-            case ':': read_char(); return new_token(TokenType::COLON,     get_lil(start_pos), start_pos); 
-            case ',': read_char(); return new_token(TokenType::COMMA,     get_lil(start_pos), start_pos); 
-            case '.': read_char(); return new_token(TokenType::DOT,       get_lil(start_pos), start_pos); 
-            case '?': read_char(); return new_token(TokenType::QUESTION,  get_lil(start_pos), start_pos); 
-            case '&': read_char(); return new_token(TokenType::AMPERSAND, get_lil(start_pos), start_pos); 
+            case ';': ReadChar(); return NewToken(TokenType::SEMICOLON, GetLil(startPos), startPos); 
+            case ':': ReadChar(); return NewToken(TokenType::COLON,     GetLil(startPos), startPos); 
+            case ',': ReadChar(); return NewToken(TokenType::COMMA,     GetLil(startPos), startPos); 
+            case '.': ReadChar(); return NewToken(TokenType::DOT,       GetLil(startPos), startPos); 
+            case '?': ReadChar(); return NewToken(TokenType::QUESTION,  GetLil(startPos), startPos); 
+            case '&': ReadChar(); return NewToken(TokenType::AMPERSAND, GetLil(startPos), startPos); 
             
-            case '(': read_char(); return new_token(TokenType::LPAREN,    get_lil(start_pos), start_pos); 
-            case ')': read_char(); return new_token(TokenType::RPAREN,    get_lil(start_pos), start_pos); 
-            case '{': read_char(); return new_token(TokenType::LBRACE,    get_lil(start_pos), start_pos); 
-            case '}': read_char(); return new_token(TokenType::RBRACE,    get_lil(start_pos), start_pos); 
-            case '[': read_char(); return new_token(TokenType::LBRACKET,  get_lil(start_pos), start_pos);
-            case ']': read_char(); return new_token(TokenType::RBRACKET,  get_lil(start_pos), start_pos);
+            case '(': ReadChar(); return NewToken(TokenType::LPAREN,    GetLil(startPos), startPos); 
+            case ')': ReadChar(); return NewToken(TokenType::RPAREN,    GetLil(startPos), startPos); 
+            case '{': ReadChar(); return NewToken(TokenType::LBRACE,    GetLil(startPos), startPos); 
+            case '}': ReadChar(); return NewToken(TokenType::RBRACE,    GetLil(startPos), startPos); 
+            case '[': ReadChar(); return NewToken(TokenType::LBRACKET,  GetLil(startPos), startPos); 
+            case ']': ReadChar(); return NewToken(TokenType::RBRACKET,  GetLil(startPos), startPos); 
 
-            case '+': read_char(); return new_token(TokenType::PLUS,      get_lil(start_pos), start_pos); 
+            case '+': ReadChar(); return NewToken(TokenType::PLUS,      GetLil(startPos), startPos); 
             case '-':
             {
-                if (peek_char() == '>')
+                if (PeekChar() == '>')
                 {
-                    read_char(); read_char();
-                    return new_token(TokenType::ARROW, get_lil(start_pos), start_pos);
+                    ReadChar(); ReadChar();
+                    return NewToken(TokenType::ARROW, GetLil(startPos), startPos);
                 }
-                read_char();
-                return new_token(TokenType::MINUS, get_lil(start_pos), start_pos);
+                ReadChar();
+                return NewToken(TokenType::MINUS, GetLil(startPos), startPos);
             }
             case '*':
             {
-                read_char();
-                return new_token(TokenType::ASTERISK, get_lil(start_pos), start_pos);
+                ReadChar();
+                return NewToken(TokenType::ASTERISK, GetLil(startPos), startPos);
             }
-            case '/': read_char(); return new_token(TokenType::SLASH,     get_lil(start_pos), start_pos); 
-            case '%': read_char(); return new_token(TokenType::MODULUS,   get_lil(start_pos), start_pos); 
+            case '/': ReadChar(); return NewToken(TokenType::SLASH,     GetLil(startPos), startPos); 
+            case '%': ReadChar(); return NewToken(TokenType::MODULUS,   GetLil(startPos), startPos); 
             
             case '=':
             {
-                if (peek_char() == '=') 
+                if (PeekChar() == '=') 
                 {
-                    read_char(); read_char(); 
-                    return new_token(TokenType::EE, get_lil(start_pos), start_pos); 
+                    ReadChar(); ReadChar(); 
+                    return NewToken(TokenType::EE, GetLil(startPos), startPos); 
                 }
-                if (peek_char() == '>')
+                if (PeekChar() == '>')
                 {
-                    read_char(); read_char();
-                    return new_token(TokenType::FATARROW, get_lil(start_pos), start_pos);
+                    ReadChar(); ReadChar();
+                    return NewToken(TokenType::FATARROW, GetLil(startPos), startPos);
                 }
-                read_char(); 
-                return new_token(TokenType::EQ, get_lil(start_pos), start_pos); 
+                ReadChar(); 
+                return NewToken(TokenType::EQ, GetLil(startPos), startPos); 
             }
             case '!':
             {
-                if (peek_char() == '=')
+                if (PeekChar() == '=')
                 {
-                    read_char(); read_char();
-                    return new_token(TokenType::NE, get_lil(start_pos), start_pos);
+                    ReadChar(); ReadChar();
+                    return NewToken(TokenType::NE, GetLil(startPos), startPos);
                 }
-                read_char();
-                return new_token(TokenType::BANG, get_lil(start_pos), start_pos);
+                ReadChar();
+                return NewToken(TokenType::BANG, GetLil(startPos), startPos);
             }
             case '<':
             {
-                if (peek_char() == '=') 
+                if (PeekChar() == '=') 
                 {
-                    read_char(); read_char(); 
-                    return new_token(TokenType::LTE, get_lil(start_pos), start_pos); 
+                    ReadChar(); ReadChar(); 
+                    return NewToken(TokenType::LTE, GetLil(startPos), startPos); 
                 }
-                read_char(); 
-                return new_token(TokenType::LT, get_lil(start_pos), start_pos); 
+                ReadChar(); 
+                return NewToken(TokenType::LT, GetLil(startPos), startPos); 
             }
             case '>':
             {
-                if (peek_char() == '=') 
+                if (PeekChar() == '=') 
                 {
-                    read_char(); read_char(); 
-                    return new_token(TokenType::GTE, get_lil(start_pos), start_pos); 
+                    ReadChar(); ReadChar(); 
+                    return NewToken(TokenType::GTE, GetLil(startPos), startPos); 
                 }
-                read_char(); 
-                return new_token(TokenType::GT, get_lil(start_pos), start_pos); 
+                ReadChar(); 
+                return NewToken(TokenType::GT, GetLil(startPos), startPos); 
             }
         }
 
-        read_char(); 
-        return new_token(TokenType::ILLEGAL, get_lil(start_pos), start_pos); 
+        ReadChar(); 
+        return NewToken(TokenType::ILLEGAL, GetLil(startPos), startPos); 
     }
 
-    void Lexer::read_char()
+    void Lexer::ReadChar()
     {
-        if (read_pos >= source.size())
+        if (m_ReadPos >= m_Source.size())
         {
-            curr_char = NONE_CHAR;
-            pos = static_cast<uint32_t>(source.size());
+            m_CurrChar = NONE_CHAR;
+            m_Pos = static_cast<uint32_t>(m_Source.size());
         }
         else
         {
-            curr_char = source[read_pos];
-            pos = read_pos;
-            ++read_pos;
+            m_CurrChar = m_Source[m_ReadPos];
+            m_Pos = m_ReadPos;
+            ++m_ReadPos;
         }
     }
 
-    char Lexer::peek_char()
+    char Lexer::PeekChar()
     {   
-        if (read_pos >= source.size()) return NONE_CHAR;
-        return source[read_pos];
+        if (m_ReadPos >= m_Source.size()) return NONE_CHAR;
+        return m_Source[m_ReadPos];
     }
 
-    void Lexer::skip_whitespace()
+    void Lexer::SkipWhitespace()
     {
         while (true) 
         {
-            switch (curr_char) 
+            switch (m_CurrChar) 
             {
                 case ' ':
                 case '\t':
                 case '\r': 
                 { 
-                    read_char(); 
+                    ReadChar(); 
                     break; 
                 }
                 case '\n': 
                 {
-                    line++;
-                    read_char();
-                    line_start_pos = pos;
+                    m_Line++;
+                    ReadChar();
+                    m_LineStartPos = m_Pos;
                     break;
                 }
                 case '/':
                 {
-                    if (peek_char() == '/')
+                    if (PeekChar() == '/')
                     {
-                        while (curr_char != '\n' && curr_char != NONE_CHAR) read_char();
+                        while (m_CurrChar != '\n' && m_CurrChar != NONE_CHAR) ReadChar();
                     }
-                    else if (peek_char() == '*')
+                    else if (PeekChar() == '*')
                     {
-                        read_char(); read_char(); 
+                        ReadChar(); ReadChar(); 
                         uint32_t depth = 1;
-                        while (curr_char != NONE_CHAR && depth > 0)
+                        while (m_CurrChar != NONE_CHAR && depth > 0)
                         {
-                            if (curr_char == '\n')
+                            if (m_CurrChar == '\n')
                             {
-                                line++;
-                                read_char();
-                                line_start_pos = pos;
+                                m_Line++;
+                                ReadChar();
+                                m_LineStartPos = m_Pos;
                             }
-                            else if (curr_char == '/' && peek_char() == '*')
+                            else if (m_CurrChar == '/' && PeekChar() == '*')
                             {
                                 depth++;
-                                read_char(); read_char();
+                                ReadChar(); ReadChar();
                             }
-                            else if (curr_char == '*' && peek_char() == '/')
+                            else if (m_CurrChar == '*' && PeekChar() == '/')
                             {
                                 depth--;
-                                read_char(); read_char();
+                                ReadChar(); ReadChar();
                             }
-                            else read_char();
+                            else ReadChar();
                         }
                         if (depth > 0) m_HadUnterminatedComment = true;
                     }
@@ -244,93 +244,93 @@ namespace Zenith {
         }
     }
 
-    Token Lexer::read_identifier()
+    Token Lexer::ReadIdentifier()
     {
-        uint32_t start_pos = pos;
-        while (curr_char != NONE_CHAR && is_alnum(curr_char)) read_char();
-        auto lil = get_lil(start_pos);
-        auto type = lookup_ident(lil);
-        return new_token(type, lil, start_pos);
+        uint32_t startPos = m_Pos;
+        while (m_CurrChar != NONE_CHAR && IsAlnum(m_CurrChar)) ReadChar();
+        auto lil = GetLil(startPos);
+        auto type = LookupIdent(lil);
+        return NewToken(type, lil, startPos);
     }
 
-    Token Lexer::read_number()
+    Token Lexer::ReadNumber()
     {
-        uint32_t start_pos = pos;
-        bool is_decimal = false;
-        while (is_digit(curr_char)) read_char();
+        uint32_t startPos = m_Pos;
+        bool isDecimal = false;
+        while (IsDigit(m_CurrChar)) ReadChar();
 
-        if (curr_char == '.' && is_digit(peek_char()))
+        if (m_CurrChar == '.' && IsDigit(PeekChar()))
         {
-            is_decimal = true;
-            read_char();
-            while (is_digit(curr_char)) read_char();
+            isDecimal = true;
+            ReadChar();
+            while (IsDigit(m_CurrChar)) ReadChar();
         }
 
-        if (curr_char == 'e' || curr_char == 'E')
+        if (m_CurrChar == 'e' || m_CurrChar == 'E')
         {
-            char next_char = peek_char();
-            if (is_digit(next_char))
+            char nextChar = PeekChar();
+            if (IsDigit(nextChar))
             {
-                is_decimal = true;
-                read_char();
-                while (is_digit(curr_char)) read_char();
+                isDecimal = true;
+                ReadChar();
+                while (IsDigit(m_CurrChar)) ReadChar();
             }
-            else if (next_char == '+' || next_char == '-')
+            else if (nextChar == '+' || nextChar == '-')
             {
-                uint32_t after_sign = read_pos + 1;
-                if (after_sign < source.size() && is_digit(source[after_sign]))
+                uint32_t afterSign = m_ReadPos + 1;
+                if (afterSign < m_Source.size() && IsDigit(m_Source[afterSign]))
                 {
-                    is_decimal = true;
-                    read_char();
-                    read_char();
-                    while (is_digit(curr_char)) read_char();
+                    isDecimal = true;
+                    ReadChar();
+                    ReadChar();
+                    while (IsDigit(m_CurrChar)) ReadChar();
                 }
             }
         }
 
-        return new_token(is_decimal ? TokenType::DECIMAL : TokenType::INTEGER, get_lil(start_pos), start_pos);
+        return NewToken(isDecimal ? TokenType::DECIMAL : TokenType::INTEGER, GetLil(startPos), startPos);
     }
 
-    Token Lexer::read_string()
+    Token Lexer::ReadString()
     {
-        uint32_t content_start = pos + 1;
+        uint32_t contentStart = m_Pos + 1;
         bool terminated = false;
 
         while (true)
         {
-            read_char();
-            if (curr_char == NONE_CHAR) break;
-            if (curr_char == '"') { terminated = true; break; }
-            if (curr_char == '\n')
+            ReadChar();
+            if (m_CurrChar == NONE_CHAR) break;
+            if (m_CurrChar == '"') { terminated = true; break; }
+            if (m_CurrChar == '\n')
             {
-                line++;
-                line_start_pos = pos + 1;
+                m_Line++;
+                m_LineStartPos = m_Pos + 1;
                 continue;
             }
-            if (curr_char == '\\')
+            if (m_CurrChar == '\\')
             {
-                read_char();
-                if (curr_char == NONE_CHAR) break;
-                if (curr_char == '\n')
+                ReadChar();
+                if (m_CurrChar == NONE_CHAR) break;
+                if (m_CurrChar == '\n')
                 {
-                    line++;
-                    line_start_pos = pos + 1;
+                    m_Line++;
+                    m_LineStartPos = m_Pos + 1;
                 }
             }
         }
 
-        auto lil = get_lil(content_start);
-        if (terminated) read_char();
+        auto lil = GetLil(contentStart);
+        if (terminated) ReadChar();
 
-        return new_token(terminated ? TokenType::STRING : TokenType::ILLEGAL, lil, content_start);
+        return NewToken(terminated ? TokenType::STRING : TokenType::ILLEGAL, lil, contentStart);
     }
 
-    Token Lexer::read_label()
+    Token Lexer::ReadLabel()
     {
-        read_char(); 
-        if (!is_letter(curr_char)) return new_token(TokenType::ILLEGAL, "", pos);
-        uint32_t start_pos = pos;
-        while (curr_char != NONE_CHAR && is_alnum(curr_char)) read_char();
-        return new_token(TokenType::LABEL, get_lil(start_pos), start_pos);
+        ReadChar(); 
+        if (!IsLetter(m_CurrChar)) return NewToken(TokenType::ILLEGAL, "", m_Pos);
+        uint32_t startPos = m_Pos;
+        while (m_CurrChar != NONE_CHAR && IsAlnum(m_CurrChar)) ReadChar();
+        return NewToken(TokenType::LABEL, GetLil(startPos), startPos);
     }
 }

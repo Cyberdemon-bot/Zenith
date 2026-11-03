@@ -12,42 +12,42 @@ namespace Zenith {
         Lexer(std::string_view source);
         Token NextToken();
     private:
-        std::string_view source;
-        uint32_t pos = 0, read_pos = 0, line = 1, line_start_pos = 0;
-        char curr_char = NONE_CHAR;
+        std::string_view m_Source;
+        uint32_t m_Pos = 0, m_ReadPos = 0, m_Line = 1, m_LineStartPos = 0;
+        char m_CurrChar = NONE_CHAR;
         bool m_HadUnterminatedComment = false;
 
-        void read_char();
-        char peek_char();
-        void skip_whitespace();
+        void ReadChar();
+        char PeekChar();
+        void SkipWhitespace();
 
-        Token read_identifier();
-        Token read_number();
-        Token read_string();
-        Token read_label();
+        Token ReadIdentifier();
+        Token ReadNumber();
+        Token ReadString();
+        Token ReadLabel();
 
-        static constexpr bool is_digit(char ch) { return ch >= '0' && ch <= '9'; }
-        static constexpr bool is_letter(char ch) { return ('a' <= ch && ch <= 'z') || ('A' <= ch && ch <= 'Z') || ch == '_'; }
-        static constexpr bool is_alnum(char ch) { return is_letter(ch) || is_digit(ch); }
+        static constexpr bool IsDigit(char ch) { return ch >= '0' && ch <= '9'; }
+        static constexpr bool IsLetter(char ch) { return ('a' <= ch && ch <= 'z') || ('A' <= ch && ch <= 'Z') || ch == '_'; }
+        static constexpr bool IsAlnum(char ch) { return IsLetter(ch) || IsDigit(ch); }
 
-        constexpr uint32_t get_column(uint32_t start_pos) const 
+        constexpr uint32_t GetColumn(uint32_t startPos) const 
         {
-            return start_pos - line_start_pos + 1;
+            return startPos - m_LineStartPos + 1;
         }
 
-        constexpr std::string_view get_lil(uint32_t start_pos) const
+        constexpr std::string_view GetLil(uint32_t startPos) const
         {
-            return std::string_view(source).substr(start_pos, pos - start_pos);
+            return std::string_view(m_Source).substr(startPos, m_Pos - startPos);
         }
 
-        constexpr Token new_token(TokenType type, std::string_view literal, uint32_t start_pos)
+        constexpr Token NewToken(TokenType type, std::string_view literal, uint32_t startPos)
         {
             return Token
             { 
                 .type = type, 
                 .literal = literal, 
-                .line = line,
-                .column = get_column(start_pos)
+                .line = m_Line,
+                .column = GetColumn(startPos)
             };
         }
     };

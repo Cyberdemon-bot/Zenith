@@ -131,43 +131,43 @@ int main(int argc, char* argv[])
 
         // ── Assemble callee → proto 0
         ProtoBuilder callee_builder;
-        if (!Assembler::assemble(callee_builder, callee_src, &err)) {
+        if (!Assembler::Assemble(callee_builder, callee_src, &err)) {
             std::cerr << "Assembler error (callee): " << err << "\n";
             return 1;
         }
-        uint16_t callee_id = module.add(std::move(callee_builder));
+        uint16_t callee_id = module.Add(std::move(callee_builder));
 
         // ── Assemble main → proto 1
         ProtoBuilder main_builder;
-        if (!Assembler::assemble(main_builder, main_src, &err)) {
+        if (!Assembler::Assemble(main_builder, main_src, &err)) {
             std::cerr << "Assembler error (main): " << err << "\n";
             return 1;
         }
-        uint16_t main_id = module.add(std::move(main_builder));
+        uint16_t main_id = module.Add(std::move(main_builder));
 
         // ── Freeze
-        module.freeze();
+        module.Freeze();
 
         // ── Dump
         std::cout << "; --- Callee Proto (#" << callee_id << ") ---\n";
-        Disassembler::dump(module, callee_id, std::cout);
+        Disassembler::Dump(module, callee_id, std::cout);
         std::cout << "\n; --- Main Proto (#" << main_id << ") ---\n";
-        Disassembler::dump(module, main_id, std::cout);
+        Disassembler::Dump(module, main_id, std::cout);
 
         // ── Execute
         auto shared_module = std::make_shared<const Module>(std::move(module));
         State state;
-        state.set_module(shared_module);
-        state.prepare(main_id);
+        state.SetModule(shared_module);
+        state.Prepare(main_id);
         Executor::Execute(state);
 
-        bool pass = (state.reg(6).i32 == 16)
-                 && (state.reg(2).f32 == 25.0f)
-                 && (state.reg(0).f32 == 50.0f);
+        bool pass = (state.Reg(6).i32 == 16)
+                 && (state.Reg(2).f32 == 25.0f)
+                 && (state.Reg(0).f32 == 50.0f);
 
         std::cout << "\nVM test: " << (pass ? "PASSED" : "FAILED")
-                  << " (callee_ret=" << state.reg(6).i32
-                  << ", div_f32=" << state.reg(2).f32 << ")\n";
+                  << " (callee_ret=" << state.Reg(6).i32
+                  << ", div_f32=" << state.Reg(2).f32 << ")\n";
         std::cout.flush();
         return pass ? 0 : 1;
     }
@@ -188,13 +188,13 @@ int main(int argc, char* argv[])
     Zenith::Parser parser(source);
     auto ast = parser.ParseProgram();
 
-    if (parser.has_errors()) {
-        parser.dump_errors(std::cerr);
+    if (parser.HasErrors()) {
+        parser.DumpErrors(std::cerr);
         return 1;
     }
 
-    if (mode == Mode::Flat) parser.dump_flat_ast(std::cout);
-    else if (mode == Mode::Ast) parser.dump_tree_ast(std::cout, ast.root);
+    if (mode == Mode::Flat) parser.DumpFlatAst(std::cout);
+    else if (mode == Mode::Ast) parser.DumpTreeAst(std::cout, ast.root);
     std::cout.flush();
     return 0;
 }

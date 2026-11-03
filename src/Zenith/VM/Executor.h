@@ -21,7 +21,7 @@ namespace Zenith {
         using StepFn = StepRet(*)(State*, const Instruction*, Value*, const Value*);
 
         template<uint32_t Slot>
-        static StepRet step(State*, const Instruction*, Value*, const Value*);
+        static StepRet Step(State*, const Instruction*, Value*, const Value*);
 
         static const std::array<StepFn, DISPATCH_SIZE> STEP_TABLE;
     };

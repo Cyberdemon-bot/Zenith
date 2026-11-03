@@ -27,7 +27,7 @@ namespace Zenith {
         Value() : u64(0) {}
 
         template<Type T>
-        constexpr auto& get_as() noexcept 
+        constexpr auto& GetAs() noexcept 
         {
             if      constexpr (T == Type::U32) return u32;
             else if constexpr (T == Type::I32) return i32;
@@ -40,7 +40,7 @@ namespace Zenith {
         }
 
         template<Type T>
-        constexpr const auto& get_as() const noexcept 
+        constexpr const auto& GetAs() const noexcept 
         {  
             if      constexpr (T == Type::U32) return u32;
             else if constexpr (T == Type::I32) return i32;
@@ -53,7 +53,7 @@ namespace Zenith {
         }
 
         template<Type T, typename V>
-        constexpr void set_as(V val) noexcept 
+        constexpr void SetAs(V val) noexcept 
         {
             if constexpr (T == Type::U32 || T == Type::I32) 
             {

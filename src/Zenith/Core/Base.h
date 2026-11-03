@@ -52,7 +52,7 @@ namespace Zenith {
 
 	#if ZN_HAS_MUSTTAIL
 		using StepRet = void;
-		#define ZN_NEXT() [[clang::musttail]] return STEP_TABLE[ip->slot()](state, ip, regs, consts)
+		#define ZN_NEXT() [[clang::musttail]] return STEP_TABLE[ip->Slot()](state, ip, regs, consts)
 		#define ZN_HALT() return
 	#else
 		struct Instruction;

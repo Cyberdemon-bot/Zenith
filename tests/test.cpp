@@ -137,7 +137,7 @@ namespace
     std::vector<ErrorInfo> collect_errors(const Zenith::Parser& parser)
     {
         std::ostringstream out;
-        parser.dump_errors(out);
+        parser.DumpErrors(out);
 
         std::vector<ErrorInfo> errors;
         for (const auto& line : split_lines(normalize_newlines(out.str())))
@@ -293,7 +293,7 @@ namespace
         auto ast = parser.ParseProgram();
 
         std::ostringstream tree;
-        parser.dump_tree_ast(tree, ast.root);
+        parser.DumpTreeAst(tree, ast.root);
         std::string actual_ast = trim(normalize_newlines(tree.str()));
         std::vector<ErrorInfo> actual_errors = collect_errors(parser);
         std::string actual_errors_text = render_errors(actual_errors);

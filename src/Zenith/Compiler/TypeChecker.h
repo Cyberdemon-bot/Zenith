@@ -5,6 +5,7 @@
 
 #include <vector>
 #include <unordered_map>
+#include <optional>
 
 namespace Zenith {
 
@@ -49,14 +50,29 @@ namespace Zenith {
     struct FuncSign
     {
         // [param1, param2, ..., param<count> / ret1, ret2, ..., ret<count>]
-        uint32_t params_count;
-        uint32_t rets_count; 
-        uint16_t proto_id;
+        uint32_t params_start, params_count;
+        uint32_t rets_start, rets_count; 
+        uint16_t protoId;
+    };
+
+    struct FuncView 
+    {
+        std::span<const CTType> params;
+        std::span<const CTType> rets;
+        uint16_t protoId;
     };
 
     class SignatureTable
     {
     public:
+        std::optional<FuncView> Find(std::string_view name) const;
+
+        void Add(std::string_view name,
+                    std::span<const CTType> params = {},
+                    std::span<const CTType> rets = {},
+                    uint16_t protoId = 0);
+
+        // must be ran before any Find call
         void Freeze();
     private:
         std::vector<CTType> m_TPool;
@@ -76,5 +92,6 @@ namespace Zenith {
         bool Validate();
     private:
         AstView m_Ast;
+        SignatureTable m_Table;
     };
 }

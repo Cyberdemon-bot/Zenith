@@ -13,45 +13,45 @@ namespace Zenith {
         m_Frames.reserve(MAX_CALL_FRAMES);
     }
 
-    void State::set_module(std::shared_ptr<const Module> module)
+    void State::SetModule(std::shared_ptr<const Module> module)
     {
         ZN_CORE_ASSERT(module != nullptr, "Cannot set null module");
-        ZN_CORE_ASSERT(module->is_frozen(), "Module must be frozen");
+        ZN_CORE_ASSERT(module->IsFrozen(), "Module must be frozen");
         ZN_CORE_ASSERT(m_Frames.empty(), "Cannot swap module while frames active");
         m_Module = std::move(module);
     }
 
-    void State::prepare(uint16_t entry_proto_id)
+    void State::Prepare(uint16_t entryProtoId)
     {
         ZN_CORE_ASSERT(m_Module != nullptr, "Module not set");
-        ZN_CORE_ASSERT(entry_proto_id < m_Module->num_protos(), "Invalid entry proto");
+        ZN_CORE_ASSERT(entryProtoId < m_Module->GetNumProtos(), "Invalid entry proto");
         m_Frames.clear();
 
         m_Frames.push_back(CallFrame
         {
-            .stack_base = m_Stack.data(),
-            .ip = m_Module->code(entry_proto_id).data(),
-            .proto_id = entry_proto_id,
+            .StackBase = m_Stack.data(),
+            .IP = m_Module->GetCode(entryProtoId).data(),
+            .ProtoId = entryProtoId,
         });
     }
 
-    Value& State::reg(uint8_t idx) noexcept
+    Value& State::Reg(uint8_t idx) noexcept
     {
-        ZN_CORE_ASSERT(!m_Frames.empty(), "reg() called after all frames popped");
-        return m_Frames.back().stack_base[idx];
+        ZN_CORE_ASSERT(!m_Frames.empty(), "Reg() called after all frames popped");
+        return m_Frames.back().StackBase[idx];
     }
 
-    const Value& State::reg(uint8_t idx) const noexcept
+    const Value& State::Reg(uint8_t idx) const noexcept
     {
-        ZN_CORE_ASSERT(!m_Frames.empty(), "reg() called after all frames popped");
-        return m_Frames.back().stack_base[idx];
+        ZN_CORE_ASSERT(!m_Frames.empty(), "Reg() called after all frames popped");
+        return m_Frames.back().StackBase[idx];
     }
     
-    void State::push_frame(Value* stack_base, uint16_t proto_id, const Instruction* ip)
+    void State::PushFrame(Value* stackBase, uint16_t protoId, const Instruction* ip)
     {
         ZN_CORE_ASSERT(m_Frames.size() < MAX_CALL_FRAMES, "Call stack overflow");
-        ZN_CORE_ASSERT((stack_base - m_Stack.data()) + m_Module->proto(proto_id).max_regs()
+        ZN_CORE_ASSERT((stackBase - m_Stack.data()) + m_Module->GetProto(protoId).MaxRegs
                         <= m_Stack.size(), "Register stack overflow");
-        m_Frames.push_back(CallFrame{ stack_base, ip, proto_id });
+        m_Frames.push_back(CallFrame{ stackBase, ip, protoId });
     }
 }

@@ -13,10 +13,10 @@ namespace Zenith {
     public:
         Assembler() = delete;
 
-        static bool assemble(ProtoBuilder& builder, std::string_view source,
-                             std::string* out_error = nullptr);
-        static bool assemble(ProtoBuilder& builder, std::istream& is,
-                             std::string* out_error = nullptr);
+        static bool Assemble(ProtoBuilder& builder, std::string_view source,
+                             std::string* outError = nullptr);
+        static bool Assemble(ProtoBuilder& builder, std::istream& is,
+                             std::string* outError = nullptr);
     };
 
 }
