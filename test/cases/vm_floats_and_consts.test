@@ -1,0 +1,29 @@
+// === INPUT: ASM ===
+.params 0
+.regs 10
+
+.const F32 15.5
+.const F32 4.0
+.const F64 100.25
+.const F64 2.5
+
+LoadConst R0, K0
+LoadConst R1, K1
+Add.F32   R2, R0, R1
+Sub.F32   R3, R0, R1
+Mul.F32   R4, R0, R1
+Div.F32   R5, R0, R1
+Neg.F32   R6, R1
+
+LoadConst R7, K2
+LoadConst R8, K3
+Div.F64   R9, R7, R8
+Halt
+
+// === EXPECTED VM ===
+R2 = 19.5 (F32)
+R3 = 11.5 (F32)
+R4 = 62 (F32)
+R5 = 3.875 (F32)
+R6 = -4 (F32)
+R9 = 40.1 (F64)

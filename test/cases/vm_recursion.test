@@ -1,0 +1,31 @@
+// === INPUT: ASM ===
+; Proto #0: Factorial(n: R0) -> R0
+.proto
+.params 1
+.regs 4
+
+LoadImm   R1, 2
+Lt.I32    R2, R0, R1
+Jnz       R2, base_case
+
+LoadImm   R1, 1
+Sub.I32   R2, R0, R1
+Call      R2, Proto#0
+Mul.I32   R0, R0, R2
+Return    R0, 1
+
+base_case:
+LoadImm   R0, 1
+Return    R0, 1
+
+; Proto #1: Main entry
+.proto
+.params 0
+.regs 4
+
+LoadImm   R0, 6
+Call      R0, Proto#0
+Halt
+
+// === EXPECTED VM ===
+R0 = 720 (I32)

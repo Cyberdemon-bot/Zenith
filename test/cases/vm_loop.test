@@ -1,0 +1,23 @@
+// === INPUT: ASM ===
+.params 0
+.regs 5
+
+; Sum from 1 to 10 in R0
+LoadImm   R0, 0
+LoadImm   R1, 1
+LoadImm   R2, 11
+LoadImm   R3, 1
+
+loop:
+Lt.I32    R4, R1, R2
+Jz        R4, done
+Add.I32   R0, R0, R1
+Add.I32   R1, R1, R3
+Jmp       loop
+
+done:
+Return    R0, 1
+
+// === EXPECTED VM ===
+R0 = 55 (I32)
+R1 = 11 (I32)

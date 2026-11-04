@@ -13,6 +13,39 @@
 
 using namespace Zenith;
 
+namespace {
+
+    std::vector<std::string> SplitProtos(std::string_view asmSource)
+    {
+        std::vector<std::string> blocks;
+        std::string current;
+        bool hasExplicitProto = false;
+
+        std::istringstream ss{ std::string(asmSource) };
+        std::string line;
+        while (std::getline(ss, line))
+        {
+            std::string trimmed = Diff::Trim(line);
+            if (trimmed.starts_with(".proto"))
+            {
+                if (hasExplicitProto || !Diff::Trim(current).empty())
+                {
+                    blocks.push_back(current);
+                    current.clear();
+                }
+                hasExplicitProto = true;
+                continue;
+            }
+            current += line + "\n";
+        }
+        if (!Diff::Trim(current).empty() || blocks.empty())
+            blocks.push_back(current);
+
+        return blocks;
+    }
+
+} // namespace
+
 std::vector<VmStep::RegisterExpectation> VmStep::ParseExpectations(const std::string& expectedBlock)
 {
     std::vector<RegisterExpectation> expects;
@@ -48,27 +81,40 @@ std::vector<VmStep::RegisterExpectation> VmStep::ParseExpectations(const std::st
 VmStep::Result VmStep::RunAsm(std::string_view asmSource, const std::string& expectedVmBlock)
 {
     Result res;
-    ProtoBuilder builder;
-    std::string err;
+    auto protoBlocks = SplitProtos(asmSource);
 
-    if (!Assembler::Assemble(builder, asmSource, &err))
+    Module module;
+    uint8_t entryMaxRegs = 0;
+    uint16_t entryId = 0;
+
+    for (size_t i = 0; i < protoBlocks.size(); ++i)
     {
-        res.success = false;
-        res.errorMessage = "Assembler error: " + err;
-        return res;
+        ProtoBuilder builder;
+        std::string err;
+        if (!Assembler::Assemble(builder, protoBlocks[i], &err))
+        {
+            res.success = false;
+            res.errorMessage = "Assembler error (Proto #" + std::to_string(i) + "): " + err;
+            return res;
+        }
+        entryMaxRegs = builder.GetMaxRegs();
+        entryId = module.Add(std::move(builder));
     }
 
-    uint8_t maxRegs = builder.GetMaxRegs();
-    Module module;
-    uint16_t id = module.Add(std::move(builder));
     module.Freeze();
 
-    res.actualDisasm = Diff::Trim(Disassembler::Dump(module, id));
+    std::ostringstream disasmOut;
+    for (uint16_t id = 0; id < module.GetNumProtos(); ++id)
+    {
+        if (id > 0) disasmOut << "\n";
+        Disassembler::Dump(module, id, disasmOut);
+    }
+    res.actualDisasm = Diff::Trim(disasmOut.str());
 
     auto sharedModule = std::make_shared<const Module>(std::move(module));
     State state;
     state.SetModule(sharedModule);
-    state.Prepare(id);
+    state.Prepare(entryId);
 
     try
     {
@@ -114,8 +160,7 @@ VmStep::Result VmStep::RunAsm(std::string_view asmSource, const std::string& exp
     }
     else
     {
-        // Default dump for initial case generation: dump non-zero registers
-        for (uint8_t i = 0; i < maxRegs; ++i)
+        for (uint8_t i = 0; i < entryMaxRegs; ++i)
         {
             const Value& v = state.Reg(i);
             if (v.u64 != 0 || i == 0)
