@@ -60,10 +60,15 @@ namespace {
         }
     }
 
-} // namespace
+} 
 
 void Disassembler::Dump(const Module& module, uint16_t proto_id, std::ostream& os)
 {
+    if (proto_id >= module.GetNumProtos())
+    {
+        os << "; Error: Proto #" << proto_id << " not found\n";
+        return;
+    }
     const Proto& p     = module.GetProto(proto_id);
     auto         code  = module.GetCode(proto_id);
     auto         consts = module.GetConsts(proto_id);
@@ -108,9 +113,25 @@ std::string Disassembler::Dump(const Module& module, uint16_t proto_id)
 void Disassembler::DumpInstruction(const Module& module, uint16_t proto_id,
                                     size_t pc, std::ostream& os)
 {
+    if (proto_id >= module.GetNumProtos())
+    {
+        os << "; Error: Proto #" << proto_id << " not found";
+        return;
+    }
     auto code = module.GetCode(proto_id);
+    if (pc >= code.size())
+    {
+        os << "; Error: PC out of range";
+        return;
+    }
     const Instruction& inst = code[pc];
     uint8_t slot = inst.Slot();
+    if (slot >= DISPATCH_SIZE)
+    {
+        os << "  [" << std::right << std::setw(4) << std::setfill('0') << pc << "] "
+           << "Invalid Slot (" << static_cast<int>(slot) << ")";
+        return;
+    }
     const SlotInfo& info = SLOT_INFO[slot];
 
     std::string mnemonic = std::string(OpcodeName(info.op))
@@ -186,4 +207,4 @@ void Disassembler::DumpInstruction(const Module& module, uint16_t proto_id,
     }
 }
 
-} // namespace Zenith
+} 

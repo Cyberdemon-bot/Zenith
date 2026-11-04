@@ -1,0 +1,9 @@
+// === INPUT: SOURCE ===
+x = ;
+1 +;
+let y = ;
+
+// === EXPECTED ERRORS ===
+1:5
+2:4 Unexpected token in prefix expression
+3:9 Unexpected token in prefix expression

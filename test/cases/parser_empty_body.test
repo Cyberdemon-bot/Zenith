@@ -1,0 +1,94 @@
+// === INPUT: SOURCE ===
+func demo() {
+    if ready {}
+    for ready {}
+    for item in items {}
+    if (Vec2 { x: 1, y: 2 } == origin) { process(1); }
+    if new Cell(1) == other { process(2); }
+}
+
+// === EXPECTED AST ===
+(Program
+  (FuncDecl
+    (FuncSign
+      (Identifier "demo")
+      (ArgList)
+    )
+    (BlockExpr
+      (ExprStmt
+        (IfExpr
+          (Identifier "ready")
+          (BlockExpr)
+        )
+      )
+      (ExprStmt
+        (ForExpr
+          (Identifier "ready")
+          (BlockExpr)
+        )
+      )
+      (ExprStmt
+        (ForInExpr
+          (Identifier "item")
+          (Identifier "items")
+          (BlockExpr)
+        )
+      )
+      (ExprStmt
+        (IfExpr
+          (ParenExpr
+            (BinaryExpr :op "=="
+              (StructInit
+                (Identifier "Vec2")
+                (FieldInitList
+                  (FieldInit
+                    (Identifier "x")
+                    (Integer 1)
+                  )
+                  (FieldInit
+                    (Identifier "y")
+                    (Integer 2)
+                  )
+                )
+              )
+              (Identifier "origin")
+            )
+          )
+          (BlockExpr
+            (ExprStmt
+              (CallExpr
+                (Identifier "process")
+                (ArgList
+                  (Integer 1)
+                )
+              )
+            )
+          )
+        )
+      )
+      (ExprStmt
+        (IfExpr
+          (BinaryExpr :op "=="
+            (NewExpr :mut false
+              (NamedType "Cell")
+              (ArgList
+                (Integer 1)
+              )
+            )
+            (Identifier "other")
+          )
+          (BlockExpr
+            (ExprStmt
+              (CallExpr
+                (Identifier "process")
+                (ArgList
+                  (Integer 2)
+                )
+              )
+            )
+          )
+        )
+      )
+    )
+  )
+)

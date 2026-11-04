@@ -93,5 +93,7 @@ namespace Zenith {
     private:
         AstView m_Ast;
         SignatureTable m_Table;
+
+        void CollectSignature();
     };
 }

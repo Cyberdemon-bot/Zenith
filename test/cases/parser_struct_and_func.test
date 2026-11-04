@@ -1,0 +1,82 @@
+// === INPUT: SOURCE ===
+struct Marker;
+struct Empty {}
+struct Vec2 { x: i32, y: i32 }
+
+func noop() {}
+
+func scaled(v: &Vec2, factor: i32) -> (i32, i32) {
+    return (v.x * factor, v.y * factor);
+}
+
+// === EXPECTED AST ===
+(Program
+  (StructDecl
+    (Identifier "Marker")
+  )
+  (StructDecl
+    (Identifier "Empty")
+    (ArgList)
+  )
+  (StructDecl
+    (Identifier "Vec2")
+    (ArgList
+      (TypedIdentifier :mut false
+        (Identifier "x")
+        (NamedType "i32")
+      )
+      (TypedIdentifier :mut false
+        (Identifier "y")
+        (NamedType "i32")
+      )
+    )
+  )
+  (FuncDecl
+    (FuncSign
+      (Identifier "noop")
+      (ArgList)
+    )
+    (BlockExpr)
+  )
+  (FuncDecl
+    (FuncSign
+      (Identifier "scaled")
+      (ArgList
+        (TypedIdentifier :mut false
+          (Identifier "v")
+          (RefType :mut false
+            (NamedType "Vec2")
+          )
+        )
+        (TypedIdentifier :mut false
+          (Identifier "factor")
+          (NamedType "i32")
+        )
+      )
+      (TupleType
+        (NamedType "i32")
+        (NamedType "i32")
+      )
+    )
+    (BlockExpr
+      (ReturnStmt
+        (Tuple
+          (BinaryExpr :op "*"
+            (FieldAccess
+              (Identifier "v")
+              (Identifier "x")
+            )
+            (Identifier "factor")
+          )
+          (BinaryExpr :op "*"
+            (FieldAccess
+              (Identifier "v")
+              (Identifier "y")
+            )
+            (Identifier "factor")
+          )
+        )
+      )
+    )
+  )
+)

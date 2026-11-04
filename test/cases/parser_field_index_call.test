@@ -1,0 +1,110 @@
+// === INPUT: SOURCE ===
+func demo() {
+    let age = user.profile.age;
+    let first = list[0];
+    let r = compute(1, x, "s");
+    let chain = a.b[0].c(1, 2);
+    user.age = 1;
+    list[0] = 2;
+    *slot = 3;
+    (*writer).x = 4;
+    process(r);
+}
+
+// === EXPECTED AST ===
+(Program
+  (FuncDecl
+    (FuncSign
+      (Identifier "demo")
+      (ArgList)
+    )
+    (BlockExpr
+      (LetStmt
+        (Identifier "age")
+        (FieldAccess
+          (FieldAccess
+            (Identifier "user")
+            (Identifier "profile")
+          )
+          (Identifier "age")
+        )
+      )
+      (LetStmt
+        (Identifier "first")
+        (IndexExpr
+          (Identifier "list")
+          (Integer 0)
+        )
+      )
+      (LetStmt
+        (Identifier "r")
+        (CallExpr
+          (Identifier "compute")
+          (ArgList
+            (Integer 1)
+            (Identifier "x")
+            (String "s")
+          )
+        )
+      )
+      (LetStmt
+        (Identifier "chain")
+        (CallExpr
+          (FieldAccess
+            (IndexExpr
+              (FieldAccess
+                (Identifier "a")
+                (Identifier "b")
+              )
+              (Integer 0)
+            )
+            (Identifier "c")
+          )
+          (ArgList
+            (Integer 1)
+            (Integer 2)
+          )
+        )
+      )
+      (AssignStmt :op "="
+        (FieldAccess
+          (Identifier "user")
+          (Identifier "age")
+        )
+        (Integer 1)
+      )
+      (AssignStmt :op "="
+        (IndexExpr
+          (Identifier "list")
+          (Integer 0)
+        )
+        (Integer 2)
+      )
+      (AssignStmt :op "="
+        (DerefExpr
+          (Identifier "slot")
+        )
+        (Integer 3)
+      )
+      (AssignStmt :op "="
+        (FieldAccess
+          (ParenExpr
+            (DerefExpr
+              (Identifier "writer")
+            )
+          )
+          (Identifier "x")
+        )
+        (Integer 4)
+      )
+      (ExprStmt
+        (CallExpr
+          (Identifier "process")
+          (ArgList
+            (Identifier "r")
+          )
+        )
+      )
+    )
+  )
+)

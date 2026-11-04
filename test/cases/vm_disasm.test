@@ -1,0 +1,18 @@
+// === INPUT: ASM ===
+.params 0
+.regs 4
+LoadImm R0, 42
+Return  R0, 1
+
+// === EXPECTED VM ===
+R0 = 42 (I32)
+
+// === EXPECTED DISASM ===
+; === Proto #0 Header ===
+; Params:   0
+; Max Regs: 4
+; Children: offset=0, count=0
+
+; === Instruction Listing (2) ===
+  [0000] LoadImm       R0, 42
+  [0001] Return        R0, 1

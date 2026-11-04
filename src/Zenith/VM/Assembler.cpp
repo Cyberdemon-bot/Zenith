@@ -240,6 +240,12 @@ bool Assembler::Assemble(ProtoBuilder& builder, std::string_view source, std::st
                 return false;
             }
 
+            if (builder.GetConstSize() >= 65535)
+            {
+                if (outError) *outError = "Line " + std::to_string(lineNo)
+                                          + ": Constant pool overflow (max 65535)";
+                return false;
+            }
             builder.PushConstant(val);
             continue;
         }

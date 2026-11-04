@@ -1,0 +1,11 @@
+// === INPUT: SOURCE ===
+let a: mut &i32 = 1;
+let b = mut &a;
+let c: mut i32 = 1;
+let d = mut a;
+
+// === EXPECTED ERRORS ===
+1:12 Write '&mut T' instead of 'mut &T'
+2:13 Write '&mut x' instead of 'mut &x'
+3:12 Expected '&' after 'mut' in type; 'mut' only applies to references
+4:13 Expected 'new' after 'mut'

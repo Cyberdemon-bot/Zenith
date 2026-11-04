@@ -1,0 +1,17 @@
+// === INPUT: ASM ===
+.params 0
+.regs 6
+
+LoadImm   R1, 20
+LoadImm   R2, 10
+Add.I32   R0, R1, R2
+Sub.I32   R3, R1, R2
+Mul.I32   R4, R1, R2
+Neg.I32   R5, R1
+Return    R0, 1
+
+// === EXPECTED VM ===
+R0 = 30 (I32)
+R3 = 10 (I32)
+R4 = 200 (I32)
+R5 = -20 (I32)

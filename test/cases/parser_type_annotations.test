@@ -1,0 +1,89 @@
+// === INPUT: SOURCE ===
+func demo() {
+    let a: i32 = 1;
+    let b: &String = &s;
+    let c: &mut String = &mut s;
+    let d: (i32, &Vec2) = (1, &v);
+    let e: Vec<Vec<i32>> = grid;
+    let f: () = ();
+}
+
+// === EXPECTED AST ===
+(Program
+  (FuncDecl
+    (FuncSign
+      (Identifier "demo")
+      (ArgList)
+    )
+    (BlockExpr
+      (LetStmt
+        (TypedIdentifier :mut false
+          (Identifier "a")
+          (NamedType "i32")
+        )
+        (Integer 1)
+      )
+      (LetStmt
+        (TypedIdentifier :mut false
+          (Identifier "b")
+          (RefType :mut false
+            (NamedType "String")
+          )
+        )
+        (BorrowExpr :mut false
+          (Identifier "s")
+        )
+      )
+      (LetStmt
+        (TypedIdentifier :mut false
+          (Identifier "c")
+          (RefType :mut true
+            (NamedType "String")
+          )
+        )
+        (BorrowExpr :mut true
+          (Identifier "s")
+        )
+      )
+      (LetStmt
+        (TypedIdentifier :mut false
+          (Identifier "d")
+          (TupleType
+            (NamedType "i32")
+            (RefType :mut false
+              (NamedType "Vec2")
+            )
+          )
+        )
+        (Tuple
+          (Integer 1)
+          (BorrowExpr :mut false
+            (Identifier "v")
+          )
+        )
+      )
+      (LetStmt
+        (TypedIdentifier :mut false
+          (Identifier "e")
+          (NamedType "Vec"
+            (TypeArgList
+              (NamedType "Vec"
+                (TypeArgList
+                  (NamedType "i32")
+                )
+              )
+            )
+          )
+        )
+        (Identifier "grid")
+      )
+      (LetStmt
+        (TypedIdentifier :mut false
+          (Identifier "f")
+          (TupleType)
+        )
+        (Tuple)
+      )
+    )
+  )
+)

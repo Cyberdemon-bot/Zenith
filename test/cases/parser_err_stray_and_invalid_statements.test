@@ -1,0 +1,9 @@
+// === INPUT: SOURCE ===
+}
+5 + 3;
+foo() = 5;
+
+// === EXPECTED ERRORS ===
+1:1 Unexpected '}' at top level
+2:1 Expression is not valid as a statement; only calls can be used as statements
+3:1 Invalid assignment target

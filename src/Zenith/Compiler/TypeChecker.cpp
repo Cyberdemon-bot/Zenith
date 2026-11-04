@@ -1,3 +1,4 @@
+#include "Zenith/Compiler/Node.h"
 #include "Zenith/Core/Assert.h"
 #include "Zenith/Compiler/TypeChecker.h"
 
@@ -23,8 +24,8 @@ namespace Zenith {
                                 std::span<const CTType> rets,
                                 uint16_t protoId)
     {   
-        ZN_ASSERT(!m_Frozen, "Cannot add signature: table is frozen");
-        ZN_ASSERT(m_FuncIndex.find(name) == m_FuncIndex.end(),
+        ZN_CORE_ASSERT(!m_Frozen, "Cannot add signature: table is frozen");
+        ZN_CORE_ASSERT(m_FuncIndex.find(name) == m_FuncIndex.end(),
                         "duplicate function signature added");
         // insert data buffer
         const uint32_t pOff = static_cast<uint32_t>(m_TPool.size());
@@ -51,5 +52,24 @@ namespace Zenith {
         m_TPool.shrink_to_fit();
         m_Signs.shrink_to_fit();
         m_Frozen = true;
+    }
+
+    void TypeChecker::CollectSignature()
+    {
+        ZN_CORE_ASSERT(m_Ast.root < m_Ast.nodes.size(), "Invalid root index");
+        ZN_CORE_ASSERT(m_Ast.nodes[m_Ast.root].type == NodeType::Program, "Ast's root should be program node");
+        auto root = m_Ast.nodes[m_Ast.root];
+        std::span<const uint32_t> program_child = std::span(m_Ast.extra.data() + root.data.list.start, root.data.list.count);
+
+        for (uint32_t elem : program_child)
+        {
+            auto& delc = m_Ast.nodes[elem];
+            if (delc.type != NodeType::FuncDecl) continue;
+
+            auto& sign = m_Ast.nodes[delc.data.func_decl.sign];
+            auto& name_node = m_Ast.nodes[sign.data.func_sign.name];
+            std::string_view name = m_Ast.tokens[name_node.start_token].literal;
+
+        }
     }
 }

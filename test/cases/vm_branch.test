@@ -1,0 +1,20 @@
+// === INPUT: ASM ===
+.params 0
+.regs 4
+
+LoadImm   R1, 15
+LoadImm   R2, 30
+Lt.I32    R3, R1, R2
+Jz        R3, false_branch
+
+LoadImm   R0, 100
+Jmp       done
+
+false_branch:
+LoadImm   R0, -1
+
+done:
+Return    R0, 1
+
+// === EXPECTED VM ===
+R0 = 100 (I32)
