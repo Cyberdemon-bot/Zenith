@@ -1,5 +1,7 @@
 #pragma once
 
+#include <limits>
+#include <cstdint>
 #include <memory>
 #include <type_traits>
 
@@ -61,8 +63,8 @@ namespace Zenith {
 
 	constexpr size_t DEFAULT_STACK_SIZE = 4096;
     constexpr size_t MAX_CALL_FRAMES = 256;
-	constexpr uint16_t MAX_Bx = 0xFFFFu;
-	constexpr uint16_t INVALID_PROTO = 0xFFFFu;
+	constexpr uint16_t MAX_Bx = std::numeric_limits<uint16_t>::max();
+	constexpr uint16_t INVALID_PROTO = std::numeric_limits<uint16_t>::max();
 
 	template<auto...>
     inline constexpr bool always_false_v = false;
