@@ -4,13 +4,12 @@
 #include "Zenith/Compiler/Compiler.h"
 #include "Zenith/Compiler/Ast.h"
 
-#include <cstdint>
-#include <optional>
 #include <span>
+#include <vector>
 #include <string>
+#include <optional>
 #include <string_view>
 #include <unordered_map>
-#include <vector>
 
 namespace Zenith {
 
@@ -105,7 +104,7 @@ namespace Zenith {
         // Returns true if no Severity::Error was emitted.
         bool Validate();
 
-        const std::vector<Diagnostic>& Diagnostics() const { return m_Errors; }
+        const std::span<const Diagnostic> Diagnostics() const { return m_Errors; }
 
     private:
         AstView m_Ast;
