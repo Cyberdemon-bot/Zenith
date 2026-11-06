@@ -9,12 +9,21 @@
 class VmStep
 {
 public:
+    struct ProfileData
+    {
+        float assembleTimeMs = 0.0f;
+        float executeTimeMs = 0.0f;
+        float disasmTimeMs = 0.0f;
+        float totalTimeMs = 0.0f;
+    };
+
     struct Result
     {
         bool success = false;
         std::string errorMessage;
         std::string actualVm;
         std::string actualDisasm;
+        ProfileData profile;
     };
 
     struct RegisterExpectation

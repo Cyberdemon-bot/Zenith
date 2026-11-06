@@ -4,6 +4,8 @@
 
 namespace Zenith {
 
+    constexpr uint32_t ERROR_NODE = 0;
+
     enum class NodeType : uint16_t 
     {
         Error = 0,

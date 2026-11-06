@@ -1,6 +1,7 @@
 #include "VmStep.h"
 #include "Diff.h"
 
+#include "Zenith/Core/ProfileTimer.h"
 #include "Zenith/VM/Assembler.h"
 #include "Zenith/VM/Disassembler.h"
 #include "Zenith/VM/Executor.h"
@@ -81,35 +82,42 @@ std::vector<VmStep::RegisterExpectation> VmStep::ParseExpectations(const std::st
 VmStep::Result VmStep::RunAsm(std::string_view asmSource, const std::string& expectedVmBlock)
 {
     Result res;
+    ZN_PROFILE_SCOPE(&res.profile.totalTimeMs);
+
     auto protoBlocks = SplitProtos(asmSource);
 
     Module module;
     uint8_t entryMaxRegs = 0;
     uint16_t entryId = 0;
 
-    for (size_t i = 0; i < protoBlocks.size(); ++i)
     {
-        ProtoBuilder builder;
-        std::string err;
-        if (!Assembler::Assemble(builder, protoBlocks[i], &err))
+        ZN_PROFILE_SCOPE(&res.profile.assembleTimeMs);
+        for (size_t i = 0; i < protoBlocks.size(); ++i)
         {
-            res.success = false;
-            res.errorMessage = "Assembler error (Proto #" + std::to_string(i) + "): " + err;
-            return res;
+            ProtoBuilder builder;
+            std::string err;
+            if (!Assembler::Assemble(builder, protoBlocks[i], &err))
+            {
+                res.success = false;
+                res.errorMessage = "Assembler error (Proto #" + std::to_string(i) + "): " + err;
+                return res;
+            }
+            entryMaxRegs = builder.GetMaxRegs();
+            entryId = module.Add(std::move(builder));
         }
-        entryMaxRegs = builder.GetMaxRegs();
-        entryId = module.Add(std::move(builder));
+        module.Freeze();
     }
 
-    module.Freeze();
-
-    std::ostringstream disasmOut;
-    for (uint16_t id = 0; id < module.GetNumProtos(); ++id)
     {
-        if (id > 0) disasmOut << "\n";
-        Disassembler::Dump(module, id, disasmOut);
+        ZN_PROFILE_SCOPE(&res.profile.disasmTimeMs);
+        std::ostringstream disasmOut;
+        for (uint16_t id = 0; id < module.GetNumProtos(); ++id)
+        {
+            if (id > 0) disasmOut << "\n";
+            Disassembler::Dump(module, id, disasmOut);
+        }
+        res.actualDisasm = Diff::Trim(disasmOut.str());
     }
-    res.actualDisasm = Diff::Trim(disasmOut.str());
 
     auto sharedModule = std::make_shared<const Module>(std::move(module));
     State state;
@@ -118,6 +126,7 @@ VmStep::Result VmStep::RunAsm(std::string_view asmSource, const std::string& exp
 
     try
     {
+        ZN_PROFILE_SCOPE(&res.profile.executeTimeMs);
         Executor::Execute(state);
     }
     catch (const std::exception& e)

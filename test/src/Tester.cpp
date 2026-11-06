@@ -2,11 +2,14 @@
 #include "Diff.h"
 #include "Steps/AstStep.h"
 #include "Steps/VmStep.h"
+#include "Zenith/Core/ProfileTimer.h"
 
 #include <algorithm>
 #include <fstream>
+#include <iomanip>
 #include <iostream>
 #include <map>
+#include <sstream>
 
 std::vector<TestCase> Tester::LoadCases(const fs::path& dir, const std::string& filter)
 {
@@ -43,63 +46,100 @@ TestResult Tester::RunCase(const TestCase& tc, const Options& opt)
     bool allMatched = true;
     std::string pipelineError;
 
-    try
+    float caseTimeMs = 0.0f;
+    AstStep::Result astResult;
+    VmStep::Result vmResult;
+
     {
-        if (tc.kind == InputKind::Source)
+        ZN_PROFILE_SCOPE(&caseTimeMs);
+
+        try
         {
-            auto astResult = AstStep::Run(tc.inputSource);
-            actualOutputs[std::string(TestCaseLoader::kExpectedAstMarker)] = astResult.astTree;
-            actualErrors = astResult.errors;
-
-            if (tc.hasAst)
+            if (tc.kind == InputKind::Source)
             {
-                if (astResult.astTree != tc.expectedAst)
-                    allMatched = false;
+                astResult = AstStep::Run(tc.inputSource);
+                actualOutputs[std::string(TestCaseLoader::kExpectedAstMarker)] = astResult.astTree;
+                actualErrors = astResult.errors;
+
+                if (tc.hasAst)
+                {
+                    if (astResult.astTree != tc.expectedAst)
+                        allMatched = false;
+                }
+
+                if (tc.hasErrors || !actualErrors.empty())
+                {
+                    std::string expectedErrStr = TestCaseLoader::RenderExpected(tc.expectedErrors, actualErrors);
+                    std::string actualErrStr = TestCaseLoader::RenderErrors(actualErrors);
+                    if (expectedErrStr != actualErrStr)
+                        allMatched = false;
+                }
             }
-
-            if (tc.hasErrors || !actualErrors.empty())
+            else if (tc.kind == InputKind::Asm)
             {
-                std::string expectedErrStr = TestCaseLoader::RenderExpected(tc.expectedErrors, actualErrors);
-                std::string actualErrStr = TestCaseLoader::RenderErrors(actualErrors);
-                if (expectedErrStr != actualErrStr)
+                vmResult = VmStep::RunAsm(tc.inputSource, tc.expectedVm);
+                if (!vmResult.success)
+                {
+                    pipelineError = vmResult.errorMessage;
                     allMatched = false;
+                }
+                else
+                {
+                    actualOutputs[std::string(TestCaseLoader::kExpectedVmMarker)] = vmResult.actualVm;
+                    actualOutputs[std::string(TestCaseLoader::kExpectedDisasmMarker)] = vmResult.actualDisasm;
+
+                    if (tc.hasVm)
+                    {
+                        if (vmResult.actualVm != tc.expectedVm)
+                            allMatched = false;
+                    }
+                    if (tc.hasDisasm)
+                    {
+                        if (vmResult.actualDisasm != tc.expectedDisasm)
+                            allMatched = false;
+                    }
+                }
             }
         }
-        else if (tc.kind == InputKind::Asm)
+        catch (const std::exception& e)
         {
-            auto vmResult = VmStep::RunAsm(tc.inputSource, tc.expectedVm);
-            if (!vmResult.success)
-            {
-                pipelineError = vmResult.errorMessage;
-                allMatched = false;
-            }
-            else
-            {
-                actualOutputs[std::string(TestCaseLoader::kExpectedVmMarker)] = vmResult.actualVm;
-                actualOutputs[std::string(TestCaseLoader::kExpectedDisasmMarker)] = vmResult.actualDisasm;
-
-                if (tc.hasVm)
-                {
-                    if (vmResult.actualVm != tc.expectedVm)
-                        allMatched = false;
-                }
-                if (tc.hasDisasm)
-                {
-                    if (vmResult.actualDisasm != tc.expectedDisasm)
-                        allMatched = false;
-                }
-            }
+            pipelineError = "Exception in test pipeline: " + std::string(e.what());
+            allMatched = false;
         }
     }
-    catch (const std::exception& e)
+
+    std::ostringstream timeStr;
+    timeStr << std::fixed << std::setprecision(2);
+    timeStr << " (" << caseTimeMs << "ms)";
+    if (tc.kind == InputKind::Source)
     {
-        pipelineError = "Exception in test pipeline: " + std::string(e.what());
-        allMatched = false;
+        timeStr << " [Parse: " << astResult.profile.parseTimeMs
+                << "ms, Dump: " << astResult.profile.dumpTimeMs << "ms]";
+    }
+    else if (tc.kind == InputKind::Asm && vmResult.success)
+    {
+        timeStr << " [Asm: " << vmResult.profile.assembleTimeMs
+                << "ms, Exec: " << vmResult.profile.executeTimeMs << "ms]";
+        if (tc.hasDisasm)
+            timeStr << " [Disasm: " << vmResult.profile.disasmTimeMs << "ms]";
     }
 
     if (opt.dump)
     {
         std::cout << "--- " << tc.name << " ---\n";
+        std::cout << "Execution Time: " << caseTimeMs << "ms\n";
+        if (tc.kind == InputKind::Source)
+        {
+            std::cout << "  - Parse: " << astResult.profile.parseTimeMs << "ms\n";
+            std::cout << "  - Dump:  " << astResult.profile.dumpTimeMs << "ms\n";
+        }
+        else if (tc.kind == InputKind::Asm && vmResult.success)
+        {
+            std::cout << "  - Assemble: " << vmResult.profile.assembleTimeMs << "ms\n";
+            std::cout << "  - Execute:  " << vmResult.profile.executeTimeMs << "ms\n";
+            std::cout << "  - Disasm:   " << vmResult.profile.disasmTimeMs << "ms\n";
+        }
+        std::cout << "\n";
         if (!actualErrors.empty())
             std::cout << TestCaseLoader::RenderErrors(actualErrors) << "\n\n";
         for (const auto& [tag, content] : actualOutputs)
@@ -112,20 +152,21 @@ TestResult Tester::RunCase(const TestCase& tc, const Options& opt)
 
     if (!hasAnyExpectation && !opt.update)
     {
-        std::cout << Diff::Paint("31", "[FAIL]") << " " << tc.name
+        std::cout << Diff::Paint("31", "[FAIL]") << " " << tc.name << timeStr.str()
                   << "\n  No expectations found; add expected section or run with --update\n";
         return TestResult::Fail;
     }
 
     if (!pipelineError.empty())
     {
-        std::cout << Diff::Paint("31", "[FAIL]") << " " << tc.name << "\n  " << pipelineError << "\n";
+        std::cout << Diff::Paint("31", "[FAIL]") << " " << tc.name << timeStr.str()
+                  << "\n  " << pipelineError << "\n";
         return TestResult::Fail;
     }
 
     if (hasAnyExpectation && allMatched)
     {
-        std::cout << Diff::Paint("32", "[PASS]") << " " << tc.name << "\n";
+        std::cout << Diff::Paint("32", "[PASS]") << " " << tc.name << timeStr.str() << "\n";
         return TestResult::Pass;
     }
 
@@ -135,15 +176,16 @@ TestResult Tester::RunCase(const TestCase& tc, const Options& opt)
         std::ofstream file(tc.path, std::ios::binary);
         if (!file)
         {
-            std::cout << Diff::Paint("31", "[FAIL]") << " " << tc.name << "\n  Cannot write to " << tc.path << "\n";
+            std::cout << Diff::Paint("31", "[FAIL]") << " " << tc.name << timeStr.str()
+                      << "\n  Cannot write to " << tc.path << "\n";
             return TestResult::Fail;
         }
         file << updated;
-        std::cout << Diff::Paint("33", "[UPDATED]") << " " << tc.name << "\n";
+        std::cout << Diff::Paint("33", "[UPDATED]") << " " << tc.name << timeStr.str() << "\n";
         return TestResult::Updated;
     }
 
-    std::cout << Diff::Paint("31", "[FAIL]") << " " << tc.name << "\n";
+    std::cout << Diff::Paint("31", "[FAIL]") << " " << tc.name << timeStr.str() << "\n";
     if (tc.hasErrors || !actualErrors.empty())
     {
         std::string expectedErrStr = TestCaseLoader::RenderExpected(tc.expectedErrors, actualErrors);
@@ -205,15 +247,20 @@ int Tester::Run(const Options& opt)
 
     std::cout << "Running " << cases.size() << " test cases" << (opt.update ? " [UPDATE MODE]" : "") << "\n\n";
 
+    float totalSuiteTimeMs = 0.0f;
     int passed = 0, updated = 0;
     std::vector<std::string> failed;
-    for (const auto& tc : cases)
+
     {
-        switch (RunCase(tc, opt))
+        ZN_PROFILE_SCOPE(&totalSuiteTimeMs);
+        for (const auto& tc : cases)
         {
-            case TestResult::Pass:    ++passed; break;
-            case TestResult::Updated: ++updated; break;
-            case TestResult::Fail:    failed.push_back(tc.name); break;
+            switch (RunCase(tc, opt))
+            {
+                case TestResult::Pass:    ++passed; break;
+                case TestResult::Updated: ++updated; break;
+                case TestResult::Fail:    failed.push_back(tc.name); break;
+            }
         }
     }
 
@@ -221,6 +268,7 @@ int Tester::Run(const Options& opt)
               << "Total: " << cases.size() << " | Passed: " << passed
               << " | Failed: " << failed.size() << " | Updated: " << updated << "\n";
     for (const auto& name : failed) std::cout << "  failed: " << name << "\n";
+    std::cout << "Total Execution Time: " << std::fixed << std::setprecision(2) << totalSuiteTimeMs << "ms\n";
     std::cout << "===============================\n";
 
     return failed.empty() ? 0 : 1;

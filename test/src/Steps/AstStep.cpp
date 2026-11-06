@@ -1,6 +1,7 @@
 #include "AstStep.h"
 #include "Diff.h"
 #include "Zenith/Compiler/Parser.h"
+#include "Zenith/Core/ProfileTimer.h"
 
 #include <cstdio>
 #include <sstream>
@@ -34,14 +35,24 @@ std::vector<ErrorInfo> AstStep::CollectErrors(const Zenith::Parser& parser)
 
 AstStep::Result AstStep::Run(std::string_view source)
 {
-    Zenith::Parser parser(source);
-    auto ast = parser.ParseProgram();
-
-    std::ostringstream tree;
-    parser.DumpTreeAst(tree, ast.root);
-
     Result res;
-    res.astTree = Diff::Trim(Diff::NormalizeNewlines(tree.str()));
-    res.errors = CollectErrors(parser);
+    ZN_PROFILE_SCOPE(&res.profile.totalTimeMs);
+
+    Zenith::Parser parser(source);
+    uint32_t root = 0;
+    {
+        ZN_PROFILE_SCOPE(&res.profile.parseTimeMs);
+        auto ast = parser.ParseProgram();
+        root = ast.root;
+        res.errors = CollectErrors(parser);
+    }
+
+    {
+        ZN_PROFILE_SCOPE(&res.profile.dumpTimeMs);
+        std::ostringstream tree;
+        parser.DumpTreeAst(tree, root);
+        res.astTree = Diff::Trim(Diff::NormalizeNewlines(tree.str()));
+    }
+
     return res;
 }

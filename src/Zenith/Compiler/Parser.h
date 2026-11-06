@@ -9,8 +9,6 @@
 
 namespace Zenith {
 
-    constexpr uint32_t ERROR_NODE = 0;
-
     enum class ErrorScope : uint8_t
     {
         Token,       
