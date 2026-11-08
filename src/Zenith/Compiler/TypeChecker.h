@@ -30,6 +30,7 @@ namespace Zenith {
 
         // Pass 1 — infer
         MissingMainFunction,
+        InvalidMainSignature,
         NestedFunction,
         UnknownIdentifier,
         OperandTypeMismatch,

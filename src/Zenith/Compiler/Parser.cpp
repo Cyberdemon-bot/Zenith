@@ -165,6 +165,7 @@ namespace Zenith {
             case TokenType::GTE:
             case TokenType::AND:
             case TokenType::OR: return ParseNumericExpr(left);
+            case TokenType::AS: return ParseCastExpr(left);
             case TokenType::DOT: return ParseFieldAccessExpr(left);
             case TokenType::LPAREN:  return ParseCallExpr(left);
             case TokenType::LBRACKET: return ParseIndexExpr(left);
@@ -214,6 +215,17 @@ namespace Zenith {
         uint32_t start = GetNode(left).start_token, end = GetNode(right).end_token;
         return PushNode(NodeType::BinaryExpr, start, end,
             { .binary = { .lhs = left, .op = op_tok, .rhs = right } });
+    }
+
+    uint32_t Parser::ParseCastExpr(uint32_t left)
+    {
+        NextToken();
+        uint32_t targetType = ParseTypeAnnotation();
+        if (targetType == ERROR_NODE) return ERROR_NODE;
+
+        uint32_t start = GetNode(left).start_token, end = GetNode(targetType).end_token;
+        return PushNode(NodeType::CastExpr, start, end,
+            { .cast = { .expr = left, .type = targetType } });
     }
 
     uint32_t Parser::ParseFieldAccessExpr(uint32_t left)

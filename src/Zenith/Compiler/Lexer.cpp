@@ -11,8 +11,9 @@ namespace Zenith {
             TokenType type;
         };
 
-        constexpr std::array<KeyPair, 22> KEYWORDS = {{
+        constexpr std::array<KeyPair, 23> KEYWORDS = {{
             {"and",      TokenType::AND},
+            {"as",       TokenType::AS},
             {"break",    TokenType::BREAK},
             {"class",    TokenType::CLASS},
             {"continue", TokenType::CONTINUE},

@@ -20,6 +20,7 @@ namespace Zenith {
     private:
         using StepFn = StepRet(*)(State*, const Instruction*, Value*, const Value*);
 
+
         template<uint32_t Slot>
         static StepRet Step(State*, const Instruction*, Value*, const Value*);
 

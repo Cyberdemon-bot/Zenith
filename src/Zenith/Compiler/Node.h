@@ -18,6 +18,7 @@ namespace Zenith {
 
         UnaryExpr,
         BinaryExpr,
+        CastExpr,
         DerefExpr,
         ParenExpr,
         CallExpr, ArgList,
@@ -60,6 +61,7 @@ namespace Zenith {
             struct { uint32_t start, count; }                   list;
             struct { uint32_t lhs, op, rhs; }                   binary;
             struct { uint32_t op, operand; }                    unary;
+            struct { uint32_t expr, type; }                     cast;
             struct { uint32_t cond, then_branch, else_branch; } if_expr;
 
             struct { uint32_t first, second; }                  pair;

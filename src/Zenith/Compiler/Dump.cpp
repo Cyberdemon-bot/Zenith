@@ -39,6 +39,7 @@ namespace Zenith {
             case NodeType::Label: return "Label";
             case NodeType::UnaryExpr: return "UnaryExpr";
             case NodeType::BinaryExpr: return "BinaryExpr";
+            case NodeType::CastExpr: return "CastExpr";
             case NodeType::DerefExpr: return "DerefExpr";
             case NodeType::ParenExpr: return "ParenExpr";
             case NodeType::CallExpr: return "CallExpr";
@@ -228,6 +229,11 @@ namespace Zenith {
                     << " | RHS: " << node_ref(node.data.binary.rhs);
                 break;
             }
+            case NodeType::CastExpr:
+                out << std::setw(20) << "[CastExpr]"
+                    << "Expr: " << node_ref(node.data.cast.expr)
+                    << " | Type: " << node_ref(node.data.cast.type);
+                break;
             case NodeType::FieldAccess:
                 out << std::setw(20) << "[FieldAccess]"
                     << "Obj: "   << node_ref(node.data.access.target)
@@ -467,6 +473,10 @@ namespace Zenith {
                 out << " :op \"" << m_Tokens[node.data.binary.op].literal << "\"";
                 print_child(node.data.binary.lhs);
                 print_child(node.data.binary.rhs);
+                break;
+            case NodeType::CastExpr:
+                print_child(node.data.cast.expr);
+                print_child(node.data.cast.type);
                 break;
             case NodeType::FieldAccess:
             case NodeType::IndexExpr:

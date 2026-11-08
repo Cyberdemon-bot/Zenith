@@ -17,7 +17,7 @@ namespace Zenith {
         ARROW, FATARROW, // ->, =>
 
         SEMICOLON, COLON, COMMA, LPAREN, RPAREN, LBRACE, RBRACE, LBRACKET, RBRACKET,
-        BREAK, CLASS, CONTINUE, DYN, ELSE, FOR, FUNC, IF, LET, MATCH, MUT, NATIVE, NEW, PUB, RETURN, STRUCT,
+        AS, BREAK, CLASS, CONTINUE, DYN, ELSE, FOR, FUNC, IF, LET, MATCH, MUT, NATIVE, NEW, PUB, RETURN, STRUCT,
         AND, OR, IN,
         FALSE, NULL_LIT, TRUE,
         COUNT
@@ -35,7 +35,7 @@ namespace Zenith {
 
         "SEMICOLON", "COLON", "COMMA", "LPAREN", "RPAREN", "LBRACE", "RBRACE", "LBRACKET", "RBRACKET",
 
-        "BREAK", "CLASS", "CONTINUE", "DYN", "ELSE", "FOR", "FUNC", "IF", "LET", "MATCH", "MUT", "NATIVE", "NEW", "PUB", "RETURN", "STRUCT",
+        "AS", "BREAK", "CLASS", "CONTINUE", "DYN", "ELSE", "FOR", "FUNC", "IF", "LET", "MATCH", "MUT", "NATIVE", "NEW", "PUB", "RETURN", "STRUCT",
         "AND", "OR", "IN",
         "FALSE", "NULL", "TRUE"
     };

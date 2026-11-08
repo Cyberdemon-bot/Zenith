@@ -47,6 +47,7 @@ namespace Zenith {
         P_LESSGREATER,
         P_SUM,
         P_PRODUCT,
+        P_CAST,
         P_UNARY,
         P_CALL,
         P_INDEX
@@ -151,6 +152,7 @@ namespace Zenith {
         uint32_t ParseExpr(PrecedenceType precedence);
 
         uint32_t ParseNumericExpr(uint32_t left);
+        uint32_t ParseCastExpr(uint32_t left);
         uint32_t ParseFieldAccessExpr(uint32_t left);
         uint32_t ParseCallExpr(uint32_t left);
         uint32_t ParseIndexExpr(uint32_t left);
@@ -192,6 +194,7 @@ namespace Zenith {
                 case TokenType::ASTERISK:
                 case TokenType::SLASH:
                 case TokenType::MODULUS:    return PrecedenceType::P_PRODUCT;
+                case TokenType::AS:         return PrecedenceType::P_CAST;
                 case TokenType::DOT:
                 case TokenType::LPAREN:     return PrecedenceType::P_CALL;
                 case TokenType::LBRACKET:   return PrecedenceType::P_INDEX;

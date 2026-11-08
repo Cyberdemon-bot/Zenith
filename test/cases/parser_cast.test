@@ -1,0 +1,47 @@
+// === INPUT: SOURCE ===
+func main() {
+    let x = 1 as f64;
+    let y = 1 + 2 as f64;
+    let z = (x as i64) * 2;
+}
+
+// === EXPECTED AST ===
+(Program
+  (FuncDecl
+    (FuncSign
+      (Identifier "main")
+      (ArgList)
+    )
+    (BlockExpr
+      (LetStmt
+        (Identifier "x")
+        (CastExpr
+          (Integer 1)
+          (NamedType "f64")
+        )
+      )
+      (LetStmt
+        (Identifier "y")
+        (BinaryExpr :op "+"
+          (Integer 1)
+          (CastExpr
+            (Integer 2)
+            (NamedType "f64")
+          )
+        )
+      )
+      (LetStmt
+        (Identifier "z")
+        (BinaryExpr :op "*"
+          (ParenExpr
+            (CastExpr
+              (Identifier "x")
+              (NamedType "i64")
+            )
+          )
+          (Integer 2)
+        )
+      )
+    )
+  )
+)
