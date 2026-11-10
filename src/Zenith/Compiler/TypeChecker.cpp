@@ -1,6 +1,10 @@
+#include "Zenith/Compiler/Compiler.h"
 #include "Zenith/Core/Assert.h"
 #include "Zenith/Compiler/Node.h"
 #include "Zenith/Compiler/TypeChecker.h"
+
+#include <optional>
+#include <ranges>
 
 namespace Zenith {
 
@@ -13,14 +17,14 @@ namespace Zenith {
         return FuncView
         {
             .params = { m_TPool.data() + sig.params_start, sig.params_count },
-            .rets = { m_TPool.data() + sig.rets_start, sig.rets_count },
+            .ret_type = sig.ret_type,
             .protoId = sig.protoId,
         };
     }
 
     void SignatureTable::Add(std::string_view name,
                             std::span<const CTType> params,
-                            std::span<const CTType> rets,
+                            CTType ret_type,
                             uint16_t protoId)
     {
         ZN_CORE_ASSERT(!m_Frozen, "Cannot add signature: table is frozen");
@@ -30,16 +34,12 @@ namespace Zenith {
         const uint32_t pOff = static_cast<uint32_t>(m_TPool.size());
         m_TPool.insert(m_TPool.end(), params.begin(), params.end());
 
-        const uint32_t rOff = static_cast<uint32_t>(m_TPool.size());
-        m_TPool.insert(m_TPool.end(), rets.begin(), rets.end());
-
         const uint32_t sigIdx = static_cast<uint32_t>(m_Signs.size());
         m_Signs.push_back(FuncSign
         {
             .params_start = pOff,
             .params_count = static_cast<uint32_t>(params.size()),
-            .rets_start = rOff,
-            .rets_count = static_cast<uint32_t>(rets.size()),
+            .ret_type = ret_type,
             .protoId = protoId,
         });
         m_FuncIndex.emplace(name, sigIdx);
@@ -53,11 +53,97 @@ namespace Zenith {
         m_Frozen = true;
     }
 
-    std::string_view TypeChecker::IdentName(uint32_t ident_node) const
+    void TypeChecker::PushScope() 
     {
-        ZN_CORE_ASSERT(m_Ast.nodes[ident_node].type == NodeType::Identifier,
-                    "IdentName: expected Identifier node");
-        return m_Ast.tokens[m_Ast.nodes[ident_node].start_token].literal;
+        ++m_CurrentDepth; 
+    }
+    void TypeChecker::PopScope()
+    {
+        ZN_CORE_ASSERT(m_CurrentDepth > 0, "Scope underflow");
+        while (!m_Symbols.empty() && m_Symbols.back().depth == m_CurrentDepth)
+            m_Symbols.pop_back();
+        --m_CurrentDepth;
+    }
+
+    bool TypeChecker::AddSymbol(const Symbol& sb)
+    {
+        for (const auto& symbol : m_Symbols | std::views::reverse)
+        {
+            if (symbol.depth != m_CurrentDepth) break;
+            if (symbol.name == sb.name) return false;
+        }
+
+        m_Symbols.push_back(sb);
+        return true;
+    }
+
+    std::optional<Symbol> TypeChecker::FindSymbols(std::string_view name)
+    {
+        for (const auto& symbol : m_Symbols | std::views::reverse)
+            if (symbol.name == name) return symbol;
+        return std::nullopt;
+    }
+
+    void TypeChecker::PushTarget(const ControlTarget& target)
+    {
+        m_Targets.push_back(target);
+    }
+
+    void TypeChecker::PopTarget()
+    {
+        m_Targets.pop_back();
+    }
+
+    ControlTarget* TypeChecker::FindBreak(uint32_t label)
+    {
+        if (m_Targets.empty()) return nullptr;
+        if (label == ERROR_NODE) return &m_Targets.back();
+
+        std::string_view name = GetName(label);
+        for (auto& target : m_Targets | std::views::reverse)
+        {   
+            if (target.label == name) return &target;
+        }
+        return nullptr;
+    }
+
+    ControlTarget* TypeChecker::FindContinue(uint32_t label)
+    {
+        if (m_Targets.empty()) return nullptr;
+
+        std::string_view name = (label != ERROR_NODE) ? GetName(label) : "";
+        for (auto& target : m_Targets | std::views::reverse)
+        {   
+            if (target.is_loop)
+            {
+                if (label == ERROR_NODE || target.label == name) 
+                    return &target;
+            }
+        }
+        return nullptr;
+    }
+
+    bool TypeChecker::Validate()
+    {
+        ZN_CORE_ASSERT(!m_Validated, "Validate() called twice");
+        m_Validated = true;
+        m_Errors.clear();
+
+        m_NodeTypes.assign(m_Ast.nodes.size(), CTType::Error);
+        CollectSignature();
+
+        // TODO: add infer and check pass
+
+        for (const auto& d : m_Errors) 
+            if (d.severity == Severity::Error) return false;
+        return true;
+    }
+
+    std::string_view TypeChecker::GetName(uint32_t node) const
+    {
+        ZN_CORE_ASSERT(m_Ast.nodes[node].type == NodeType::Identifier || m_Ast.nodes[node].type == NodeType::Label,
+                    "GetName: expected Identifier or Label node");
+        return m_Ast.tokens[m_Ast.nodes[node].start_token].literal;
     }
 
     CTType TypeChecker::ResolveTypeNode(uint32_t type_node)
@@ -72,46 +158,43 @@ namespace Zenith {
                 const auto& nt = n.data.named_type;
                 if (nt.args != ERROR_NODE) 
                 {
-                    AddError(type_node, DiagType::UnsupportedFeature,
-                            "generic type arguments not supported in Phase 3");
+                    AddError(type_node, {DiagType::UnsupportedFeature,
+                            "generic type arguments not supported in Phase 3"});
                     return CTType::Error;
                 }
-                std::string_view name = IdentName(nt.ident);
+                std::string_view name = GetName(nt.ident);
                 if (name == "i64") return CTType::I64;
                 if (name == "f64") return CTType::F64;
                 if (name == "bool") return CTType::Bool;
                 if (name == "unit") return CTType::Unit;
 
-                AddError(type_node, DiagType::UnknownTypeName,
-                        "unknown type '" + std::string(name) + "'");
+                AddError(type_node, {DiagType::UnknownTypeName,
+                        "unknown type '" + std::string(name) + "'"});
                 return CTType::Error;
             }
             case NodeType::TupleType: 
             {
-                const uint32_t count = n.data.list.count;
-                if (count == 0) return CTType::Unit;
-                if (count == 1) return ResolveTypeNode(ListItem(type_node, 0));
-
-                AddError(type_node, DiagType::UnsupportedFeature,
-                        "tuple types not supported in Phase 3");
+                // TODO: Update tuple support later
+                AddError(type_node, {DiagType::UnsupportedFeature,
+                        "tuple types not supported yet"});
                 return CTType::Error;
             }
             case NodeType::RefType:
             {
-                AddError(type_node, DiagType::UnsupportedFeature,
-                        "reference types not supported in Phase 3");
+                AddError(type_node, {DiagType::UnsupportedFeature,
+                        "reference types not supported in Phase 3"});
                 return CTType::Error;
             }
             case NodeType::DynType:
             {
-                AddError(type_node, DiagType::UnsupportedFeature,
-                        "dyn types not supported in Phase 3");
+                AddError(type_node, {DiagType::UnsupportedFeature,
+                        "dyn types not supported in Phase 3"});
                 return CTType::Error;
             }
             default:
             {
-                AddError(type_node, DiagType::UnknownTypeName,
-                        "unsupported type annotation");
+                AddError(type_node, {DiagType::UnknownTypeName,
+                        "unsupported type annotation"});
                 return CTType::Error;
             }
         }
@@ -127,8 +210,8 @@ namespace Zenith {
 
             if (ti.type == ERROR_NODE) 
             {
-                AddError(param_idx, DiagType::MissingParamType,
-                        "parameter requires type annotation in Phase 3");
+                AddError(param_idx, {DiagType::MissingParamType,
+                        "parameter requires type annotation in Phase 3"});
                 buffer.push_back(CTType::Error);
                 continue;
             }
@@ -137,12 +220,10 @@ namespace Zenith {
         return count;
     }
 
-    uint32_t TypeChecker::CollectRet(std::vector<CTType>& buffer, uint32_t ret_type_node)
+    CTType TypeChecker::CollectRet(uint32_t ret_type_node)
     {
-        auto type = ResolveTypeNode(ret_type_node);
-        if (type == CTType::Unit || type == CTType::Error) return 0;
-        buffer.push_back(type);
-        return 1;
+        if (ret_type_node == ERROR_NODE) return CTType::Unit;
+        return ResolveTypeNode(ret_type_node);
     }
 
     void TypeChecker::CollectSignature()
@@ -152,15 +233,11 @@ namespace Zenith {
                     "AST root must be Program");
 
         const uint32_t root = m_Ast.root;
-        const uint32_t child_count = m_Ast.nodes[root].data.list.count;
-        const uint32_t child_start = m_Ast.nodes[root].data.list.start;
-
-        std::vector<CTType> scratch;
-        scratch.reserve(8);
+        const uint32_t child_count = ListCount(root);
 
         for (uint32_t i = 0; i < child_count; ++i) 
         {
-            const uint32_t decl_idx = m_Ast.extra[child_start + i];
+            const uint32_t decl_idx = ListItem(root, i);
             const Node& decl = m_Ast.nodes[decl_idx];
             if (decl.type != NodeType::FuncDecl) continue;
 
@@ -169,50 +246,35 @@ namespace Zenith {
             ZN_CORE_ASSERT(sign_node.type == NodeType::FuncSign, "FuncDecl must point to FuncSign");
 
             const uint32_t name_idx = sign_node.data.func_sign.name;
-            std::string_view name = IdentName(name_idx);
+            std::string_view name = GetName(name_idx);
 
             if (m_Table.Find(name).has_value()) 
             {
-                AddError(sign_idx, DiagType::DuplicateFunction,
-                        "duplicate function '" + std::string(name) + "'");
+                AddError(sign_idx, {DiagType::DuplicateFunction,
+                        "duplicate function '" + std::string(name) + "'"});
                 continue;
             }
 
-            scratch.clear();
+            m_Scratch.clear();
 
-            const uint32_t p_count = CollectParams(scratch, sign_node.data.func_sign.params);
-            const uint32_t r_count = CollectRet(scratch, sign_node.data.func_sign.ret_type);
+            const uint32_t p_count = CollectParams(m_Scratch, sign_node.data.func_sign.params);
+            const CTType ret_type  = CollectRet(sign_node.data.func_sign.ret_type);
             const uint16_t protoId = static_cast<uint16_t>(m_NextProtoId++);
 
             m_Table.Add(name,
-                        { scratch.data(), p_count },
-                        { scratch.data() + p_count, r_count },
+                        { m_Scratch.data(), p_count },
+                        ret_type,
                         protoId);
             if (name == "main") m_MainProtoId = protoId;
         }
 
         m_Table.Freeze();
 
-        if (m_MainProtoId == UINT16_MAX) AddError(m_Ast.root, DiagType::MissingMainFunction,
-                                                        "program must define 'func main'");
+        if (m_MainProtoId == UINT16_MAX) AddError(m_Ast.root, {DiagType::MissingMainFunction,
+                                                        "program must define 'func main'"});
     }
 
-    bool TypeChecker::Validate()
-    {
-        ZN_CORE_ASSERT(!m_Validated, "Validate() called twice");
-        m_Validated = true;
-        m_Errors.clear();
-
-        CollectSignature();
-
-        // TODO: add infer and check pass
-
-        for (const auto& d : m_Errors) 
-            if (d.severity == Severity::Error) return false;
-        return true;
-    }
-
-    void TypeChecker::AddError(uint32_t node, DiagType type, std::string_view message)
+    void TypeChecker::AddError(uint32_t node, Error err)
     {
         ZN_CORE_ASSERT(node < m_Ast.nodes.size(), "AddError: invalid node index");
         const uint32_t token = m_Ast.nodes[node].start_token;
@@ -220,10 +282,10 @@ namespace Zenith {
 
         m_Errors.push_back(Diagnostic
         {
-            .message = std::string(message),
+            .message = std::string(err.message),
             .node = node,
             .token = token,
-            .diag = type,
+            .diag = err.type,
         });
     }
 }

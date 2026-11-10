@@ -1,7 +1,31 @@
 #include <charconv>
+#include "Zenith/Core/Base.h"
 #include "Zenith/Compiler/Parser.h"
 
 namespace Zenith {
+
+    namespace {
+        constexpr Operator TokenToBinaryOp(TokenType type) noexcept
+        {
+            switch (type)
+            {
+                case TokenType::PLUS:     return Operator::Add;
+                case TokenType::MINUS:    return Operator::Sub;
+                case TokenType::ASTERISK: return Operator::Mul;
+                case TokenType::SLASH:    return Operator::Div;
+                case TokenType::MODULUS:  return Operator::Mod;
+                case TokenType::EE:       return Operator::Eq;
+                case TokenType::NE:       return Operator::Ne;
+                case TokenType::LT:       return Operator::Lt;
+                case TokenType::LTE:      return Operator::Lte;
+                case TokenType::GT:       return Operator::Gt;
+                case TokenType::GTE:      return Operator::Gte;
+                case TokenType::AND:      return Operator::And;
+                case TokenType::OR:       return Operator::Or;
+                default:                  return Operator::Add;
+            }
+        }
+    }
 
     Parser::Parser(std::string_view source)
          : m_Source(source), m_Lexer(source)
@@ -116,11 +140,13 @@ namespace Zenith {
             case TokenType::BANG:
             case TokenType::MINUS: 
             {
-                uint32_t op_tok = CurrToken(); NextToken(); 
+                uint32_t op_tok = CurrToken();
+                Operator op = (curr.type == TokenType::BANG) ? Operator::Not : Operator::Neg;
+                NextToken(); 
                 uint32_t expr = ParseExpr(PrecedenceType::P_UNARY);
                 if (expr == ERROR_NODE) return ERROR_NODE;
                 return PushNode(NodeType::UnaryExpr, op_tok, GetNode(expr).end_token,
-                    { .unary = { .op = op_tok, .operand = expr } });
+                    { .unary = { .op = op, .operand = expr } });
             }
             case TokenType::ASTERISK:
             {
@@ -205,8 +231,9 @@ namespace Zenith {
 
     uint32_t Parser::ParseNumericExpr(uint32_t left)
     {
-        uint32_t op_tok = CurrToken();
-        const auto& token = GetCurrToken(); NextToken();
+        const auto& token = GetCurrToken();
+        Operator op = TokenToBinaryOp(token.type);
+        NextToken();
         PrecedenceType precedence = GetPrecedence(token.type);
         
         uint32_t right = ParseExpr(precedence);
@@ -214,7 +241,7 @@ namespace Zenith {
 
         uint32_t start = GetNode(left).start_token, end = GetNode(right).end_token;
         return PushNode(NodeType::BinaryExpr, start, end,
-            { .binary = { .lhs = left, .op = op_tok, .rhs = right } });
+            { .binary = { .lhs = left, .op = op, .rhs = right } });
     }
 
     uint32_t Parser::ParseCastExpr(uint32_t left)
@@ -592,7 +619,7 @@ namespace Zenith {
             lt != NodeType::DerefExpr)
             return AddError("Invalid assignment target", lhs, ErrorScope::NodeStart);
 
-        uint32_t op_tok = CurrToken(); NextToken();
+        NextToken();
         uint32_t rhs = ParseExpr(PrecedenceType::P_LOWEST);
         if (rhs == ERROR_NODE) return ERROR_NODE;
         if (!CurrTokenIs(TokenType::SEMICOLON))
@@ -600,7 +627,7 @@ namespace Zenith {
 
         uint32_t start = GetNode(lhs).start_token, end = CurrToken(); NextToken();
         return PushNode(NodeType::AssignStmt, start, end,
-            { .binary = { .lhs = lhs, .op = op_tok, .rhs = rhs } });
+            { .binary = { .lhs = lhs, .op = Operator::Assign, .rhs = rhs } });
     }
 
     uint32_t Parser::ParseLetStmt()

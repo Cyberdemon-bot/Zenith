@@ -1,10 +1,59 @@
 #pragma once
 
 #include <cstdint>
+#include <string_view>
 
 namespace Zenith {
 
     constexpr uint32_t ERROR_NODE = 0;
+
+    enum class Operator : uint8_t
+    {
+        Add,
+        Sub,
+        Mul,
+        Div,
+        Mod,
+
+        Eq,
+        Ne,
+        Lt,
+        Lte,
+        Gt,
+        Gte,
+
+        And,
+        Or,
+
+        Assign,
+
+        Not,
+        Neg
+    };
+
+    constexpr std::string_view OperatorToString(Operator op) noexcept
+    {
+        switch (op)
+        {
+            case Operator::Add:    return "+";
+            case Operator::Sub:    return "-";
+            case Operator::Mul:    return "*";
+            case Operator::Div:    return "/";
+            case Operator::Mod:    return "%";
+            case Operator::Eq:     return "==";
+            case Operator::Ne:     return "!=";
+            case Operator::Lt:     return "<";
+            case Operator::Lte:    return "<=";
+            case Operator::Gt:     return ">";
+            case Operator::Gte:    return ">=";
+            case Operator::And:    return "and";
+            case Operator::Or:     return "or";
+            case Operator::Assign: return "=";
+            case Operator::Not:    return "!";
+            case Operator::Neg:    return "-";
+        }
+        return "unknown";
+    }
 
     enum class NodeType : uint16_t 
     {
@@ -59,8 +108,8 @@ namespace Zenith {
             uint32_t child;
 
             struct { uint32_t start, count; }                   list;
-            struct { uint32_t lhs, op, rhs; }                   binary;
-            struct { uint32_t op, operand; }                    unary;
+            struct { uint32_t lhs; Operator op; uint32_t rhs; } binary;
+            struct { Operator op; uint32_t operand; }           unary;
             struct { uint32_t expr, type; }                     cast;
             struct { uint32_t cond, then_branch, else_branch; } if_expr;
 

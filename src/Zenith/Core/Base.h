@@ -68,4 +68,11 @@ namespace Zenith {
 
 	template<auto...>
     inline constexpr bool always_false_v = false;
+
+	struct DepthGuard
+	{
+		uint32_t& depth;
+		explicit DepthGuard(uint32_t& d) : depth(d) { ++depth; }
+		~DepthGuard() { --depth; }
+	};
 }

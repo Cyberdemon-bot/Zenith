@@ -214,18 +214,15 @@ namespace Zenith {
                 break;
             case NodeType::UnaryExpr:
                 out << std::setw(20) << "[UnaryExpr]"
-                    << "Op: "    << tok_ref(node.data.unary.op)
+                    << "Op: '"   << OperatorToString(node.data.unary.op) << "'"
                     << " | Child: " << node_ref(node.data.unary.operand);
                 break;
             case NodeType::BinaryExpr:
             case NodeType::AssignStmt:
             {
-                uint32_t op_tok = node.data.binary.op;
-                std::string_view op_str =
-                    (op_tok < m_Tokens.size()) ? m_Tokens[op_tok].literal : std::string_view{};
                 out << std::setw(20) << (node.type == NodeType::BinaryExpr ? "[BinaryExpr]" : "[AssignStmt]")
                     << "LHS: " << node_ref(node.data.binary.lhs)
-                    << " | Op: '" << op_str << "'"
+                    << " | Op: '" << OperatorToString(node.data.binary.op) << "'"
                     << " | RHS: " << node_ref(node.data.binary.rhs);
                 break;
             }
@@ -465,12 +462,12 @@ namespace Zenith {
         switch (node.type) 
         {
             case NodeType::UnaryExpr:
-                out << " :op \"" << m_Tokens[node.data.unary.op].literal << "\"";
+                out << " :op \"" << OperatorToString(node.data.unary.op) << "\"";
                 print_child(node.data.unary.operand);
                 break;
             case NodeType::BinaryExpr:
             case NodeType::AssignStmt:
-                out << " :op \"" << m_Tokens[node.data.binary.op].literal << "\"";
+                out << " :op \"" << OperatorToString(node.data.binary.op) << "\"";
                 print_child(node.data.binary.lhs);
                 print_child(node.data.binary.rhs);
                 break;

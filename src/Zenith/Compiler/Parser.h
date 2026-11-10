@@ -19,7 +19,7 @@ namespace Zenith {
     struct ParseError
     {
         std::string message;
-        uint32_t node  = ERROR_NODE;
+        uint32_t node = ERROR_NODE;
         uint32_t token = 0;
         ErrorScope scope = ErrorScope::Token;
     };
@@ -76,15 +76,9 @@ namespace Zenith {
         Lexer m_Lexer;
         bool m_NoStructLit = false;
 
-        // recursion guard: chống stack overflow với input lồng quá sâu
+        // recursion guard
         static constexpr uint32_t MAX_DEPTH = 256;
         uint32_t m_Depth = 0;
-        struct DepthGuard
-        {
-            uint32_t& depth;
-            explicit DepthGuard(uint32_t& d) : depth(d) { ++depth; }
-            ~DepthGuard() { --depth; }
-        };
 
         // error handler
         void Synchronize();
