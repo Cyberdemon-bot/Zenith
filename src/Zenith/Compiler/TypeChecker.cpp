@@ -57,6 +57,7 @@ namespace Zenith {
     {
         ++m_CurrentDepth; 
     }
+
     void TypeChecker::PopScope()
     {
         ZN_CORE_ASSERT(m_CurrentDepth > 0, "Scope underflow");
@@ -94,6 +95,12 @@ namespace Zenith {
         m_Targets.pop_back();
     }
 
+    ControlTarget TypeChecker::GetCurrentTarget()
+    {
+        ZN_CORE_ASSERT(!m_Target.empty(), "No Target to get!")
+        return m_Target.back()
+    }
+
     ControlTarget* TypeChecker::FindBreak(uint32_t label)
     {
         if (m_Targets.empty()) return nullptr;
@@ -101,9 +108,7 @@ namespace Zenith {
 
         std::string_view name = GetName(label);
         for (auto& target : m_Targets | std::views::reverse)
-        {   
             if (target.label == name) return &target;
-        }
         return nullptr;
     }
 
@@ -113,13 +118,9 @@ namespace Zenith {
 
         std::string_view name = (label != ERROR_NODE) ? GetName(label) : "";
         for (auto& target : m_Targets | std::views::reverse)
-        {   
             if (target.is_loop)
-            {
                 if (label == ERROR_NODE || target.label == name) 
                     return &target;
-            }
-        }
         return nullptr;
     }
 

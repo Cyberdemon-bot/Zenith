@@ -75,9 +75,7 @@ namespace Zenith {
                     (src == CTType::F64 && dst == CTType::I64) ||
                     (src == CTType::Bool && dst == CTType::I64) ||
                     (src == CTType::I64 && dst == CTType::Bool))
-                {
-                    return dst;
-                }
+                        return dst;
 
                 AddError(node, {DiagType::CoerceFailure, "Invalid type cast"});
                 return CTType::Error;

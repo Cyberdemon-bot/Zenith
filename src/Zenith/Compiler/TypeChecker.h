@@ -167,6 +167,7 @@ namespace Zenith {
 
         void PushTarget(const ControlTarget& target);
         void PopTarget();
+        ControlTarget GetCurrentTarget();
         ControlTarget* FindBreak(uint32_t label);
         ControlTarget* FindContinue(uint32_t label);
 
