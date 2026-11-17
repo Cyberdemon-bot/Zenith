@@ -1,57 +1,19 @@
-#include "Zenith/Compiler/Compiler.h"
 #include "Zenith/Core/Assert.h"
 #include "Zenith/Compiler/Node.h"
 #include "Zenith/Compiler/TypeChecker.h"
+#include "Zenith/Compiler/Utils.h"
 
 #include <optional>
 #include <ranges>
 
 namespace Zenith {
 
-    std::optional<FuncView> SignatureTable::Find(std::string_view name) const
+    CTType TypeChecker::SetNodeType(uint32_t node, CTType type)
     {
-        auto it = m_FuncIndex.find(name);
-        if (it == m_FuncIndex.end()) return std::nullopt;
-
-        const FuncSign& sig = m_Signs[it->second];
-        return FuncView
-        {
-            .params = { m_TPool.data() + sig.params_start, sig.params_count },
-            .ret_type = sig.ret_type,
-            .protoId = sig.protoId,
-        };
-    }
-
-    void SignatureTable::Add(std::string_view name,
-                            std::span<const CTType> params,
-                            CTType ret_type,
-                            uint16_t protoId)
-    {
-        ZN_CORE_ASSERT(!m_Frozen, "Cannot add signature: table is frozen");
-        ZN_CORE_ASSERT(m_FuncIndex.find(name) == m_FuncIndex.end(),
-                    "duplicate function signature added");
-
-        const uint32_t pOff = static_cast<uint32_t>(m_TPool.size());
-        m_TPool.insert(m_TPool.end(), params.begin(), params.end());
-
-        const uint32_t sigIdx = static_cast<uint32_t>(m_Signs.size());
-        m_Signs.push_back(FuncSign
-        {
-            .params_start = pOff,
-            .params_count = static_cast<uint32_t>(params.size()),
-            .ret_type = ret_type,
-            .protoId = protoId,
-        });
-        m_FuncIndex.emplace(name, sigIdx);
-    }
-
-    void SignatureTable::Freeze()
-    {
-        ZN_CORE_ASSERT(!m_Frozen, "SignatureTable already frozen");
-        m_TPool.shrink_to_fit();
-        m_Signs.shrink_to_fit();
-        m_Frozen = true;
-    }
+        if (node == ERROR_NODE || node >= m_Ast.nodes.size()) return CTType::Error();
+        m_NodeTypes[node] = type;
+        return type;
+    }   
 
     void TypeChecker::PushScope() 
     {
@@ -97,8 +59,8 @@ namespace Zenith {
 
     ControlTarget TypeChecker::GetCurrentTarget()
     {
-        ZN_CORE_ASSERT(!m_Target.empty(), "No Target to get!")
-        return m_Target.back()
+        ZN_CORE_ASSERT(!m_Targets.empty(), "No Target to get!")
+        return m_Targets.back();
     }
 
     ControlTarget* TypeChecker::FindBreak(uint32_t label)
@@ -130,7 +92,7 @@ namespace Zenith {
         m_Validated = true;
         m_Errors.clear();
 
-        m_NodeTypes.assign(m_Ast.nodes.size(), CTType::Error);
+        m_NodeTypes.assign(m_Ast.nodes.size(), CTType::Error());
         CollectSignature();
 
         // TODO: add infer and check pass
@@ -147,9 +109,73 @@ namespace Zenith {
         return m_Ast.tokens[m_Ast.nodes[node].start_token].literal;
     }
 
+    CTType TypeChecker::ResolveBinaryOp(uint32_t node, Operator op, CTType lhs, CTType rhs)
+    {
+        if (lhs == CTType::Error() || rhs == CTType::Error()) return CTType::Error();
+        if (lhs != rhs)
+        {
+            AddError(node, {DiagType::OperandTypeMismatch, "Operands of binary operator must have the same type"});
+            return CTType::Error();
+        }
+
+        switch (op)
+        {
+            case Operator::Add:
+            case Operator::Sub:
+            case Operator::Mul:
+            case Operator::Div:
+            {
+                if (!Utils::IsNumeric(lhs))
+                {
+                    AddError(node, {DiagType::OperandTypeMismatch, "Arithmetic operators require numeric operands"});
+                    return CTType::Error();
+                }
+                return lhs;
+            }
+            case Operator::Mod:
+            {
+                if (!Utils::IsInteger(lhs))
+                {
+                    AddError(node, {DiagType::OperandTypeMismatch, "Operator '%' requires integer operands"});
+                    return CTType::Error();
+                }
+                return lhs;
+            }
+            case Operator::Eq:
+            case Operator::Ne: return CTType::Bool();
+            case Operator::Lt:
+            case Operator::Lte:
+            case Operator::Gt:
+            case Operator::Gte:
+            {
+                if (!Utils::IsNumeric(lhs))
+                {
+                    AddError(node, {DiagType::OperandTypeMismatch, "Ordered comparison requires numeric operands"});
+                    return CTType::Error();
+                }
+                return CTType::Bool();
+            }
+            case Operator::And:
+            case Operator::Or:
+            {
+                if (lhs != CTType::Bool())
+                {
+                    AddError(node, {DiagType::OperandTypeMismatch, "Logical operators require boolean operands"});
+                    return CTType::Error();
+                }
+                return CTType::Bool();
+            }
+            default:
+            {
+                AddError(node, {DiagType::OperandTypeMismatch, "Unsupported binary operator"});
+                return CTType::Error();
+            }
+        }
+    }
+
     CTType TypeChecker::ResolveTypeNode(uint32_t type_node)
     {
-        if (type_node == ERROR_NODE) return CTType::Error;
+        if (type_node == ERROR_NODE) return CTType::Error();
         const Node& n = m_Ast.nodes[type_node];
 
         switch (n.type)
@@ -161,42 +187,42 @@ namespace Zenith {
                 {
                     AddError(type_node, {DiagType::UnsupportedFeature,
                             "generic type arguments not supported in Phase 3"});
-                    return CTType::Error;
+                    return CTType::Error();
                 }
                 std::string_view name = GetName(nt.ident);
-                if (name == "i64") return CTType::I64;
-                if (name == "f64") return CTType::F64;
-                if (name == "bool") return CTType::Bool;
-                if (name == "unit") return CTType::Unit;
+                if (name == "i64") return CTType::I64();
+                if (name == "f64") return CTType::F64();
+                if (name == "bool") return CTType::Bool();
+                if (name == "unit") return CTType::Unit();
 
                 AddError(type_node, {DiagType::UnknownTypeName,
                         "unknown type '" + std::string(name) + "'"});
-                return CTType::Error;
+                return CTType::Error();
             }
             case NodeType::TupleType: 
             {
                 // TODO: Update tuple support later
                 AddError(type_node, {DiagType::UnsupportedFeature,
                         "tuple types not supported yet"});
-                return CTType::Error;
+                return CTType::Error();
             }
             case NodeType::RefType:
             {
                 AddError(type_node, {DiagType::UnsupportedFeature,
                         "reference types not supported in Phase 3"});
-                return CTType::Error;
+                return CTType::Error();
             }
             case NodeType::DynType:
             {
                 AddError(type_node, {DiagType::UnsupportedFeature,
                         "dyn types not supported in Phase 3"});
-                return CTType::Error;
+                return CTType::Error();
             }
             default:
             {
                 AddError(type_node, {DiagType::UnknownTypeName,
                         "unsupported type annotation"});
-                return CTType::Error;
+                return CTType::Error();
             }
         }
     }
@@ -213,7 +239,7 @@ namespace Zenith {
             {
                 AddError(param_idx, {DiagType::MissingParamType,
                         "parameter requires type annotation in Phase 3"});
-                buffer.push_back(CTType::Error);
+                buffer.push_back(CTType::Error());
                 continue;
             }
             buffer.push_back(ResolveTypeNode(ti.type));
@@ -223,7 +249,7 @@ namespace Zenith {
 
     CTType TypeChecker::CollectRet(uint32_t ret_type_node)
     {
-        if (ret_type_node == ERROR_NODE) return CTType::Unit;
+        if (ret_type_node == ERROR_NODE) return CTType::Unit();
         return ResolveTypeNode(ret_type_node);
     }
 

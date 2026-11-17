@@ -1,93 +1,20 @@
 #pragma once
 
 #include "Zenith/Core/Base.h"
-#include "Zenith/Compiler/Compiler.h"
 #include "Zenith/Compiler/Ast.h"
+#include "Zenith/Compiler/CTType.h"
+#include "Zenith/Compiler/Diagnostic.h"
+#include "Zenith/Compiler/SignatureTable.h"
+#include "Zenith/Compiler/Constraint.h"
 
-#include <span>
-#include <vector>
-#include <string>
+#include <cstdint>
 #include <optional>
+#include <span>
 #include <string_view>
-#include <unordered_map>
+#include <vector>
+
 
 namespace Zenith {
-
-    enum class Severity : uint8_t
-    {
-        Error,
-        Warning,
-        Note
-    };
-
-    enum class DiagType : uint8_t
-    {
-        // Declaration & Signature
-        DuplicateFunction,
-        MissingMainFunction,
-        InvalidMainSignature,
-        NestedFunction,
-        MissingParamType,
-        UnknownTypeName,
-
-        // Scope & Symbol
-        UnknownIdentifier,
-        RedeclaredIdentifier,
-
-        // Expression & Operation
-        OperandTypeMismatch,
-        InvalidUnaryOp,
-        WrongArgCount,
-        CannotInferType,
-        CoerceFailure,
-
-        // Type Mismatch
-        LetTypeMismatch,
-        ReturnTypeMismatch,
-        ArgTypeMismatch,
-        AssignTypeMismatch,
-        BreakTypeMismatch,
-
-        // Statement & Control Flow
-        ImmutableAssignment,
-        InvalidAssignTarget,
-        UndeclaredLabel,
-        InvalidContinue,
-        BlockMissingBreak,
-
-        // General
-        UnsupportedFeature,
-        TooManyErrors,
-    };
-
-    struct Diagnostic
-    {
-        std::string message;
-        uint32_t node, token;            
-        CTType expected = CTType::Error, actual = CTType::Error;
-        Severity severity = Severity::Error;
-        DiagType diag;
-    };
-
-    struct Error
-    {
-        DiagType type;
-        std::string_view message;
-    }; 
-
-    struct FuncSign
-    {
-        uint32_t params_start, params_count;
-        CTType ret_type = CTType::Unit;
-        uint16_t protoId;
-    };
-
-    struct FuncView
-    {
-        std::span<const CTType> params;
-        CTType ret_type = CTType::Unit;
-        uint16_t protoId;
-    };
 
     struct Symbol
     {
@@ -99,7 +26,7 @@ namespace Zenith {
 
     struct FuncContext
     {
-        CTType ret_type = CTType::Unit;
+        CTType ret_type = CTType::Unit();
         bool has_ret = false;
     };
 
@@ -109,28 +36,6 @@ namespace Zenith {
         std::string_view label;  
         CTType expected;    
         bool is_loop, has_break = false; 
-    };
-
-    class SignatureTable
-    {
-    public:
-        std::optional<FuncView> Find(std::string_view name) const;
-
-        void Add(std::string_view name,
-                 std::span<const CTType> params = {},
-                 CTType ret_type = CTType::Unit,
-                 uint16_t protoId = 0);
-
-        // MUST be called before any Find().
-        // Invalidates spans returned by previous Find()
-        void Freeze();
-
-    private:
-        std::vector<CTType> m_TPool;
-        std::vector<FuncSign> m_Signs;
-        std::unordered_map<std::string_view, uint32_t> m_FuncIndex;
-
-        bool m_Frozen = false;
     };
 
     class TypeChecker
@@ -171,15 +76,15 @@ namespace Zenith {
         ControlTarget* FindBreak(uint32_t label);
         ControlTarget* FindContinue(uint32_t label);
 
-        CTType InferExpr(uint32_t node);
-        bool CheckExpr(uint32_t node, CTType expected, Error err);
-        bool CheckStmt(uint32_t node);
+        CTType SetNodeType(uint32_t node, CTType type);
+        CTType ResolveTypeNode(uint32_t type_node);
+        CTType ResolveBinaryOp(uint32_t node, Operator op, CTType lhs, CTType rhs);
+        CTType ValidateExpr(uint32_t node, CTType expected, DiagType diag = DiagType::OperandTypeMismatch);
 
         void CollectSignature();
         uint32_t CollectParams(std::vector<CTType>& buffer, uint32_t params_list_node);
         CTType CollectRet(uint32_t ret_type_node);
 
-        CTType ResolveTypeNode(uint32_t type_node);
         std::string_view GetName(uint32_t node) const;
 
         constexpr uint32_t ListCount(uint32_t list_node) const { return m_Ast.nodes[list_node].data.list.count; }

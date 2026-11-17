@@ -3,6 +3,7 @@ build/
 bin/
 obj/
 scripts/output
+docs/handoff/
 
 *.o
 *.obj
