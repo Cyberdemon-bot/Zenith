@@ -113,20 +113,7 @@ namespace Zenith {
         {
             if (actual != expected)
             {
-                std::string_view prefix = "Type mismatch";
-                switch (diag)
-                {
-                    case DiagType::LetTypeMismatch:    prefix = "Let binding type mismatch"; break;
-                    case DiagType::ReturnTypeMismatch: prefix = "Return type mismatch"; break;
-                    case DiagType::ArgTypeMismatch:    prefix = "Argument type mismatch"; break;
-                    case DiagType::AssignTypeMismatch: prefix = "Assignment type mismatch"; break;
-                    case DiagType::BreakTypeMismatch:  prefix = "Break value type mismatch"; break;
-                    default: break;
-                }
-
-                std::string msg = std::string(prefix)
-                    + ": expected '" + std::string(Utils::TypeToString(expected))
-                    + "', got '" + std::string(Utils::TypeToString(actual)) + "'";
+                std::string msg = Utils::FormatTypeMismatch(diag, expected, actual);
                 AddError(node, { diag, msg });
                 return SetNodeType(node, CTType::Error());
             }

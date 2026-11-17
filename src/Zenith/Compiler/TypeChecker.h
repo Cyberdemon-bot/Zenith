@@ -32,10 +32,10 @@ namespace Zenith {
 
     struct ControlTarget
     {
-        uint32_t node;           
-        std::string_view label;  
-        CTType expected;    
-        bool is_loop, has_break = false; 
+        std::string_view label;
+        CTType expected;
+        bool is_loop = false;
+        bool has_break = false;
     };
 
     class TypeChecker
@@ -71,8 +71,7 @@ namespace Zenith {
         std::optional<Symbol> FindSymbols(std::string_view name);
 
         void PushTarget(const ControlTarget& target);
-        void PopTarget();
-        ControlTarget GetCurrentTarget();
+        ControlTarget PopTarget();
         ControlTarget* FindBreak(uint32_t label);
         ControlTarget* FindContinue(uint32_t label);
 

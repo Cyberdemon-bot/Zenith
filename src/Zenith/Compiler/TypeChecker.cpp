@@ -52,15 +52,12 @@ namespace Zenith {
         m_Targets.push_back(target);
     }
 
-    void TypeChecker::PopTarget()
+    ControlTarget TypeChecker::PopTarget()
     {
+        ZN_CORE_ASSERT(!m_Targets.empty(), "No target to pop");
+        ControlTarget top = m_Targets.back();
         m_Targets.pop_back();
-    }
-
-    ControlTarget TypeChecker::GetCurrentTarget()
-    {
-        ZN_CORE_ASSERT(!m_Targets.empty(), "No Target to get!")
-        return m_Targets.back();
+        return top;
     }
 
     ControlTarget* TypeChecker::FindBreak(uint32_t label)

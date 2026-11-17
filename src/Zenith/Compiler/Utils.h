@@ -1,8 +1,10 @@
 #pragma once
 
 #include "Zenith/Compiler/CTType.h"
+#include "Zenith/Compiler/Diagnostic.h"
 #include "Zenith/Compiler/Node.h"
 
+#include <string>
 #include <string_view>
 
 namespace Zenith {
@@ -20,6 +22,24 @@ namespace Zenith {
                 case CTType::Kind::F64:     return "f64";
                 default:              return "<unknown>";
             }
+        }
+
+        inline std::string FormatTypeMismatch(DiagType diag, CTType expected, CTType actual)
+        {
+            std::string_view prefix = "Type mismatch";
+            switch (diag)
+            {
+                case DiagType::LetTypeMismatch:    prefix = "Let binding type mismatch"; break;
+                case DiagType::ReturnTypeMismatch: prefix = "Return type mismatch"; break;
+                case DiagType::ArgTypeMismatch:    prefix = "Argument type mismatch"; break;
+                case DiagType::AssignTypeMismatch: prefix = "Assignment type mismatch"; break;
+                case DiagType::BreakTypeMismatch:  prefix = "Break value type mismatch"; break;
+                default: break;
+            }
+
+            return std::string(prefix)
+                + ": expected '" + std::string(TypeToString(expected))
+                + "', got '" + std::string(TypeToString(actual)) + "'";
         }
 
         constexpr bool IsInteger(CTType type) noexcept
