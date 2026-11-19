@@ -83,22 +83,6 @@ namespace Zenith {
         return nullptr;
     }
 
-    bool TypeChecker::Validate()
-    {
-        ZN_CORE_ASSERT(!m_Validated, "Validate() called twice");
-        m_Validated = true;
-        m_Errors.clear();
-
-        m_NodeTypes.assign(m_Ast.nodes.size(), CTType::Error());
-        CollectSignature();
-
-        // TODO: add infer and check pass
-
-        for (const auto& d : m_Errors) 
-            if (d.severity == Severity::Error) return false;
-        return true;
-    }
-
     std::string_view TypeChecker::GetName(uint32_t node) const
     {
         ZN_CORE_ASSERT(m_Ast.nodes[node].type == NodeType::Identifier || m_Ast.nodes[node].type == NodeType::Label,

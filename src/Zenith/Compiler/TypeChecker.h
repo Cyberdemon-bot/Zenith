@@ -67,6 +67,8 @@ namespace Zenith {
         std::vector<CTType> m_NodeTypes;
 
         CTType CheckBlock(uint32_t node, CTType expected, std::string_view label = "", bool push_target = false);
+        CTType CheckIf(uint32_t node, CTType expected, std::string_view label = "");
+        CTType CheckFor(uint32_t node, CTType expected, std::string_view label = "");
         void CheckStmt(uint32_t node);
 
         void PushScope();

@@ -1,3 +1,4 @@
+#include "Zenith/Core/Assert.h"
 #include "Zenith/Compiler/CTType.h"
 #include "Zenith/Compiler/Constraint.h"
 #include "Zenith/Compiler/Diagnostic.h"
@@ -13,6 +14,89 @@
 #define COMMIT_ERROR(diag, message) { AddError(node, { diag, message }); ERROR(); }
 
 namespace Zenith {
+
+    bool TypeChecker::Validate()
+    {
+        ZN_CORE_ASSERT(!m_Validated, "Validate() called twice");
+        m_Validated = true;
+        m_Errors.clear();
+
+        m_NodeTypes.assign(m_Ast.nodes.size(), CTType::Error());
+        CollectSignature();
+
+        uint32_t child_size = ListCount(m_Ast.root);
+        for (size_t i = 0; i < child_size; ++i)
+        {
+            const auto& decl = m_Ast.nodes[ListItem(m_Ast.root, i)];
+            if (decl.type != NodeType::FuncDecl) continue;
+
+            m_Solver.Reset();
+            m_Targets.clear();
+
+            const auto& sign = m_Ast.nodes[decl.data.func_decl.sign];
+
+            auto func = m_Table.Find(GetName(sign.data.func_sign.name));
+            if (!func.has_value()) continue;
+            m_CurrentFunc = { .ret_type = func->ret_type, .has_ret = false };
+
+            PushScope();
+
+            uint32_t params_cnt = ListCount(sign.data.func_sign.params);
+            for (uint32_t j = 0; j < params_cnt; ++j)
+            {
+                const uint32_t param_idx = ListItem(sign.data.func_sign.params, j);
+                const auto& ti = m_Ast.nodes[param_idx].data.typed_ident;
+                std::string_view param_name = GetName(ti.ident);
+                CTType param_type = func->params[j];
+
+                if (!AddSymbol({
+                    .name = param_name,
+                    .depth = m_CurrentDepth,
+                    .type = param_type,
+                    .is_mut = (ti.is_mut != 0)
+                }))
+                {
+                    std::string msg = "redeclared parameter '" + std::string(param_name) + "'";
+                    AddError(ti.ident, { DiagType::RedeclaredIdentifier, msg });
+                }
+
+                SetNodeType(param_idx, param_type);
+                SetNodeType(ti.ident, param_type);
+            }
+
+            CheckBlock(decl.data.func_decl.body, CTType::Unit(), "", false);
+            PopScope();
+
+            std::string_view func_name = GetName(sign.data.func_sign.name);
+            if (m_CurrentFunc.ret_type != CTType::Unit() &&
+                m_CurrentFunc.ret_type != CTType::Error() &&
+                !m_CurrentFunc.has_ret)
+            {
+                std::string msg = "function '" + std::string(func_name) + "' must return a value";
+                AddError(sign.data.func_sign.name, { DiagType::ReturnTypeMismatch, msg });
+            }
+
+            m_Solver.Solve([this](Diagnostic&& d) {
+                m_Errors.push_back(std::move(d));
+            });
+
+            for (uint32_t idx = 1; idx < m_NodeTypes.size(); ++idx)
+            {
+                if (!m_NodeTypes[idx].IsVar()) continue;
+                CTType resolved = m_Solver.Resolve(m_NodeTypes[idx]);
+                if (resolved.IsVar())
+                {
+                    AddError(idx, { DiagType::CannotInferType, "cannot infer type" });
+                    m_NodeTypes[idx] = CTType::Error();
+                }
+                else m_NodeTypes[idx] = resolved;
+            }
+        }
+
+        for (const auto& d : m_Errors) 
+            if (d.severity == Severity::Error) return false;
+        return true;
+    }
 
     CTType TypeChecker::ValidateExpr(uint32_t node, CTType expected, DiagType diag)
     {
@@ -108,9 +192,25 @@ namespace Zenith {
                 if (has_error) ERROR();
                 ACTUAL(sig->ret_type);
             }
-            case NodeType::BlockExpr:
+            case NodeType::BlockExpr: ACTUAL(CheckBlock(node, expected, "", true));
+            case NodeType::IfExpr: ACTUAL(CheckIf(node, expected)); 
+            case NodeType::ForExpr: ACTUAL(CheckFor(node, expected));
+            case NodeType::LabeledExpr:
             {
-                ACTUAL(CheckBlock(node, expected, "", true));
+                uint32_t label = n.data.labeled.label;
+                uint32_t body  = n.data.labeled.body;
+                if (label == ERROR_NODE || body == ERROR_NODE || body >= m_Ast.nodes.size()) ERROR();
+
+                std::string_view name = GetName(label);
+                const auto& expr = m_Ast.nodes[body];
+                switch (expr.type)
+                {
+                    case NodeType::BlockExpr: ACTUAL(CheckBlock(body, expected, name, true));
+                    case NodeType::IfExpr:    ACTUAL(CheckIf(body, expected, name));
+                    case NodeType::ForExpr:   ACTUAL(CheckFor(body, expected, name));
+                    default: COMMIT_ERROR(DiagType::UnsupportedFeature, "unsupported expression in labeled expression");
+                }
+                break;
             }
             
             default: COMMIT_ERROR(DiagType::UnsupportedFeature, "unsupported expression");
@@ -165,7 +265,6 @@ namespace Zenith {
             .has_break = false
         });
 
-        const auto& n = m_Ast.nodes[node];
         uint32_t stmt_cnt = ListCount(node);
         for (size_t i = 0; i < stmt_cnt; ++i)
             CheckStmt(ListItem(node, i));   
@@ -190,6 +289,77 @@ namespace Zenith {
             else if (target_type != CTType::Unit())
             {
                 AddError(node, { DiagType::BlockMissingBreak, "Block does not break with a value of expected type" });
+                return CTType::Error();
+            }
+        }
+
+        return target_type;
+    }
+
+    CTType TypeChecker::CheckIf(uint32_t node, CTType expected, std::string_view label)
+    {
+        if (node == ERROR_NODE || node >= m_Ast.nodes.size()) return CTType::Error();
+        if (expected == CTType::Error()) return CTType::Error();
+
+        const auto& ie = m_Ast.nodes[node].data.if_expr; 
+        ValidateExpr(ie.cond, CTType::Bool(), DiagType::OperandTypeMismatch);
+
+        bool has_else = (ie.else_branch != ERROR_NODE);
+        bool is_check = (expected != CTType::Unknown());
+        CTType res_type = has_else ? (is_check ? expected : m_Solver.Fresh()) : CTType::Unit();
+
+        if (!label.empty())
+            PushTarget({
+                .label = label,
+                .expected = res_type,
+                .is_loop = false, .has_break = false
+            });
+
+        CTType then_type = ValidateExpr(ie.then_branch, res_type);
+        CTType else_type = has_else ? ValidateExpr(ie.else_branch, res_type) : CTType::Unit();
+
+        if (!label.empty()) PopTarget();
+        if (then_type == CTType::Error() || else_type == CTType::Error()) return CTType::Error();
+
+        return res_type;
+    }
+
+    CTType TypeChecker::CheckFor(uint32_t node, CTType expected, std::string_view label)
+    {
+        if (node == ERROR_NODE || node >= m_Ast.nodes.size()) return CTType::Error();
+        if (expected == CTType::Error()) return CTType::Error();
+
+        const auto& fe = m_Ast.nodes[node].data.for_expr; 
+        if (fe.cond != ERROR_NODE)
+            ValidateExpr(fe.cond, CTType::Bool(), DiagType::OperandTypeMismatch);
+
+        CTType target_type = (expected != CTType::Unknown()) ? expected : m_Solver.Fresh();
+        PushTarget({ 
+            .label = label, 
+            .expected = target_type, 
+            .is_loop = true, 
+            .has_break = false 
+        });
+
+        CheckBlock(fe.body, CTType::Unit(), "", false);
+        bool has_break = PopTarget().has_break;
+
+        if (!has_break)
+        {
+            if (target_type.IsVar())
+                m_Solver.Emit({
+                    .kind = Constraint::Kind::Eq,
+                    .lhs = target_type,
+                    .rhs = CTType::Unit(),
+                    .diag = {
+                        .node = node,
+                        .token = m_Ast.nodes[node].start_token,
+                        .diag = DiagType::BreakTypeMismatch
+                    }
+                });
+            else if (target_type != CTType::Unit())
+            {
+                AddError(node, { DiagType::BlockMissingBreak, "Loop does not break with a value of expected type" });
                 return CTType::Error();
             }
         }
