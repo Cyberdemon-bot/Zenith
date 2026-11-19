@@ -51,7 +51,7 @@ func demo() {
         )
         (Integer 0)
       )
-      (AssignStmt :op "="
+      (AssignStmt
         (Identifier "counter")
         (BinaryExpr :op "+"
           (Identifier "counter")

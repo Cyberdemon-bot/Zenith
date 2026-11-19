@@ -186,7 +186,8 @@ namespace Zenith {
                             "generic type arguments not supported in Phase 3"});
                     return CTType::Error();
                 }
-                std::string_view name = GetName(nt.ident);
+                ZN_CORE_ASSERT(nt.ident < m_Ast.tokens.size(), "NamedType: invalid token index");
+                std::string_view name = m_Ast.tokens[nt.ident].literal;
                 if (name == "i64") return CTType::I64();
                 if (name == "f64") return CTType::F64();
                 if (name == "bool") return CTType::Bool();

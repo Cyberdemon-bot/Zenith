@@ -53,6 +53,7 @@ namespace Zenith {
     private:
         AstView m_Ast;
         SignatureTable m_Table;
+        ConstraintSolver m_Solver;
         uint32_t m_CurrentDepth = 0;
         uint32_t m_NextProtoId = 1; 
         uint16_t m_MainProtoId = INVALID_PROTO;
@@ -64,6 +65,9 @@ namespace Zenith {
         std::vector<ControlTarget> m_Targets;
         std::vector<CTType> m_Scratch;
         std::vector<CTType> m_NodeTypes;
+
+        CTType CheckBlock(uint32_t node, CTType expected, std::string_view label = "", bool push_target = false);
+        void CheckStmt(uint32_t node);
 
         void PushScope();
         void PopScope();

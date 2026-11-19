@@ -66,27 +66,27 @@ func demo() {
           )
         )
       )
-      (AssignStmt :op "="
+      (AssignStmt
         (FieldAccess
           (Identifier "user")
           (Identifier "age")
         )
         (Integer 1)
       )
-      (AssignStmt :op "="
+      (AssignStmt
         (IndexExpr
           (Identifier "list")
           (Integer 0)
         )
         (Integer 2)
       )
-      (AssignStmt :op "="
+      (AssignStmt
         (DerefExpr
           (Identifier "slot")
         )
         (Integer 3)
       )
-      (AssignStmt :op "="
+      (AssignStmt
         (FieldAccess
           (ParenExpr
             (DerefExpr

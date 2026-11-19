@@ -627,7 +627,7 @@ namespace Zenith {
 
         uint32_t start = GetNode(lhs).start_token, end = CurrToken(); NextToken();
         return PushNode(NodeType::AssignStmt, start, end,
-            { .binary = { .lhs = lhs, .op = Operator::Assign, .rhs = rhs } });
+            { .assign = { .target = lhs, .value = rhs } });
     }
 
     uint32_t Parser::ParseLetStmt()

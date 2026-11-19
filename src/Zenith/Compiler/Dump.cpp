@@ -218,12 +218,18 @@ namespace Zenith {
                     << " | Child: " << node_ref(node.data.unary.operand);
                 break;
             case NodeType::BinaryExpr:
-            case NodeType::AssignStmt:
             {
-                out << std::setw(20) << (node.type == NodeType::BinaryExpr ? "[BinaryExpr]" : "[AssignStmt]")
+                out << std::setw(20) << "[BinaryExpr]"
                     << "LHS: " << node_ref(node.data.binary.lhs)
                     << " | Op: '" << OperatorToString(node.data.binary.op) << "'"
                     << " | RHS: " << node_ref(node.data.binary.rhs);
+                break;
+            }
+            case NodeType::AssignStmt:
+            {
+                out << std::setw(20) << "[AssignStmt]"
+                    << "Target: " << node_ref(node.data.assign.target)
+                    << " | Value: " << node_ref(node.data.assign.value);
                 break;
             }
             case NodeType::CastExpr:
@@ -466,10 +472,13 @@ namespace Zenith {
                 print_child(node.data.unary.operand);
                 break;
             case NodeType::BinaryExpr:
-            case NodeType::AssignStmt:
                 out << " :op \"" << OperatorToString(node.data.binary.op) << "\"";
                 print_child(node.data.binary.lhs);
                 print_child(node.data.binary.rhs);
+                break;
+            case NodeType::AssignStmt:
+                print_child(node.data.assign.target);
+                print_child(node.data.assign.value);
                 break;
             case NodeType::CastExpr:
                 print_child(node.data.cast.expr);

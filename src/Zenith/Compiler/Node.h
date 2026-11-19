@@ -25,8 +25,6 @@ namespace Zenith {
         And,
         Or,
 
-        Assign,
-
         Not,
         Neg
     };
@@ -48,7 +46,6 @@ namespace Zenith {
             case Operator::Gte:    return ">=";
             case Operator::And:    return "and";
             case Operator::Or:     return "or";
-            case Operator::Assign: return "=";
             case Operator::Not:    return "!";
             case Operator::Neg:    return "-";
         }
@@ -126,6 +123,7 @@ namespace Zenith {
             struct { uint32_t sign, body; uint8_t is_pub; }     func_decl;
             struct { uint32_t name, fields; uint8_t is_pub; }   struct_decl;
             struct { uint32_t target, value; }                  let;
+            struct { uint32_t target, value; }                  assign;
 
             struct { uint32_t pattern, guard, body; }           match_arm;
 
