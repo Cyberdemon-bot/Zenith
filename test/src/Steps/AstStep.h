@@ -5,10 +5,6 @@
 #include <string>
 #include <vector>
 
-namespace Zenith {
-    class Parser;
-}
-
 class AstStep
 {
 public:
@@ -27,5 +23,4 @@ public:
     };
 
     static Result Run(std::string_view source);
-    static std::vector<ErrorInfo> CollectErrors(const Zenith::Parser& parser);
 };

@@ -1,0 +1,61 @@
+// === INPUT: SOURCE ===
+func main() {
+    let overflow: u8 = 256;
+    let neg_unsigned: u8 = 5;
+    let bad_neg = -neg_unsigned;
+    let bad_cast = 3.14 as bool;
+    let bad_if = if 123 => 1 else => 2.5;
+}
+// === EXPECTED ERRORS ===
+2:24 Literal out of range for 'u8'
+4:19 Invalid operand type 'u8' for operator '-'
+6:21 Type mismatch: expected 'bool', got 'i64'
+5:20 Invalid type cast from 'f64' to 'bool'
+6:38 Type mismatch: expected 'i64', got 'f64'
+
+// === EXPECTED TYPES ===
+(Program
+  (FuncDecl :type unit
+    (FuncSign :type unit
+      (Identifier "main" :type unit)
+      (ArgList)
+    )
+    (BlockExpr :type unit
+      (LetStmt :type u8
+        (TypedIdentifier :mut false :type u8
+          (Identifier "overflow" :type u8)
+          (NamedType "u8" :type u8)
+        )
+        (Integer 256 :type <error>)
+      )
+      (LetStmt :type u8
+        (TypedIdentifier :mut false :type u8
+          (Identifier "neg_unsigned" :type u8)
+          (NamedType "u8" :type u8)
+        )
+        (Integer 5 :type u8)
+      )
+      (LetStmt :type <error>
+        (Identifier "bad_neg" :type <error>)
+        (UnaryExpr :op "-" :type <error>
+          (Identifier "neg_unsigned" :type u8)
+        )
+      )
+      (LetStmt :type bool
+        (Identifier "bad_cast" :type bool)
+        (CastExpr :type bool
+          (Decimal 3.14 :type f64)
+          (NamedType "bool" :type bool)
+        )
+      )
+      (LetStmt :type i64
+        (Identifier "bad_if" :type i64)
+        (IfExpr :type i64
+          (Integer 123 :type <error>)
+          (Integer 1 :type i64)
+          (Decimal 2.5 :type i64)
+        )
+      )
+    )
+  )
+)

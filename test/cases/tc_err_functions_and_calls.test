@@ -1,0 +1,150 @@
+// === INPUT: SOURCE ===
+func dup() -> i64 {
+    return 1;
+}
+
+func dup() -> i64 {
+    return 2;
+}
+
+func helper(a: i64, b: bool) -> i64 {
+    if b {
+        return "wrong";
+    }
+    return;
+}
+
+func main(x: i64) -> i64 {
+    func inner() {}
+    let bad_type: GhostType = 1;
+    let c1 = helper(1);
+    let c2 = helper(true, 1);
+    let c3 = unknown_fn(1);
+    return 0;
+}
+// === EXPECTED ERRORS ===
+5:6 Duplicate function 'dup'
+11:17 Unsupported feature: expression
+13:5 Return type mismatch: expected 'i64', got 'unit'
+17:5 Nested functions are not supported
+18:19 Unknown type 'GhostType'
+19:14 Argument count mismatch: expected 2, got 1
+20:21 Argument type mismatch: expected 'i64', got 'bool'
+20:27 Argument type mismatch: expected 'bool', got 'i64'
+21:14 Unknown identifier 'unknown_fn'
+
+// === EXPECTED TYPES ===
+(Program
+  (FuncDecl :type i64
+    (FuncSign :type i64
+      (Identifier "dup" :type i64)
+      (ArgList)
+      (NamedType "i64" :type i64)
+    )
+    (BlockExpr :type unit
+      (ReturnStmt :type unit
+        (Integer 1 :type i64)
+      )
+    )
+  )
+  (FuncDecl :type <error>
+    (FuncSign :type <error>
+      (Identifier "dup")
+      (ArgList)
+      (NamedType "i64")
+    )
+    (BlockExpr :type unit
+      (ReturnStmt :type unit
+        (Integer 2 :type i64)
+      )
+    )
+  )
+  (FuncDecl :type i64
+    (FuncSign :type i64
+      (Identifier "helper" :type i64)
+      (ArgList
+        (TypedIdentifier :mut false :type i64
+          (Identifier "a" :type i64)
+          (NamedType "i64" :type i64)
+        )
+        (TypedIdentifier :mut false :type bool
+          (Identifier "b" :type bool)
+          (NamedType "bool" :type bool)
+        )
+      )
+      (NamedType "i64" :type i64)
+    )
+    (BlockExpr :type unit
+      (ExprStmt :type unit
+        (IfExpr :type unit
+          (Identifier "b" :type bool)
+          (BlockExpr :type unit
+            (ReturnStmt :type <error>
+              (String "wrong" :type <error>)
+            )
+          )
+        )
+      )
+      (ReturnStmt :type <error>)
+    )
+  )
+  (FuncDecl :type i64
+    (FuncSign :type i64
+      (Identifier "main" :type i64)
+      (ArgList
+        (TypedIdentifier :mut false :type i64
+          (Identifier "x" :type i64)
+          (NamedType "i64" :type i64)
+        )
+      )
+      (NamedType "i64" :type i64)
+    )
+    (BlockExpr :type unit
+      (FuncDecl :type <error>
+        (FuncSign
+          (Identifier "inner")
+          (ArgList)
+        )
+        (BlockExpr)
+      )
+      (LetStmt :type <error>
+        (TypedIdentifier :mut false :type <error>
+          (Identifier "bad_type" :type <error>)
+          (NamedType "GhostType" :type <error>)
+        )
+        (Integer 1 :type <error>)
+      )
+      (LetStmt :type <error>
+        (Identifier "c1" :type <error>)
+        (CallExpr :type <error>
+          (Identifier "helper")
+          (ArgList
+            (Integer 1)
+          )
+        )
+      )
+      (LetStmt :type <error>
+        (Identifier "c2" :type <error>)
+        (CallExpr :type <error>
+          (Identifier "helper")
+          (ArgList
+            (Bool true :type <error>)
+            (Integer 1 :type <error>)
+          )
+        )
+      )
+      (LetStmt :type <error>
+        (Identifier "c3" :type <error>)
+        (CallExpr :type <error>
+          (Identifier "unknown_fn")
+          (ArgList
+            (Integer 1)
+          )
+        )
+      )
+      (ReturnStmt :type unit
+        (Integer 0 :type i64)
+      )
+    )
+  )
+)

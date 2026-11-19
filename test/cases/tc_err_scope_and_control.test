@@ -1,0 +1,92 @@
+// === INPUT: SOURCE ===
+func need_ret() -> i64 {
+    let x = 1;
+}
+
+func main() {
+    let x = 10;
+    let x = 20;
+    x = 30;
+
+    let missing: i64 = 'blk: {
+        let a = 1;
+    };
+
+    'loop_lbl: {
+        continue 'loop_lbl;
+    };
+
+    break 'ghost;
+}
+// === EXPECTED ERRORS ===
+1:6 Function 'need_ret' must return a value
+7:9 Redeclared identifier 'x'
+8:5 Cannot assign twice to immutable variable 'x'
+10:30 Block does not break with a value of expected type
+15:9 'continue' must target an enclosing loop
+18:12 Undeclared label 'ghost'
+
+// === EXPECTED TYPES ===
+(Program
+  (FuncDecl :type <error>
+    (FuncSign :type i64
+      (Identifier "need_ret" :type i64)
+      (ArgList)
+      (NamedType "i64" :type i64)
+    )
+    (BlockExpr :type unit
+      (LetStmt :type i64
+        (Identifier "x" :type i64)
+        (Integer 1 :type i64)
+      )
+    )
+  )
+  (FuncDecl :type unit
+    (FuncSign :type unit
+      (Identifier "main" :type unit)
+      (ArgList)
+    )
+    (BlockExpr :type unit
+      (LetStmt :type i64
+        (Identifier "x" :type i64)
+        (Integer 10 :type i64)
+      )
+      (LetStmt :type <error>
+        (Identifier "x" :type <error>)
+        (Integer 20 :type i64)
+      )
+      (AssignStmt :type <error>
+        (Identifier "x" :type i64)
+        (Integer 30 :type i64)
+      )
+      (LetStmt :type i64
+        (TypedIdentifier :mut false :type i64
+          (Identifier "missing" :type i64)
+          (NamedType "i64" :type i64)
+        )
+        (LabeledExpr :type <error>
+          (Label "blk")
+          (BlockExpr :type <error>
+            (LetStmt :type i64
+              (Identifier "a" :type i64)
+              (Integer 1 :type i64)
+            )
+          )
+        )
+      )
+      (ExprStmt :type unit
+        (LabeledExpr :type unit
+          (Label "loop_lbl")
+          (BlockExpr :type unit
+            (ContinueStmt :type <error>
+              (Label "loop_lbl")
+            )
+          )
+        )
+      )
+      (BreakStmt :type <error>
+        (Label "ghost")
+      )
+    )
+  )
+)

@@ -1,6 +1,7 @@
 #include "Tester.h"
 #include "Diff.h"
 #include "Steps/AstStep.h"
+#include "Steps/TypeCheckerStep.h"
 #include "Steps/VmStep.h"
 #include "Zenith/Core/ProfileTimer.h"
 
@@ -48,14 +49,37 @@ TestResult Tester::RunCase(const TestCase& tc, const Options& opt)
 
     float caseTimeMs = 0.0f;
     AstStep::Result astResult;
+    TypeCheckerStep::Result tcResult;
     VmStep::Result vmResult;
+    bool isTypeCheck = (tc.kind == InputKind::Source && tc.hasTypes);
 
     {
         ZN_PROFILE_SCOPE(&caseTimeMs);
 
         try
         {
-            if (tc.kind == InputKind::Source)
+            if (isTypeCheck)
+            {
+                tcResult = TypeCheckerStep::Run(tc.inputSource);
+                if (!tcResult.typedAst.empty())
+                    actualOutputs[std::string(TestCaseLoader::kExpectedTypesMarker)] = tcResult.typedAst;
+                actualErrors = tcResult.errors;
+
+                if (tc.hasTypes)
+                {
+                    if (tcResult.typedAst != tc.expectedTypes)
+                        allMatched = false;
+                }
+
+                if (tc.hasErrors || !actualErrors.empty())
+                {
+                    std::string expectedErrStr = TestCaseLoader::RenderExpected(tc.expectedErrors, actualErrors);
+                    std::string actualErrStr = TestCaseLoader::RenderErrors(actualErrors);
+                    if (expectedErrStr != actualErrStr)
+                        allMatched = false;
+                }
+            }
+            else if (tc.kind == InputKind::Source)
             {
                 astResult = AstStep::Run(tc.inputSource);
                 actualOutputs[std::string(TestCaseLoader::kExpectedAstMarker)] = astResult.astTree;
@@ -111,7 +135,13 @@ TestResult Tester::RunCase(const TestCase& tc, const Options& opt)
     std::ostringstream timeStr;
     timeStr << std::fixed << std::setprecision(2);
     timeStr << " (" << caseTimeMs << "ms)";
-    if (tc.kind == InputKind::Source)
+    if (isTypeCheck)
+    {
+        timeStr << " [Parse: " << tcResult.profile.parseTimeMs
+                << "ms, Check: " << tcResult.profile.checkTimeMs
+                << "ms, Dump: " << tcResult.profile.dumpTimeMs << "ms]";
+    }
+    else if (tc.kind == InputKind::Source)
     {
         timeStr << " [Parse: " << astResult.profile.parseTimeMs
                 << "ms, Dump: " << astResult.profile.dumpTimeMs << "ms]";
@@ -128,7 +158,13 @@ TestResult Tester::RunCase(const TestCase& tc, const Options& opt)
     {
         std::cout << "--- " << tc.name << " ---\n";
         std::cout << "Execution Time: " << caseTimeMs << "ms\n";
-        if (tc.kind == InputKind::Source)
+        if (isTypeCheck)
+        {
+            std::cout << "  - Parse: " << tcResult.profile.parseTimeMs << "ms\n";
+            std::cout << "  - Check: " << tcResult.profile.checkTimeMs << "ms\n";
+            std::cout << "  - Dump:  " << tcResult.profile.dumpTimeMs << "ms\n";
+        }
+        else if (tc.kind == InputKind::Source)
         {
             std::cout << "  - Parse: " << astResult.profile.parseTimeMs << "ms\n";
             std::cout << "  - Dump:  " << astResult.profile.dumpTimeMs << "ms\n";
@@ -148,7 +184,7 @@ TestResult Tester::RunCase(const TestCase& tc, const Options& opt)
         }
     }
 
-    bool hasAnyExpectation = tc.hasAst || tc.hasErrors || tc.hasVm || tc.hasDisasm;
+    bool hasAnyExpectation = tc.hasAst || tc.hasTypes || tc.hasErrors || tc.hasVm || tc.hasDisasm;
 
     if (!hasAnyExpectation && !opt.update)
     {
@@ -204,6 +240,16 @@ TestResult Tester::RunCase(const TestCase& tc, const Options& opt)
         {
             std::cout << "  AST mismatch:\n";
             Diff::PrintDiff(tc.expectedAst, actualAst);
+        }
+    }
+    if (tc.hasTypes)
+    {
+        auto it = actualOutputs.find(std::string(TestCaseLoader::kExpectedTypesMarker));
+        std::string actualTypes = (it != actualOutputs.end()) ? it->second : "";
+        if (actualTypes != tc.expectedTypes)
+        {
+            std::cout << "  Types mismatch:\n";
+            Diff::PrintDiff(tc.expectedTypes, actualTypes);
         }
     }
     if (tc.hasVm)

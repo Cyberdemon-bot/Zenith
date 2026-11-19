@@ -116,46 +116,46 @@ namespace Zenith {
                 if (nt.args != ERROR_NODE)
                 {
                     AddError(type_node, { DiagType::UnsupportedFeature, "generic type arguments" });
-                    return CTType::Error();
+                    return SetNodeType(type_node, CTType::Error());
                 }
                 ZN_CORE_ASSERT(nt.ident < m_Ast.tokens.size(), "NamedType: invalid token index");
                 std::string_view name = m_Ast.tokens[nt.ident].literal;
-                if (name == "i8")   return CTType::I8();
-                if (name == "i16")  return CTType::I16();
-                if (name == "i32")  return CTType::I32();
-                if (name == "i64")  return CTType::I64();
-                if (name == "u8")   return CTType::U8();
-                if (name == "u16")  return CTType::U16();
-                if (name == "u32")  return CTType::U32();
-                if (name == "u64")  return CTType::U64();
-                if (name == "f32")  return CTType::F32();
-                if (name == "f64")  return CTType::F64();
-                if (name == "bool") return CTType::Bool();
-                if (name == "unit") return CTType::Unit();
+                if (name == "i8")   return SetNodeType(type_node, CTType::I8());
+                if (name == "i16")  return SetNodeType(type_node, CTType::I16());
+                if (name == "i32")  return SetNodeType(type_node, CTType::I32());
+                if (name == "i64")  return SetNodeType(type_node, CTType::I64());
+                if (name == "u8")   return SetNodeType(type_node, CTType::U8());
+                if (name == "u16")  return SetNodeType(type_node, CTType::U16());
+                if (name == "u32")  return SetNodeType(type_node, CTType::U32());
+                if (name == "u64")  return SetNodeType(type_node, CTType::U64());
+                if (name == "f32")  return SetNodeType(type_node, CTType::F32());
+                if (name == "f64")  return SetNodeType(type_node, CTType::F64());
+                if (name == "bool") return SetNodeType(type_node, CTType::Bool());
+                if (name == "unit") return SetNodeType(type_node, CTType::Unit());
 
                 AddError(type_node, { DiagType::UnknownTypeName, name });
-                return CTType::Error();
+                return SetNodeType(type_node, CTType::Error());
             }
             // TODO: support these features
             case NodeType::TupleType:
             {
                 AddError(type_node, { DiagType::UnsupportedFeature, "tuple types" });
-                return CTType::Error();
+                return SetNodeType(type_node, CTType::Error());
             }
             case NodeType::RefType:
             {
                 AddError(type_node, { DiagType::UnsupportedFeature, "reference types" });
-                return CTType::Error();
+                return SetNodeType(type_node, CTType::Error());
             }
             case NodeType::DynType:
             {
                 AddError(type_node, { DiagType::UnsupportedFeature, "dyn types" });
-                return CTType::Error();
+                return SetNodeType(type_node, CTType::Error());
             }
             default:
             {
                 AddError(type_node, { DiagType::UnsupportedFeature, "type annotation" });
-                return CTType::Error();
+                return SetNodeType(type_node, CTType::Error());
             }
         }
     }
@@ -171,6 +171,7 @@ namespace Zenith {
             if (ti.type == ERROR_NODE)
             {
                 AddError(param_idx, { DiagType::MissingParamType });
+                SetNodeType(param_idx, CTType::Error());
                 buffer.push_back(CTType::Error());
                 continue;
             }
@@ -210,6 +211,8 @@ namespace Zenith {
             if (m_Table.Find(name).has_value())
             {
                 AddError(sign_idx, { DiagType::DuplicateFunction, name });
+                SetNodeType(decl_idx, CTType::Error());
+                SetNodeType(sign_idx, CTType::Error());
                 continue;
             }
 
@@ -218,6 +221,10 @@ namespace Zenith {
             const uint32_t p_count = CollectParams(m_Scratch, sign_node.data.func_sign.params);
             const CTType ret_type  = CollectRet(sign_node.data.func_sign.ret_type);
             const uint16_t protoId = static_cast<uint16_t>(m_NextProtoId++);
+
+            SetNodeType(sign_idx, ret_type);
+            SetNodeType(name_idx, ret_type);
+            SetNodeType(decl_idx, ret_type);
 
             m_Table.Add(name,
                         { m_Scratch.data(), p_count },

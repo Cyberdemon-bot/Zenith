@@ -1,0 +1,191 @@
+// === INPUT: SOURCE ===
+func fact(n: i64) -> i64 {
+    if n <= 1 {
+        return 1;
+    }
+    return n * fact(n - 1);
+}
+
+func mix(a: u8, b: f32, ok: bool) -> f32 {
+    if ok {
+        return (a as f32) + b;
+    }
+    return b;
+}
+
+func greet() {
+    let mut i = 0;
+    for i < 3 {
+        i = i + 1;
+    }
+}
+
+func main() {
+    let f = fact(5);
+    let m = mix(10, 2.5, true);
+    let pick = if f > 10 => m else => 0.0;
+    greet();
+}
+// === EXPECTED TYPES ===
+(Program
+  (FuncDecl :type i64
+    (FuncSign :type i64
+      (Identifier "fact" :type i64)
+      (ArgList
+        (TypedIdentifier :mut false :type i64
+          (Identifier "n" :type i64)
+          (NamedType "i64" :type i64)
+        )
+      )
+      (NamedType "i64" :type i64)
+    )
+    (BlockExpr :type unit
+      (ExprStmt :type unit
+        (IfExpr :type unit
+          (BinaryExpr :op "<=" :type bool
+            (Identifier "n" :type i64)
+            (Integer 1 :type i64)
+          )
+          (BlockExpr :type unit
+            (ReturnStmt :type unit
+              (Integer 1 :type i64)
+            )
+          )
+        )
+      )
+      (ReturnStmt :type unit
+        (BinaryExpr :op "*" :type i64
+          (Identifier "n" :type i64)
+          (CallExpr :type i64
+            (Identifier "fact")
+            (ArgList
+              (BinaryExpr :op "-" :type i64
+                (Identifier "n" :type i64)
+                (Integer 1 :type i64)
+              )
+            )
+          )
+        )
+      )
+    )
+  )
+  (FuncDecl :type f32
+    (FuncSign :type f32
+      (Identifier "mix" :type f32)
+      (ArgList
+        (TypedIdentifier :mut false :type u8
+          (Identifier "a" :type u8)
+          (NamedType "u8" :type u8)
+        )
+        (TypedIdentifier :mut false :type f32
+          (Identifier "b" :type f32)
+          (NamedType "f32" :type f32)
+        )
+        (TypedIdentifier :mut false :type bool
+          (Identifier "ok" :type bool)
+          (NamedType "bool" :type bool)
+        )
+      )
+      (NamedType "f32" :type f32)
+    )
+    (BlockExpr :type unit
+      (ExprStmt :type unit
+        (IfExpr :type unit
+          (Identifier "ok" :type bool)
+          (BlockExpr :type unit
+            (ReturnStmt :type unit
+              (BinaryExpr :op "+" :type f32
+                (ParenExpr :type f32
+                  (CastExpr :type f32
+                    (Identifier "a" :type u8)
+                    (NamedType "f32" :type f32)
+                  )
+                )
+                (Identifier "b" :type f32)
+              )
+            )
+          )
+        )
+      )
+      (ReturnStmt :type unit
+        (Identifier "b" :type f32)
+      )
+    )
+  )
+  (FuncDecl :type unit
+    (FuncSign :type unit
+      (Identifier "greet" :type unit)
+      (ArgList)
+    )
+    (BlockExpr :type unit
+      (LetStmt :type i64
+        (TypedIdentifier :mut true :type i64
+          (Identifier "i" :type i64)
+        )
+        (Integer 0 :type i64)
+      )
+      (ExprStmt :type unit
+        (ForExpr :type unit
+          (BinaryExpr :op "<" :type bool
+            (Identifier "i" :type i64)
+            (Integer 3 :type i64)
+          )
+          (BlockExpr :type unit
+            (AssignStmt :type unit
+              (Identifier "i" :type i64)
+              (BinaryExpr :op "+" :type i64
+                (Identifier "i" :type i64)
+                (Integer 1 :type i64)
+              )
+            )
+          )
+        )
+      )
+    )
+  )
+  (FuncDecl :type unit
+    (FuncSign :type unit
+      (Identifier "main" :type unit)
+      (ArgList)
+    )
+    (BlockExpr :type unit
+      (LetStmt :type i64
+        (Identifier "f" :type i64)
+        (CallExpr :type i64
+          (Identifier "fact")
+          (ArgList
+            (Integer 5 :type i64)
+          )
+        )
+      )
+      (LetStmt :type f32
+        (Identifier "m" :type f32)
+        (CallExpr :type f32
+          (Identifier "mix")
+          (ArgList
+            (Integer 10 :type u8)
+            (Decimal 2.5 :type f32)
+            (Bool true :type bool)
+          )
+        )
+      )
+      (LetStmt :type f32
+        (Identifier "pick" :type f32)
+        (IfExpr :type f32
+          (BinaryExpr :op ">" :type bool
+            (Identifier "f" :type i64)
+            (Integer 10 :type i64)
+          )
+          (Identifier "m" :type f32)
+          (Decimal 0 :type f32)
+        )
+      )
+      (ExprStmt :type unit
+        (CallExpr :type unit
+          (Identifier "greet")
+          (ArgList)
+        )
+      )
+    )
+  )
+)

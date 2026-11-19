@@ -3,7 +3,7 @@
 #include <string>
 #include <vector>
 #include <string_view>
-#include <iostream>
+#include <span>
 #include "Zenith/Compiler/Lexer.h"
 #include "Zenith/Compiler/Ast.h"
 
@@ -59,10 +59,7 @@ namespace Zenith {
         Parser(std::string_view source);
         AstView ParseProgram();
 
-        void DumpErrors(std::ostream& out = std::cerr) const;
-        void DumpFlatAst(std::ostream& out = std::cout) const;
-        void DumpTreeAst(std::ostream& out = std::cout, uint32_t rootIdx = ERROR_NODE) const;
-
+        std::span<const ParseError> Errors() const { return m_Errors; }
         bool HasErrors() const { return !m_Errors.empty(); }
         uint32_t GetErrorsCount() const { return static_cast<uint32_t>(m_Errors.size()); }
     private:
@@ -83,11 +80,6 @@ namespace Zenith {
         // error handler
         void Synchronize();
         uint32_t AddError(std::string_view message, uint32_t node = ERROR_NODE, ErrorScope scope = ErrorScope::Token);
-
-        // dump helpers
-        void DumpTreeNode(std::ostream& out, uint32_t nodeIdx, int depth) const;
-        void DumpTreeList(std::ostream& out, uint32_t start, uint32_t count, int depth) const;
-        std::string NodeTypeToString(NodeType type) const;
 
         // buffer's methods
         size_t GetScratchMarker() const { return m_Scratch.size(); }

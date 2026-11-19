@@ -78,6 +78,7 @@ TestCase TestCaseLoader::LoadCase(const fs::path& path, const fs::path& root)
         size_t pos = content.find(kInputSourceMarker);
         sourceOffset = pos + kInputSourceMarker.size();
     }
+
     else if (trimmed.starts_with(kInputAsmMarker))
     {
         tc.kind = InputKind::Asm;
@@ -112,6 +113,7 @@ TestCase TestCaseLoader::LoadCase(const fs::path& path, const fs::path& root)
 
     checkMarker(kExpectedErrorsMarker);
     checkMarker(kExpectedAstMarker);
+    checkMarker(kExpectedTypesMarker);
     checkMarker(kExpectedVmMarker);
     checkMarker(kExpectedDisasmMarker);
 
@@ -135,6 +137,11 @@ TestCase TestCaseLoader::LoadCase(const fs::path& path, const fs::path& root)
         {
             tc.hasAst = true;
             tc.expectedAst = Diff::Trim(body);
+        }
+        else if (markers[i].tag == kExpectedTypesMarker)
+        {
+            tc.hasTypes = true;
+            tc.expectedTypes = Diff::Trim(body);
         }
         else if (markers[i].tag == kExpectedVmMarker)
         {
@@ -190,6 +197,10 @@ std::string TestCaseLoader::UpdatedContent(
     if (auto it = outputs.find(std::string(kExpectedAstMarker)); it != outputs.end())
     {
         out.append(kExpectedAstMarker).append("\n").append(it->second).append("\n\n");
+    }
+    if (auto it = outputs.find(std::string(kExpectedTypesMarker)); it != outputs.end())
+    {
+        out.append(kExpectedTypesMarker).append("\n").append(it->second).append("\n\n");
     }
     if (auto it = outputs.find(std::string(kExpectedVmMarker)); it != outputs.end())
     {

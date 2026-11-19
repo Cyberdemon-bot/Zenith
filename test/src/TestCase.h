@@ -34,6 +34,9 @@ struct TestCase
     bool hasAst = false;
     std::string expectedAst;
 
+    bool hasTypes = false;
+    std::string expectedTypes;
+
     bool hasErrors = false;
     std::vector<ErrorInfo> expectedErrors;
 
@@ -47,12 +50,13 @@ struct TestCase
 class TestCaseLoader
 {
 public:
-    static constexpr std::string_view kInputSourceMarker = "// === INPUT: SOURCE ===";
-    static constexpr std::string_view kInputAsmMarker    = "// === INPUT: ASM ===";
-    static constexpr std::string_view kInputBytecodeMarker = "// === INPUT: BYTECODE ===";
+    static constexpr std::string_view kInputSourceMarker    = "// === INPUT: SOURCE ===";
+    static constexpr std::string_view kInputAsmMarker       = "// === INPUT: ASM ===";
+    static constexpr std::string_view kInputBytecodeMarker  = "// === INPUT: BYTECODE ===";
 
     static constexpr std::string_view kExpectedErrorsMarker = "// === EXPECTED ERRORS ===";
     static constexpr std::string_view kExpectedAstMarker    = "// === EXPECTED AST ===";
+    static constexpr std::string_view kExpectedTypesMarker  = "// === EXPECTED TYPES ===";
     static constexpr std::string_view kExpectedVmMarker     = "// === EXPECTED VM ===";
     static constexpr std::string_view kExpectedDisasmMarker = "// === EXPECTED DISASM ===";
 

@@ -21,7 +21,7 @@ namespace Zenith {
         m_Validated = true;
         m_Errors.clear();
 
-        m_NodeTypes.assign(m_Ast.nodes.size(), CTType::Error());
+        m_NodeTypes.assign(m_Ast.nodes.size(), CTType::Unknown());
         CollectSignature();
 
         uint32_t child_size = ListCount(m_Ast.root);
@@ -73,6 +73,7 @@ namespace Zenith {
                 !m_CurrentFunc.has_ret)
             {
                 AddError(sign.data.func_sign.name, { DiagType::MissingReturn, func_name });
+                SetNodeType(decl_idx, CTType::Error());
             }
 
             m_Solver.Solve([this](Diagnostic&& d) {
@@ -384,11 +385,11 @@ namespace Zenith {
             else if (target_type != CTType::Unit())
             {
                 AddError(node, { DiagType::BlockMissingBreak });
-                return CTType::Error();
+                return SetNodeType(node, CTType::Error());
             }
         }
 
-        return target_type;
+        return SetNodeType(node, target_type);
     }
 
     CTType TypeChecker::CheckIf(uint32_t node, CTType expected, std::string_view label)
@@ -414,9 +415,9 @@ namespace Zenith {
         CTType else_type = has_else ? ValidateExpr(ie.else_branch, res_type) : CTType::Unit();
 
         if (!label.empty()) PopTarget();
-        if (then_type == CTType::Error() || else_type == CTType::Error()) return CTType::Error();
+        if (then_type == CTType::Error() || else_type == CTType::Error()) return SetNodeType(node, CTType::Error());
 
-        return res_type;
+        return SetNodeType(node, res_type);
     }
 
     CTType TypeChecker::CheckFor(uint32_t node, CTType expected, std::string_view label)
@@ -455,11 +456,11 @@ namespace Zenith {
             else if (target_type != CTType::Unit())
             {
                 AddError(node, { DiagType::BlockMissingBreak });
-                return CTType::Error();
+                return SetNodeType(node, CTType::Error());
             }
         }
 
-        return target_type;
+        return SetNodeType(node, target_type);
     }
 
     void TypeChecker::CheckStmt(uint32_t node)
@@ -497,10 +498,16 @@ namespace Zenith {
                 CTType val_type = ValidateExpr(value, var_type, DiagType::LetTypeMismatch);
                 if (type == ERROR_NODE) var_type = val_type;
                 SetNodeType(node, var_type);
+                SetNodeType(target, var_type);
                 SetNodeType(ident, var_type);
 
                 if (!AddSymbol({ name, m_CurrentDepth, var_type, is_mut }))
+                {
                     AddError(ident, { DiagType::RedeclaredIdentifier, name });
+                    SetNodeType(ident, CTType::Error());
+                    SetNodeType(target, CTType::Error());
+                    SetNodeType(node, CTType::Error());
+                }
                 break;
             }
             case NodeType::AssignStmt:
@@ -537,20 +544,26 @@ namespace Zenith {
                 if (!symbol->is_mut)
                     AddError(target, { DiagType::ImmutableAssignment, name });
 
-                ValidateExpr(value, symbol->type, DiagType::AssignTypeMismatch);
+                CTType val_type = ValidateExpr(value, symbol->type, DiagType::AssignTypeMismatch);
                 SetNodeType(target, symbol->type);
-                SetNodeType(node, CTType::Unit());
+                SetNodeType(node, (!symbol->is_mut || val_type == CTType::Error()) ? CTType::Error() : CTType::Unit());
                 break;
             }
             case NodeType::ReturnStmt:
             {
                 m_CurrentFunc.has_ret = true;
                 uint32_t expr = n.data.child;
+                bool has_err = false;
                 if (expr != ERROR_NODE)
-                    ValidateExpr(expr, m_CurrentFunc.ret_type, DiagType::ReturnTypeMismatch);
+                {
+                    has_err = (ValidateExpr(expr, m_CurrentFunc.ret_type, DiagType::ReturnTypeMismatch) == CTType::Error());
+                }
                 else if (m_CurrentFunc.ret_type != CTType::Unit() && m_CurrentFunc.ret_type != CTType::Error())
+                {
                     AddError(node, { DiagType::ReturnTypeMismatch, {}, m_CurrentFunc.ret_type, CTType::Unit() });
-                SetNodeType(node, CTType::Unit());
+                    has_err = true;
+                }
+                SetNodeType(node, has_err ? CTType::Error() : CTType::Unit());
                 break;
             }
             case NodeType::BreakStmt:
@@ -572,18 +585,26 @@ namespace Zenith {
                 }
 
                 target->has_break = true;
+                bool has_err = false;
                 if (value != ERROR_NODE)
-                    ValidateExpr(value, target->expected, DiagType::BreakTypeMismatch);
+                {
+                    has_err = (ValidateExpr(value, target->expected, DiagType::BreakTypeMismatch) == CTType::Error());
+                }
                 else if (target->expected.IsVar())
+                {
                     m_Solver.Emit({
                         .kind = Constraint::Kind::Eq,
                         .lhs = target->expected,
                         .rhs = CTType::Unit(),
                         .diag = { .node = node, .token = n.start_token, .diag = DiagType::BreakTypeMismatch }
                     });
+                }
                 else if (target->expected != CTType::Unit() && target->expected != CTType::Error())
+                {
                     AddError(node, { DiagType::BreakTypeMismatch, {}, target->expected, CTType::Unit() });
-                SetNodeType(node, CTType::Unit());
+                    has_err = true;
+                }
+                SetNodeType(node, has_err ? CTType::Error() : CTType::Unit());
                 break;
             }
             case NodeType::ContinueStmt:
@@ -604,19 +625,21 @@ namespace Zenith {
             }
             case NodeType::ExprStmt:
             {
-                ValidateExpr(n.data.child, CTType::Unknown());
-                SetNodeType(node, CTType::Unit());
+                CTType expr_type = ValidateExpr(n.data.child, CTType::Unknown());
+                SetNodeType(node, expr_type == CTType::Error() ? CTType::Error() : CTType::Unit());
                 break;
             }
             // TODO: add implementation
             case NodeType::FuncDecl:
             {
                 AddError(node, { DiagType::NestedFunction });
+                SetNodeType(node, CTType::Error());
                 break;
             }
             default:
             {
                 AddError(node, { DiagType::UnsupportedFeature, "statement" });
+                SetNodeType(node, CTType::Error());
                 break;
             }
         }

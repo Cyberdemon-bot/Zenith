@@ -1,0 +1,131 @@
+// === INPUT: SOURCE ===
+func main() {
+    let a: i8 = 128;
+    let b: i8 = -129;
+    let c: u16 = 65536;
+
+    let x: i8 = 1;
+    let y: i64 = 2;
+    let mix_add = x + y;
+    let mix_cmp = y < 1.5;
+
+    let bad_not = !123;
+    let bad_bool_add = true + false;
+    let bad_logic = 1 and 2;
+
+    let mut target: u8 = 10;
+    target = 1.5;
+    let bad_let: bool = 10;
+}
+// === EXPECTED ERRORS ===
+2:17 Literal out of range for 'i8'
+4:18 Literal out of range for 'u16'
+8:23 Type mismatch: expected 'i8', got 'i64'
+9:23 Type mismatch: expected 'i64', got 'f64'
+12:24 Invalid operand type 'bool' for operator '+'
+16:14 Assignment type mismatch: expected 'u8', got 'f64'
+17:25 Let binding type mismatch: expected 'bool', got 'i64'
+11:20 Type mismatch: expected 'bool', got 'i64'
+3:18 Literal out of range for 'i8'
+13:21 Invalid operand type 'i64' for operator 'and'
+
+// === EXPECTED TYPES ===
+(Program
+  (FuncDecl :type unit
+    (FuncSign :type unit
+      (Identifier "main" :type unit)
+      (ArgList)
+    )
+    (BlockExpr :type unit
+      (LetStmt :type i8
+        (TypedIdentifier :mut false :type i8
+          (Identifier "a" :type i8)
+          (NamedType "i8" :type i8)
+        )
+        (Integer 128 :type <error>)
+      )
+      (LetStmt :type i8
+        (TypedIdentifier :mut false :type i8
+          (Identifier "b" :type i8)
+          (NamedType "i8" :type i8)
+        )
+        (UnaryExpr :op "-" :type i8
+          (Integer 129 :type i8)
+        )
+      )
+      (LetStmt :type u16
+        (TypedIdentifier :mut false :type u16
+          (Identifier "c" :type u16)
+          (NamedType "u16" :type u16)
+        )
+        (Integer 65536 :type <error>)
+      )
+      (LetStmt :type i8
+        (TypedIdentifier :mut false :type i8
+          (Identifier "x" :type i8)
+          (NamedType "i8" :type i8)
+        )
+        (Integer 1 :type i8)
+      )
+      (LetStmt :type i64
+        (TypedIdentifier :mut false :type i64
+          (Identifier "y" :type i64)
+          (NamedType "i64" :type i64)
+        )
+        (Integer 2 :type i64)
+      )
+      (LetStmt :type <error>
+        (Identifier "mix_add" :type <error>)
+        (BinaryExpr :op "+" :type <error>
+          (Identifier "x" :type i8)
+          (Identifier "y" :type <error>)
+        )
+      )
+      (LetStmt :type <error>
+        (Identifier "mix_cmp" :type <error>)
+        (BinaryExpr :op "<" :type <error>
+          (Identifier "y" :type i64)
+          (Decimal 1.5 :type <error>)
+        )
+      )
+      (LetStmt :type bool
+        (Identifier "bad_not" :type bool)
+        (UnaryExpr :op "!" :type bool
+          (Integer 123 :type bool)
+        )
+      )
+      (LetStmt :type <error>
+        (Identifier "bad_bool_add" :type <error>)
+        (BinaryExpr :op "+" :type <error>
+          (Bool true :type bool)
+          (Bool false :type bool)
+        )
+      )
+      (LetStmt :type bool
+        (Identifier "bad_logic" :type bool)
+        (BinaryExpr :op "and" :type bool
+          (Integer 1 :type i64)
+          (Integer 2 :type i64)
+        )
+      )
+      (LetStmt :type u8
+        (TypedIdentifier :mut true :type u8
+          (Identifier "target" :type u8)
+          (NamedType "u8" :type u8)
+        )
+        (Integer 10 :type u8)
+      )
+      (AssignStmt :type <error>
+        (Identifier "target" :type u8)
+        (Decimal 1.5 :type <error>)
+      )
+      (LetStmt :type bool
+        (TypedIdentifier :mut false :type bool
+          (Identifier "bad_let" :type bool)
+          (NamedType "bool" :type bool)
+        )
+        (Integer 10 :type <error>)
+      )
+    )
+  )
+)

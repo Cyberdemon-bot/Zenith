@@ -5,6 +5,7 @@
 #include <string>
 #include <string_view>
 
+#include "Zenith/Compiler/Dumper.h"
 #include "Zenith/Compiler/Parser.h"
 #include "Zenith/Compiler/TypeChecker.h"
 
@@ -12,14 +13,12 @@ namespace fs = std::filesystem;
 
 namespace {
 
-    enum class Mode { None, Ast, Flat };
-
     void PrintUsage(const char* progName)
     {
         std::cout
             << "Usage: " << progName << " <file.zen> [options]\n"
             << "  --ast         Dump S-expression AST to stdout (default)\n"
-            << "  --flat        Dump flat AST table to stdout\n"
+            << "  --types       Run TypeChecker and dump inferred types\n"
             << "  -h, --help    Show this help message\n";
     }
 
@@ -41,7 +40,7 @@ namespace {
         }
 
         std::string filePath;
-        Mode mode = Mode::None;
+        bool checkTypes = false;
 
         for (int i = 1; i < argc; ++i)
         {
@@ -51,8 +50,8 @@ namespace {
                 PrintUsage(argv[0]);
                 return 0;
             }
-            else if (arg == "--flat") mode = Mode::Flat;
-            else if (arg == "--ast")  mode = Mode::Ast;
+            else if (arg == "--types") checkTypes = true;
+            else if (arg == "--ast")   checkTypes = false;
             else if (!arg.empty() && arg[0] == '-')
             {
                 std::cerr << "Error: Unknown option '" << arg << "'\n";
@@ -72,9 +71,6 @@ namespace {
             return 1;
         }
 
-        if (mode == Mode::None)
-            mode = Mode::Ast;
-
         std::string source;
         if (!ReadFile(filePath, source))
         {
@@ -87,14 +83,25 @@ namespace {
 
         if (parser.HasErrors())
         {
-            parser.DumpErrors(std::cerr);
+            std::cerr << Zenith::Dumper::DumpParseErrors(ast, parser.Errors());
             return 1;
         }
 
-        if (mode == Mode::Flat)
-            parser.DumpFlatAst(std::cout);
+        if (checkTypes)
+        {
+            Zenith::TypeChecker checker(ast);
+            bool ok = checker.Validate();
+            if (!ok)
+            {
+                std::cerr << Zenith::Dumper::DumpTypeErrors(ast, checker.Diagnostics());
+                return 1;
+            }
+            std::cout << Zenith::Dumper::DumpTypedAst(ast, checker.NodeTypes());
+        }
         else
-            parser.DumpTreeAst(std::cout, ast.root);
+        {
+            std::cout << Zenith::Dumper::DumpTreeAst(ast);
+        }
 
         std::cout.flush();
         return 0;
@@ -105,7 +112,7 @@ namespace {
         std::cout << "=== " << label << " ===\n";
         Zenith::Parser parser(source);
         auto ast = parser.ParseProgram();
-        parser.DumpErrors(std::cout);
+        std::cout << Zenith::Dumper::DumpParseErrors(ast, parser.Errors());
 
         if (parser.HasErrors())
         {
@@ -116,7 +123,8 @@ namespace {
         Zenith::TypeChecker checker(ast);
         bool ok = checker.Validate();
         std::cout << "[TypeChecker] Result: " << (ok ? "PASS" : "FAIL") << "\n";
-        checker.DumpErrors(std::cout);
+        std::cout << Zenith::Dumper::DumpTypeErrors(ast, checker.Diagnostics());
+        if (ok) std::cout << Zenith::Dumper::DumpTypes(ast, checker.NodeTypes());
         std::cout << "\n";
     }
 

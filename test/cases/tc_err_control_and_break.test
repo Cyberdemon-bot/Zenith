@@ -1,0 +1,69 @@
+// === INPUT: SOURCE ===
+func main() {
+    break;
+
+    for 123 {
+        break 10;
+    }
+
+    let v: i64 = 'blk: {
+        if "yes" {
+            break 'blk true;
+        }
+        break 'blk;
+    };
+}
+// === EXPECTED ERRORS ===
+2:5 'break' outside of loop or block
+4:9 Type mismatch: expected 'bool', got 'i64'
+9:13 Unsupported feature: expression
+10:24 Break value type mismatch: expected 'i64', got 'bool'
+12:9 Break value type mismatch: expected 'i64', got 'unit'
+
+// === EXPECTED TYPES ===
+(Program
+  (FuncDecl :type unit
+    (FuncSign :type unit
+      (Identifier "main" :type unit)
+      (ArgList)
+    )
+    (BlockExpr :type unit
+      (BreakStmt :type <error>)
+      (ExprStmt :type unit
+        (ForExpr :type i64
+          (Integer 123 :type <error>)
+          (BlockExpr :type unit
+            (BreakStmt :type unit
+              (Integer 10 :type i64)
+            )
+          )
+        )
+      )
+      (LetStmt :type i64
+        (TypedIdentifier :mut false :type i64
+          (Identifier "v" :type i64)
+          (NamedType "i64" :type i64)
+        )
+        (LabeledExpr :type i64
+          (Label "blk")
+          (BlockExpr :type i64
+            (ExprStmt :type unit
+              (IfExpr :type unit
+                (String "yes" :type <error>)
+                (BlockExpr :type unit
+                  (BreakStmt :type <error>
+                    (Label "blk")
+                    (Bool true :type <error>)
+                  )
+                )
+              )
+            )
+            (BreakStmt :type <error>
+              (Label "blk")
+            )
+          )
+        )
+      )
+    )
+  )
+)
