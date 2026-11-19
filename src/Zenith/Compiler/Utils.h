@@ -1,10 +1,11 @@
 #pragma once
 
 #include "Zenith/Compiler/CTType.h"
-#include "Zenith/Compiler/Diagnostic.h"
 #include "Zenith/Compiler/Node.h"
 
-#include <string>
+#include <cmath>
+#include <cstdint>
+#include <limits>
 #include <string_view>
 
 namespace Zenith {
@@ -18,38 +19,56 @@ namespace Zenith {
                 case CTType::Kind::Var:     return "<var>";
                 case CTType::Kind::Unit:    return "unit";
                 case CTType::Kind::Bool:    return "bool";
+                case CTType::Kind::I8:      return "i8";
+                case CTType::Kind::I16:     return "i16";
+                case CTType::Kind::I32:     return "i32";
                 case CTType::Kind::I64:     return "i64";
+                case CTType::Kind::U8:      return "u8";
+                case CTType::Kind::U16:     return "u16";
+                case CTType::Kind::U32:     return "u32";
+                case CTType::Kind::U64:     return "u64";
+                case CTType::Kind::F32:     return "f32";
                 case CTType::Kind::F64:     return "f64";
-                default:              return "<unknown>";
+                default:                    return "<unknown>";
             }
         }
 
-        inline std::string FormatTypeMismatch(DiagType diag, CTType expected, CTType actual)
+        constexpr bool IsSignedInteger(CTType type) noexcept
         {
-            std::string_view prefix = "Type mismatch";
-            switch (diag)
+            switch (type.kind)
             {
-                case DiagType::LetTypeMismatch:    prefix = "Let binding type mismatch"; break;
-                case DiagType::ReturnTypeMismatch: prefix = "Return type mismatch"; break;
-                case DiagType::ArgTypeMismatch:    prefix = "Argument type mismatch"; break;
-                case DiagType::AssignTypeMismatch: prefix = "Assignment type mismatch"; break;
-                case DiagType::BreakTypeMismatch:  prefix = "Break value type mismatch"; break;
-                default: break;
+                case CTType::Kind::I8:
+                case CTType::Kind::I16:
+                case CTType::Kind::I32:
+                case CTType::Kind::I64:
+                    return true;
+                default:
+                    return false;
             }
+        }
 
-            return std::string(prefix)
-                + ": expected '" + std::string(TypeToString(expected))
-                + "', got '" + std::string(TypeToString(actual)) + "'";
+        constexpr bool IsUnsignedInteger(CTType type) noexcept
+        {
+            switch (type.kind)
+            {
+                case CTType::Kind::U8:
+                case CTType::Kind::U16:
+                case CTType::Kind::U32:
+                case CTType::Kind::U64:
+                    return true;
+                default:
+                    return false;
+            }
         }
 
         constexpr bool IsInteger(CTType type) noexcept
         {
-            return type == CTType::I64();
+            return IsSignedInteger(type) || IsUnsignedInteger(type);
         }
 
         constexpr bool IsFloat(CTType type) noexcept
         {
-            return type == CTType::F64();
+            return type == CTType::F32() || type == CTType::F64();
         }
 
         constexpr bool IsNumeric(CTType type) noexcept
@@ -57,81 +76,113 @@ namespace Zenith {
             return IsInteger(type) || IsFloat(type);
         }
 
-        bool ValidatePrimitiveCast(CTType src, CTType dst) 
+        constexpr bool IsSignedNumeric(CTType type) noexcept
+        {
+            return IsSignedInteger(type) || IsFloat(type);
+        }
+
+        constexpr bool ValidatePrimitiveCast(CTType src, CTType dst) noexcept
         {
             if (src == dst) return true;
+            if (IsNumeric(src) && IsNumeric(dst)) return true;
+            if (src == CTType::Bool() && IsInteger(dst)) return true;
+            if (IsInteger(src) && dst == CTType::Bool()) return true;
+            return false;
+        }
 
-            switch (src.kind) 
+        constexpr bool CheckIntRange(int64_t val, CTType target) noexcept
+        {
+            switch (target.kind)
             {
+                case CTType::Kind::I8:
+                    return val >= std::numeric_limits<int8_t>::min() && val <= std::numeric_limits<int8_t>::max();
+                case CTType::Kind::I16:
+                    return val >= std::numeric_limits<int16_t>::min() && val <= std::numeric_limits<int16_t>::max();
+                case CTType::Kind::I32:
+                    return val >= std::numeric_limits<int32_t>::min() && val <= std::numeric_limits<int32_t>::max();
                 case CTType::Kind::I64:
-                    return dst == CTType::F64() || dst == CTType::Bool();
-                case CTType::Kind::F64:
-                    return dst == CTType::I64();
-                case CTType::Kind::Bool:
-                    return dst == CTType::I64();
+                    return true;
+                case CTType::Kind::U8:
+                    return val >= 0 && static_cast<uint64_t>(val) <= std::numeric_limits<uint8_t>::max();
+                case CTType::Kind::U16:
+                    return val >= 0 && static_cast<uint64_t>(val) <= std::numeric_limits<uint16_t>::max();
+                case CTType::Kind::U32:
+                    return val >= 0 && static_cast<uint64_t>(val) <= std::numeric_limits<uint32_t>::max();
+                case CTType::Kind::U64:
+                    return val >= 0;
                 default:
                     return false;
             }
         }
 
-        CTType ValidateNumericLiteral(const Node& node, CTType expected)
+        inline bool CheckFloatRange(double val, CTType target) noexcept
         {
-            if (node.type == NodeType::Integer)
+            switch (target.kind)
             {
-                int64_t val = node.data.i64;
-                if (expected == CTType::Unknown() || expected == CTType::I64()) return CTType::I64();
-                switch (expected.kind)
-                {
-                    /*
-                    case CTType::I32:
-                        if (val >= std::numeric_limits<int32_t>::min() && val <= std::numeric_limits<int32_t>::max())
-                            return CTType::I32;
-                        AddError(node, {DiagType::OperandTypeMismatch, "Integer literal out of range for 'i32'"});
-                        return CTType::Error;
-
-                    case CTType::U32:
-                        if (val >= 0 && static_cast<uint64_t>(val) <= std::numeric_limits<uint32_t>::max())
-                            return CTType::U32;
-                        AddError(node, {DiagType::OperandTypeMismatch, "Integer literal out of range for 'u32'"});
-                        return CTType::Error;
-
-                    case CTType::I16:
-                        if (val >= std::numeric_limits<int16_t>::min() && val <= std::numeric_limits<int16_t>::max())
-                            return CTType::I16;
-                        AddError(node, {DiagType::OperandTypeMismatch, "Integer literal out of range for 'i16'"});
-                        return CTType::Error;
-
-                    case CTType::U8:
-                        if (val >= 0 && val <= std::numeric_limits<uint8_t>::max())
-                            return CTType::U8;
-                        AddError(node, {DiagType::OperandTypeMismatch, "Integer literal out of range for 'u8'"});
-                        return CTType::Error;
-                    */
-                    default: return CTType::I64();
-                }
+                case CTType::Kind::F32:
+                    return !std::isfinite(val) || std::abs(val) <= static_cast<double>(std::numeric_limits<float>::max());
+                case CTType::Kind::F64:
+                    return true;
+                default:
+                    return false;
             }
+        }
 
-            if (node.type == NodeType::Decimal)
+        constexpr CTType CheckUnaryOp(Operator op, CTType operand) noexcept
+        {
+            switch (op)
             {
-                double val = node.data.f64;
-
-                if (expected == CTType::Unknown() || expected == CTType::F64())
-                    return CTType::F64();
-
-                switch (expected.kind)
-                {
-                    /*
-                    case CTType::F32:
-                        if (std::isfinite(val) && (std::abs(val) <= std::numeric_limits<float>::max() || val == 0.0))
-                            return CTType::F32;
-                        AddError(node, {DiagType::OperandTypeMismatch, "Decimal literal out of range for 'f32'"});
-                        return CTType::Error;
-                    */
-                    default: return CTType::F64();
-                }
+                case Operator::Not:
+                    return (operand == CTType::Bool()) ? CTType::Bool() : CTType::Error();
+                case Operator::Neg:
+                    return IsSignedNumeric(operand) ? operand : CTType::Error();
+                default:
+                    return CTType::Error();
             }
+        }
 
-            return CTType::Error();
+        constexpr CTType CheckBinaryOp(Operator op, CTType lhs, CTType rhs) noexcept
+        {
+            if (lhs != rhs) return CTType::Error();
+
+            switch (op)
+            {
+                case Operator::Add:
+                case Operator::Sub:
+                case Operator::Mul:
+                case Operator::Div:
+                    return IsNumeric(lhs) ? lhs : CTType::Error();
+                case Operator::Mod:
+                    return IsInteger(lhs) ? lhs : CTType::Error();
+                case Operator::Eq:
+                case Operator::Ne:
+                    return CTType::Bool();
+                case Operator::Lt:
+                case Operator::Lte:
+                case Operator::Gt:
+                case Operator::Gte:
+                    return IsNumeric(lhs) ? CTType::Bool() : CTType::Error();
+                case Operator::And:
+                case Operator::Or:
+                    return (lhs == CTType::Bool()) ? CTType::Bool() : CTType::Error();
+                default:
+                    return CTType::Error();
+            }
+        }
+
+        constexpr bool IsArithmeticOp(Operator op) noexcept
+        {
+            switch (op)
+            {
+                case Operator::Add:
+                case Operator::Sub:
+                case Operator::Mul:
+                case Operator::Div:
+                case Operator::Mod:
+                    return true;
+                default:
+                    return false;
+            }
         }
     }
 }

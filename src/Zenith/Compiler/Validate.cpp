@@ -11,7 +11,7 @@
 
 #define ACTUAL(type) { actual = (type); break; }
 #define ERROR() { ACTUAL(CTType::Error()); }
-#define COMMIT_ERROR(diag, message) { AddError(node, { diag, message }); ERROR(); }
+#define COMMIT_ERROR(...) { AddError(node, { __VA_ARGS__ }); ERROR(); }
 
 namespace Zenith {
 
@@ -25,17 +25,19 @@ namespace Zenith {
         CollectSignature();
 
         uint32_t child_size = ListCount(m_Ast.root);
-        for (size_t i = 0; i < child_size; ++i)
+        for (uint32_t i = 0; i < child_size; ++i)
         {
-            const auto& decl = m_Ast.nodes[ListItem(m_Ast.root, i)];
+            const uint32_t decl_idx = ListItem(m_Ast.root, i);
+            const auto& decl = m_Ast.nodes[decl_idx];
             if (decl.type != NodeType::FuncDecl) continue;
 
             m_Solver.Reset();
             m_Targets.clear();
 
             const auto& sign = m_Ast.nodes[decl.data.func_decl.sign];
+            std::string_view func_name = GetName(sign.data.func_sign.name);
 
-            auto func = m_Table.Find(GetName(sign.data.func_sign.name));
+            auto func = m_Table.Find(func_name);
             if (!func.has_value()) continue;
             m_CurrentFunc = { .ret_type = func->ret_type, .has_ret = false };
 
@@ -56,8 +58,7 @@ namespace Zenith {
                     .is_mut = (ti.is_mut != 0)
                 }))
                 {
-                    std::string msg = "redeclared parameter '" + std::string(param_name) + "'";
-                    AddError(ti.ident, { DiagType::RedeclaredIdentifier, msg });
+                    AddError(ti.ident, { DiagType::RedeclaredIdentifier, param_name });
                 }
 
                 SetNodeType(param_idx, param_type);
@@ -67,13 +68,11 @@ namespace Zenith {
             CheckBlock(decl.data.func_decl.body, CTType::Unit(), "", false);
             PopScope();
 
-            std::string_view func_name = GetName(sign.data.func_sign.name);
             if (m_CurrentFunc.ret_type != CTType::Unit() &&
                 m_CurrentFunc.ret_type != CTType::Error() &&
                 !m_CurrentFunc.has_ret)
             {
-                std::string msg = "function '" + std::string(func_name) + "' must return a value";
-                AddError(sign.data.func_sign.name, { DiagType::ReturnTypeMismatch, msg });
+                AddError(sign.data.func_sign.name, { DiagType::MissingReturn, func_name });
             }
 
             m_Solver.Solve([this](Diagnostic&& d) {
@@ -86,14 +85,17 @@ namespace Zenith {
                 CTType resolved = m_Solver.Resolve(m_NodeTypes[idx]);
                 if (resolved.IsVar())
                 {
-                    AddError(idx, { DiagType::CannotInferType, "cannot infer type" });
+                    AddError(idx, { DiagType::CannotInferType });
                     m_NodeTypes[idx] = CTType::Error();
                 }
-                else m_NodeTypes[idx] = resolved;
+                else
+                {
+                    m_NodeTypes[idx] = resolved;
+                }
             }
         }
 
-        for (const auto& d : m_Errors) 
+        for (const auto& d : m_Errors)
             if (d.severity == Severity::Error) return false;
         return true;
     }
@@ -106,7 +108,43 @@ namespace Zenith {
         switch (n.type)
         {
             case NodeType::Integer:
-            case NodeType::Decimal: ACTUAL(Utils::ValidateNumericLiteral(n, expected));
+            {
+                if (expected && !expected.IsVar())
+                {
+                    if (!Utils::IsInteger(expected)) ACTUAL(CTType::I64());
+                    if (!Utils::CheckIntRange(n.data.i64, expected))
+                        COMMIT_ERROR(DiagType::LiteralOutOfRange, {}, expected, CTType::I64());
+                    ACTUAL(expected);
+                }
+
+                CTType v = m_Solver.Fresh();
+                m_Solver.Emit({
+                    .kind = Constraint::Kind::IntLit,
+                    .lhs = v,
+                    .lit = { .i64 = n.data.i64 },
+                    .diag = { .node = node, .token = n.start_token, .diag = diag }
+                });
+                ACTUAL(v);
+            }
+            case NodeType::Decimal:
+            {
+                if (expected && !expected.IsVar())
+                {
+                    if (!Utils::IsFloat(expected)) ACTUAL(CTType::F64());
+                    if (!Utils::CheckFloatRange(n.data.f64, expected))
+                        COMMIT_ERROR(DiagType::LiteralOutOfRange, {}, expected, CTType::F64());
+                    ACTUAL(expected);
+                }
+
+                CTType v = m_Solver.Fresh();
+                m_Solver.Emit({
+                    .kind = Constraint::Kind::FloatLit,
+                    .lhs = v,
+                    .lit = { .f64 = n.data.f64 },
+                    .diag = { .node = node, .token = n.start_token, .diag = diag }
+                });
+                ACTUAL(v);
+            }
             case NodeType::Bool: ACTUAL(CTType::Bool());
             case NodeType::ParenExpr: ACTUAL(ValidateExpr(n.data.child, expected, diag));
             case NodeType::Identifier:
@@ -114,45 +152,92 @@ namespace Zenith {
                 auto name = GetName(node);
                 auto symbol = FindSymbols(name);
                 if (symbol.has_value()) ACTUAL(symbol->type);
-                COMMIT_ERROR(DiagType::UnknownIdentifier, 
-                    "unknown identifier '" + std::string(name) + "'");
+                COMMIT_ERROR(DiagType::UnknownIdentifier, name);
             }
             case NodeType::Tuple:
             {
                 // TODO: Update tuple support later
-                COMMIT_ERROR(DiagType::UnsupportedFeature, 
-                    "tuple expressions not supported yet");
+                COMMIT_ERROR(DiagType::UnsupportedFeature, "tuple expressions");
             }
             case NodeType::UnaryExpr:
             {
                 auto operand = ValidateExpr(n.data.unary.operand, CTType::Unknown());
                 if (operand == CTType::Error()) ERROR();
 
+                if (!operand.IsVar())
+                {
+                    CTType result = Utils::CheckUnaryOp(n.data.unary.op, operand);
+                    if (!result)
+                    {
+                        DiagType dt = (n.data.unary.op == Operator::Not || n.data.unary.op == Operator::Neg)
+                            ? DiagType::OperandTypeMismatch
+                            : DiagType::InvalidUnaryOp;
+                        COMMIT_ERROR(dt, OperatorToString(n.data.unary.op), CTType::Error(), operand);
+                    }
+                    ACTUAL(result);
+                }
+
                 if (n.data.unary.op == Operator::Not)
                 {
-                    if (operand != CTType::Bool())
-                        COMMIT_ERROR(DiagType::OperandTypeMismatch, 
-                            "Unary '!' requires boolean operand");
+                    m_Solver.Emit({
+                        .kind = Constraint::Kind::Eq,
+                        .lhs = operand,
+                        .rhs = CTType::Bool(),
+                        .diag = { .args = std::string(OperatorToString(Operator::Not)), .node = node, .token = n.start_token, .diag = DiagType::OperandTypeMismatch }
+                    });
                     ACTUAL(CTType::Bool());
                 }
                 if (n.data.unary.op == Operator::Neg)
                 {
-                    if (!Utils::IsNumeric(operand))
-                        COMMIT_ERROR(DiagType::OperandTypeMismatch, 
-                                "Unary '-' requires numeric operand");
-                    ACTUAL(operand);
+                    CTType res = (expected && !expected.IsVar()) ? expected : m_Solver.Fresh();
+                    m_Solver.Emit({
+                        .kind = Constraint::Kind::UnaryOp,
+                        .lhs = operand,
+                        .result = res,
+                        .op = Operator::Neg,
+                        .diag = { .node = node, .token = n.start_token, .diag = DiagType::OperandTypeMismatch }
+                    });
+                    ACTUAL(res);
                 }
-                COMMIT_ERROR(DiagType::InvalidUnaryOp, 
-                        "Unsupported unary operator");
+                COMMIT_ERROR(DiagType::InvalidUnaryOp, OperatorToString(n.data.unary.op));
             }
             case NodeType::BinaryExpr:
             {
                 auto lhs = ValidateExpr(n.data.binary.lhs, CTType::Unknown());
-                CTType rhs_expected = (lhs.kind == CTType::Kind::Error || 
-                                        lhs.kind == CTType::Kind::Unknown) 
+                CTType rhs_expected = (lhs.kind == CTType::Kind::Error ||
+                                       lhs.kind == CTType::Kind::Unknown)
                     ? CTType::Unknown() : lhs;
                 auto rhs = ValidateExpr(n.data.binary.rhs, rhs_expected);
-                ACTUAL(ResolveBinaryOp(node, n.data.binary.op, lhs, rhs));
+                if (lhs == CTType::Error() || rhs == CTType::Error()) ERROR();
+
+                if (!lhs.IsVar() && !rhs.IsVar())
+                    ACTUAL(ResolveBinaryOp(node, n.data.binary.op, lhs, rhs));
+
+                m_Solver.Emit({
+                    .kind = Constraint::Kind::Eq,
+                    .lhs = lhs,
+                    .rhs = rhs,
+                    .diag = { .args = std::string(OperatorToString(n.data.binary.op)), .node = node, .token = n.start_token, .diag = DiagType::InvalidBinaryOp }
+                });
+
+                Operator op = n.data.binary.op;
+                bool is_bool_res = (op == Operator::Eq || op == Operator::Ne ||
+                                    op == Operator::Lt || op == Operator::Lte ||
+                                    op == Operator::Gt || op == Operator::Gte ||
+                                    op == Operator::And || op == Operator::Or);
+                CTType res = is_bool_res
+                    ? CTType::Bool()
+                    : ((expected && !expected.IsVar()) ? expected : m_Solver.Fresh());
+
+                m_Solver.Emit({
+                    .kind = Constraint::Kind::BinaryOp,
+                    .lhs = lhs,
+                    .rhs = rhs,
+                    .result = res,
+                    .op = op,
+                    .diag = { .node = node, .token = n.start_token, .diag = DiagType::OperandTypeMismatch }
+                });
+                ACTUAL(res);
             }
             case NodeType::CastExpr:
             {
@@ -160,41 +245,54 @@ namespace Zenith {
                 auto dst = ResolveTypeNode(n.data.cast.type);
                 if (src == CTType::Error() || dst == CTType::Error()) ERROR();
 
-                if(Utils::ValidatePrimitiveCast(src, dst)) ACTUAL(dst);
+                if (!src.IsVar())
+                {
+                    if (Utils::ValidatePrimitiveCast(src, dst)) ACTUAL(dst);
+                    COMMIT_ERROR(DiagType::CoerceFailure, {}, dst, src);
+                }
 
-                COMMIT_ERROR(DiagType::CoerceFailure, "Invalid type cast");
+                m_Solver.Emit({
+                    .kind = Constraint::Kind::Cast,
+                    .lhs = src,
+                    .rhs = dst,
+                    .diag = { .node = node, .token = n.start_token, .diag = DiagType::CoerceFailure }
+                });
+                ACTUAL(dst);
             }
             case NodeType::CallExpr:
             {
                 if (n.data.call.callee == ERROR_NODE || n.data.call.callee >= m_Ast.nodes.size()) ERROR();
                 // TODO: support general callable expr
-                auto callee = m_Ast.nodes[n.data.call.callee].type; 
+                auto callee = m_Ast.nodes[n.data.call.callee].type;
                 if (callee != NodeType::Identifier)
-                    COMMIT_ERROR(DiagType::UnsupportedFeature, "Only direct function calls are supported");
+                    COMMIT_ERROR(DiagType::UnsupportedFeature, "indirect function calls");
 
                 auto name = GetName(n.data.call.callee);
                 auto sig = m_Table.Find(name);
-                if (!sig.has_value()) 
-                    COMMIT_ERROR(DiagType::UnknownIdentifier, "Cannot find out the function " + std::string(name))
+                if (!sig.has_value())
+                    COMMIT_ERROR(DiagType::UnknownIdentifier, name);
 
                 if (n.data.call.args == ERROR_NODE || n.data.call.args >= m_Ast.nodes.size()) ERROR();
                 uint32_t count = ListCount(n.data.call.args);
-                if (count != sig->params.size()) 
-                    COMMIT_ERROR(DiagType::WrongArgCount, "Arg count mismatch");
+                if (count != sig->params.size())
+                {
+                    std::string args = std::to_string(sig->params.size()) + '\x1f' + std::to_string(count);
+                    COMMIT_ERROR(DiagType::WrongArgCount, args);
+                }
 
                 bool has_error = false;
                 for (size_t i = 0; i < count; ++i)
                 {
                     uint32_t arg = ListItem(n.data.call.args, i);
-                    if (ValidateExpr(arg, sig->params[i], 
+                    if (ValidateExpr(arg, sig->params[i],
                                 DiagType::ArgTypeMismatch) == CTType::Error()) has_error = true;
                 }
                 if (has_error) ERROR();
                 ACTUAL(sig->ret_type);
             }
             case NodeType::BlockExpr: ACTUAL(CheckBlock(node, expected, "", true));
-            case NodeType::IfExpr: ACTUAL(CheckIf(node, expected)); 
-            case NodeType::ForExpr: ACTUAL(CheckFor(node, expected));
+            case NodeType::IfExpr:    ACTUAL(CheckIf(node, expected));
+            case NodeType::ForExpr:   ACTUAL(CheckFor(node, expected));
             case NodeType::LabeledExpr:
             {
                 uint32_t label = n.data.labeled.label;
@@ -208,18 +306,17 @@ namespace Zenith {
                     case NodeType::BlockExpr: ACTUAL(CheckBlock(body, expected, name, true));
                     case NodeType::IfExpr:    ACTUAL(CheckIf(body, expected, name));
                     case NodeType::ForExpr:   ACTUAL(CheckFor(body, expected, name));
-                    default: COMMIT_ERROR(DiagType::UnsupportedFeature, "unsupported expression in labeled expression");
+                    default: COMMIT_ERROR(DiagType::UnsupportedFeature, "labeled expression body");
                 }
                 break;
             }
-            
-            default: COMMIT_ERROR(DiagType::UnsupportedFeature, "unsupported expression");
+
+            default: COMMIT_ERROR(DiagType::UnsupportedFeature, "expression");
         }
 
-        if (actual == CTType::Error() || expected == CTType::Error()) 
+        if (actual == CTType::Error() || expected == CTType::Error())
             return SetNodeType(node, CTType::Error());
 
-        
         if (expected != CTType::Unknown())
         {
             if (expected.IsVar() || actual.IsVar())
@@ -239,8 +336,7 @@ namespace Zenith {
             }
             if (actual != expected)
             {
-                std::string msg = Utils::FormatTypeMismatch(diag, expected, actual);
-                AddError(node, { diag, msg });
+                AddError(node, { diag, {}, expected, actual });
                 return SetNodeType(node, CTType::Error());
             }
             return SetNodeType(node, expected);
@@ -248,7 +344,6 @@ namespace Zenith {
 
         return SetNodeType(node, actual);
     }
-
 
     CTType TypeChecker::CheckBlock(uint32_t node, CTType expected, std::string_view label, bool push_target)
     {
@@ -258,7 +353,7 @@ namespace Zenith {
         CTType target_type = (expected != CTType::Unknown()) ? expected : m_Solver.Fresh();
 
         PushScope();
-        if (push_target) PushTarget({ 
+        if (push_target) PushTarget({
             .label = label,
             .expected = target_type,
             .is_loop = false,
@@ -267,7 +362,7 @@ namespace Zenith {
 
         uint32_t stmt_cnt = ListCount(node);
         for (size_t i = 0; i < stmt_cnt; ++i)
-            CheckStmt(ListItem(node, i));   
+            CheckStmt(ListItem(node, i));
 
         bool has_break = false;
         if (push_target) has_break = PopTarget().has_break;
@@ -280,15 +375,15 @@ namespace Zenith {
                     .kind = Constraint::Kind::Eq,
                     .lhs = target_type,
                     .rhs = CTType::Unit(),
-                    .diag = { 
-                        .node = node, 
-                        .token = m_Ast.nodes[node].start_token, 
-                        .diag = DiagType::BreakTypeMismatch 
+                    .diag = {
+                        .node = node,
+                        .token = m_Ast.nodes[node].start_token,
+                        .diag = DiagType::BreakTypeMismatch
                     }
                 });
             else if (target_type != CTType::Unit())
             {
-                AddError(node, { DiagType::BlockMissingBreak, "Block does not break with a value of expected type" });
+                AddError(node, { DiagType::BlockMissingBreak });
                 return CTType::Error();
             }
         }
@@ -301,7 +396,7 @@ namespace Zenith {
         if (node == ERROR_NODE || node >= m_Ast.nodes.size()) return CTType::Error();
         if (expected == CTType::Error()) return CTType::Error();
 
-        const auto& ie = m_Ast.nodes[node].data.if_expr; 
+        const auto& ie = m_Ast.nodes[node].data.if_expr;
         ValidateExpr(ie.cond, CTType::Bool(), DiagType::OperandTypeMismatch);
 
         bool has_else = (ie.else_branch != ERROR_NODE);
@@ -329,16 +424,16 @@ namespace Zenith {
         if (node == ERROR_NODE || node >= m_Ast.nodes.size()) return CTType::Error();
         if (expected == CTType::Error()) return CTType::Error();
 
-        const auto& fe = m_Ast.nodes[node].data.for_expr; 
+        const auto& fe = m_Ast.nodes[node].data.for_expr;
         if (fe.cond != ERROR_NODE)
             ValidateExpr(fe.cond, CTType::Bool(), DiagType::OperandTypeMismatch);
 
         CTType target_type = (expected != CTType::Unknown()) ? expected : m_Solver.Fresh();
-        PushTarget({ 
-            .label = label, 
-            .expected = target_type, 
-            .is_loop = true, 
-            .has_break = false 
+        PushTarget({
+            .label = label,
+            .expected = target_type,
+            .is_loop = true,
+            .has_break = false
         });
 
         CheckBlock(fe.body, CTType::Unit(), "", false);
@@ -359,7 +454,7 @@ namespace Zenith {
                 });
             else if (target_type != CTType::Unit())
             {
-                AddError(node, { DiagType::BlockMissingBreak, "Loop does not break with a value of expected type" });
+                AddError(node, { DiagType::BlockMissingBreak });
                 return CTType::Error();
             }
         }
@@ -389,9 +484,9 @@ namespace Zenith {
                     auto ti = target_node.data.typed_ident;
                     ident = ti.ident; type = ti.type; is_mut = (ti.is_mut != 0);
                 }
-                else 
+                else
                 {
-                    AddError(target, { .type = DiagType::UnsupportedFeature, .message = "unsupported let binding target" });
+                    AddError(target, { DiagType::UnsupportedFeature, "let binding target" });
                     ValidateExpr(value, CTType::Unknown());
                     SetNodeType(node, CTType::Error());
                     break;
@@ -405,10 +500,7 @@ namespace Zenith {
                 SetNodeType(ident, var_type);
 
                 if (!AddSymbol({ name, m_CurrentDepth, var_type, is_mut }))
-                {
-                    std::string msg = "redeclared variable '" + std::string(name) + "'";
-                    AddError(ident, { DiagType::RedeclaredIdentifier, msg });
-                }
+                    AddError(ident, { DiagType::RedeclaredIdentifier, name });
                 break;
             }
             case NodeType::AssignStmt:
@@ -425,7 +517,7 @@ namespace Zenith {
                 if (m_Ast.nodes[target].type != NodeType::Identifier)
                 {
                     // support general assignable expr
-                    AddError(target, { DiagType::InvalidAssignTarget, "invalid assignment target" });
+                    AddError(target, { DiagType::InvalidAssignTarget });
                     ValidateExpr(value, CTType::Unknown());
                     SetNodeType(node, CTType::Error());
                     break;
@@ -435,8 +527,7 @@ namespace Zenith {
                 auto symbol = FindSymbols(name);
                 if (!symbol.has_value())
                 {
-                    std::string msg = "unknown identifier '" + std::string(name) + "'";
-                    AddError(target, { .type = DiagType::UnknownIdentifier, .message = msg });
+                    AddError(target, { DiagType::UnknownIdentifier, name });
                     ValidateExpr(value, CTType::Unknown());
                     SetNodeType(target, CTType::Error());
                     SetNodeType(node, CTType::Error());
@@ -444,10 +535,7 @@ namespace Zenith {
                 }
 
                 if (!symbol->is_mut)
-                {
-                    std::string msg = "cannot assign twice to immutable variable '" + std::string(name) + "'";
-                    AddError(target, { DiagType::ImmutableAssignment, msg });
-                }
+                    AddError(target, { DiagType::ImmutableAssignment, name });
 
                 ValidateExpr(value, symbol->type, DiagType::AssignTypeMismatch);
                 SetNodeType(target, symbol->type);
@@ -461,10 +549,7 @@ namespace Zenith {
                 if (expr != ERROR_NODE)
                     ValidateExpr(expr, m_CurrentFunc.ret_type, DiagType::ReturnTypeMismatch);
                 else if (m_CurrentFunc.ret_type != CTType::Unit() && m_CurrentFunc.ret_type != CTType::Error())
-                {
-                    std::string msg = Utils::FormatTypeMismatch(DiagType::ReturnTypeMismatch, m_CurrentFunc.ret_type, CTType::Unit());
-                    AddError(node, { DiagType::ReturnTypeMismatch, msg });
-                }
+                    AddError(node, { DiagType::ReturnTypeMismatch, {}, m_CurrentFunc.ret_type, CTType::Unit() });
                 SetNodeType(node, CTType::Unit());
                 break;
             }
@@ -477,9 +562,9 @@ namespace Zenith {
                 if (!target)
                 {
                     if (label != ERROR_NODE)
-                        AddError(label, { DiagType::UndeclaredLabel, "undeclared label '" + std::string(GetName(label)) + "'" });
+                        AddError(label, { DiagType::UndeclaredLabel, GetName(label) });
                     else
-                        AddError(node, { DiagType::UndeclaredLabel, "'break' outside of loop or block" });
+                        AddError(node, { DiagType::BreakOutsideLoop });
 
                     if (value != ERROR_NODE) ValidateExpr(value, CTType::Unknown());
                     SetNodeType(node, CTType::Error());
@@ -497,10 +582,7 @@ namespace Zenith {
                         .diag = { .node = node, .token = n.start_token, .diag = DiagType::BreakTypeMismatch }
                     });
                 else if (target->expected != CTType::Unit() && target->expected != CTType::Error())
-                {
-                    std::string msg = Utils::FormatTypeMismatch(DiagType::BreakTypeMismatch, target->expected, CTType::Unit());
-                    AddError(node, { DiagType::BreakTypeMismatch, msg });
-                }
+                    AddError(node, { DiagType::BreakTypeMismatch, {}, target->expected, CTType::Unit() });
                 SetNodeType(node, CTType::Unit());
                 break;
             }
@@ -511,9 +593,9 @@ namespace Zenith {
                 if (!target)
                 {
                     if (label != ERROR_NODE && !FindBreak(label))
-                        AddError(label, { DiagType::UndeclaredLabel, "undeclared label '" + std::string(GetName(label)) + "'" });
+                        AddError(label, { DiagType::UndeclaredLabel, GetName(label) });
                     else
-                        AddError(node, { DiagType::InvalidContinue, "'continue' must target an enclosing loop" });
+                        AddError(node, { DiagType::InvalidContinue });
                     SetNodeType(node, CTType::Error());
                     break;
                 }
@@ -529,12 +611,12 @@ namespace Zenith {
             // TODO: add implementation
             case NodeType::FuncDecl:
             {
-                AddError(node, { DiagType::NestedFunction, "nested functions are not supported" });
+                AddError(node, { DiagType::NestedFunction });
                 break;
             }
             default:
             {
-                AddError(node, { DiagType::UnsupportedFeature, "unsupported statement" });
+                AddError(node, { DiagType::UnsupportedFeature, "statement" });
                 break;
             }
         }

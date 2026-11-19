@@ -127,35 +127,73 @@ int main(int argc, char* argv[])
     (void)argc;
     (void)argv;
 
-    // Test 1: Valid (adapted from parser_let_and_literals + parser_if_expr)
+    // Demo 1: Valid scalar types, backward literal inference, casts, and control flow
     constexpr std::string_view kValidSource = R"(
-func helper(x: i64) -> i64 {
-    return if x > 0 => 1 else => -1;
+func add_u8(x: u8, y: u8) -> u8 {
+    return x + y;
 }
 
 func main() {
-    let a = 42;
-    let b = 3.14;
-    let t = true;
-    let typed: i64 = 1;
-    let mut counter = 0;
-    counter = counter + helper(a);
-    let nested = if (if a > 0 => true else => false) => 1 else => -1;
+    let a = 1;
+    let b: u8 = a + 2;
+    let c: f32 = 1.5;
+    let d = (b as i64) + (c as i64);
+
+    let mut sum = 0;
+    let res: i64 = 'outer: for {
+        sum = sum + 1;
+        if sum < 3 {
+            continue 'outer;
+        }
+        break 'outer sum;
+    };
+
+    let blk = 'block_val: {
+        if d > 0 {
+            break 'block_val 10;
+        }
+        break 'block_val 20;
+    };
 }
 )";
 
-    // Test 2: Valid syntax, intentional type errors
-    constexpr std::string_view kInvalidSource = R"(
+    // Demo 2: Numeric range, cast, unary '-', and type mismatch errors
+    constexpr std::string_view kTypeErrorsSource = R"(
 func main() {
-    let typed: i64 = true;
-    let mut counter = 0;
-    counter = 3.14;
+    let overflow: u8 = 256;
+    let neg_unsigned: u8 = 5;
+    let bad_neg = -neg_unsigned;
+    let bad_cast = 3.14 as bool;
     let bad_if = if 123 => 1 else => 2.5;
 }
 )";
 
-    RunCheckerTest("Test 1: Valid Program", kValidSource);
-    RunCheckerTest("Test 2: Type Mismatch Program", kInvalidSource);
+    // Demo 3: Scope, mutability, and control-flow errors
+    constexpr std::string_view kControlErrorsSource = R"(
+func need_ret() -> i64 {
+    let x = 1;
+}
+
+func main() {
+    let x = 10;
+    let x = 20;
+    x = 30;
+
+    let missing: i64 = 'blk: {
+        let a = 1;
+    };
+
+    'loop_lbl: {
+        continue 'loop_lbl;
+    };
+
+    break 'ghost;
+}
+)";
+
+    RunCheckerTest("Demo 1: Valid Program (Inference & Control Flow)", kValidSource);
+    RunCheckerTest("Demo 2: Numeric, Cast & Type Errors", kTypeErrorsSource);
+    RunCheckerTest("Demo 3: Scope, Mutability & Control Flow Errors", kControlErrorsSource);
 
     return 0;
 }

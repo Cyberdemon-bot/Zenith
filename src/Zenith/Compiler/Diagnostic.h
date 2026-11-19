@@ -6,6 +6,7 @@
 #include "Zenith/Compiler/CTType.h"
 
 namespace Zenith {
+    
     enum class Severity : uint8_t
     {
         Error,
@@ -30,9 +31,11 @@ namespace Zenith {
         // Expression & Operation
         OperandTypeMismatch,
         InvalidUnaryOp,
+        InvalidBinaryOp,
         WrongArgCount,
         CannotInferType,
         CoerceFailure,
+        LiteralOutOfRange,
 
         // Type Mismatch
         LetTypeMismatch,
@@ -40,12 +43,14 @@ namespace Zenith {
         ArgTypeMismatch,
         AssignTypeMismatch,
         BreakTypeMismatch,
+        MissingReturn,
 
         // Statement & Control Flow
         ImmutableAssignment,
         InvalidAssignTarget,
         UndeclaredLabel,
         InvalidContinue,
+        BreakOutsideLoop,
         BlockMissingBreak,
 
         // General
@@ -55,16 +60,20 @@ namespace Zenith {
 
     struct Diagnostic
     {
-        std::string message;
-        uint32_t node, token;            
+        std::string args;
+        uint32_t node = 0, token = 0;
         CTType expected = CTType::Error(), actual = CTType::Error();
         Severity severity = Severity::Error;
-        DiagType diag;
+        DiagType diag = DiagType::UnsupportedFeature;
     };
 
     struct Error
     {
         DiagType type;
-        std::string_view message;
-    }; 
+        std::string_view args = {};
+        CTType expected = CTType::Error();
+        CTType actual = CTType::Error();
+    };
+
+    std::string FormatDiagnostic(const Diagnostic& diag);
 }

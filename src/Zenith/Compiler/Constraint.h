@@ -7,15 +7,32 @@
 
 #include "Zenith/Compiler/CTType.h"
 #include "Zenith/Compiler/Diagnostic.h"
+#include "Zenith/Compiler/Node.h"
 
 namespace Zenith {
 
     struct Constraint
     {
-        enum class Kind { Eq };
+        enum class Kind : uint8_t
+        {
+            Eq,
+            IntLit,
+            FloatLit,
+            UnaryOp,
+            BinaryOp,
+            Cast
+        };
 
         Kind kind;
-        CTType lhs, rhs;
+        CTType lhs = CTType::Error();
+        CTType rhs = CTType::Error();
+        CTType result = CTType::Error();
+        Operator op = Operator::Add;
+        union
+        {
+            int64_t i64;
+            double f64;
+        } lit { .i64 = 0 };
         Diagnostic diag;
     };
 
@@ -30,18 +47,24 @@ namespace Zenith {
         bool Unify(CTType a, CTType b);
 
         template<std::invocable<Diagnostic&&> Fn>
-        void Solve(Fn&& onError)
+        void Solve(Fn&& on_error)
         {
-            for (Constraint& c : m_Constraints)
-                if (!SolveImpl(c))
-                    onError(std::move(c.diag));
+            SolveImpl();
+            for (uint32_t idx : m_Failed)
+                on_error(std::move(m_Constraints[idx].diag));
         }
-        
+
     private:
-        bool SolveImpl(Constraint& c);
+        void SolveImpl();
+        bool SolveUnaryOp(uint32_t idx);
+        bool SolveBinaryOp(uint32_t idx);
+        bool SolveCast(uint32_t idx);
+        bool SolveLiteral(uint32_t idx);
 
         uint32_t m_NextVar = 0;
         std::vector<Constraint> m_Constraints;
-        std::vector<CTType> m_Parents; // m_NextVar ​​increase linearly
+        std::vector<CTType> m_Parents; // m_NextVar increase linearly
+        std::vector<bool> m_Done;
+        std::vector<uint32_t> m_Failed;
     };
 }

@@ -7,6 +7,7 @@
 #include <cstdio>
 #include "Zenith/Compiler/Parser.h"
 #include "Zenith/Compiler/TypeChecker.h"
+#include "Zenith/Compiler/Utils.h"
 
 namespace Zenith {
 
@@ -621,6 +622,95 @@ namespace Zenith {
         DumpTreeNode(out, rootIdx, 0);
     }
 
+    namespace {
+        constexpr std::string_view GetDiagTemplate(DiagType type) noexcept
+        {
+            switch (type)
+            {
+                case DiagType::DuplicateFunction:    return "Duplicate function '{0}'";
+                case DiagType::MissingMainFunction:  return "Program must define 'func main'";
+                case DiagType::InvalidMainSignature: return "Invalid signature for 'main'";
+                case DiagType::NestedFunction:       return "Nested functions are not supported";
+                case DiagType::MissingParamType:     return "Parameter requires type annotation in Phase 3";
+                case DiagType::UnknownTypeName:      return "Unknown type '{0}'";
+                case DiagType::UnknownIdentifier:    return "Unknown identifier '{0}'";
+                case DiagType::RedeclaredIdentifier: return "Redeclared identifier '{0}'";
+                case DiagType::OperandTypeMismatch:  return "Invalid operand type '{actual}' for operator '{0}'";
+                case DiagType::InvalidUnaryOp:       return "Unsupported unary operator '{0}'";
+                case DiagType::InvalidBinaryOp:      return "Operands of '{0}' must have the same type (got '{expected}' and '{actual}')";
+                case DiagType::WrongArgCount:        return "Argument count mismatch: expected {0}, got {1}";
+                case DiagType::CannotInferType:      return "Cannot infer type";
+                case DiagType::CoerceFailure:        return "Invalid type cast from '{actual}' to '{expected}'";
+                case DiagType::LiteralOutOfRange:    return "Literal out of range for '{expected}'";
+                case DiagType::LetTypeMismatch:      return "Let binding type mismatch: expected '{expected}', got '{actual}'";
+                case DiagType::ReturnTypeMismatch:   return "Return type mismatch: expected '{expected}', got '{actual}'";
+                case DiagType::ArgTypeMismatch:      return "Argument type mismatch: expected '{expected}', got '{actual}'";
+                case DiagType::AssignTypeMismatch:   return "Assignment type mismatch: expected '{expected}', got '{actual}'";
+                case DiagType::BreakTypeMismatch:    return "Break value type mismatch: expected '{expected}', got '{actual}'";
+                case DiagType::MissingReturn:        return "Function '{0}' must return a value";
+                case DiagType::ImmutableAssignment:  return "Cannot assign twice to immutable variable '{0}'";
+                case DiagType::InvalidAssignTarget:  return "Invalid assignment target";
+                case DiagType::UndeclaredLabel:      return "Undeclared label '{0}'";
+                case DiagType::InvalidContinue:      return "'continue' must target an enclosing loop";
+                case DiagType::BreakOutsideLoop:     return "'break' outside of loop or block";
+                case DiagType::BlockMissingBreak:    return "Block does not break with a value of expected type";
+                case DiagType::UnsupportedFeature:   return "Unsupported feature: {0}";
+                case DiagType::TooManyErrors:        return "Too many errors";
+                default:                             return "Unknown error";
+            }
+        }
+    }
+
+    std::string FormatDiagnostic(const Diagnostic& diag)
+    {
+        std::string_view tmpl = (diag.diag == DiagType::OperandTypeMismatch && diag.args.empty())
+            ? std::string_view("Type mismatch: expected '{expected}', got '{actual}'")
+            : GetDiagTemplate(diag.diag);
+
+        std::string_view args[4]{};
+        size_t arg_count = 0;
+        if (!diag.args.empty())
+        {
+            size_t start = 0;
+            while (arg_count < 4)
+            {
+                size_t pos = diag.args.find('\x1f', start);
+                if (pos == std::string::npos)
+                {
+                    args[arg_count++] = std::string_view(diag.args).substr(start);
+                    break;
+                }
+                args[arg_count++] = std::string_view(diag.args).substr(start, pos - start);
+                start = pos + 1;
+            }
+        }
+
+        std::string out;
+        out.reserve(tmpl.size() + 32);
+        for (size_t i = 0; i < tmpl.size(); ++i)
+        {
+            if (tmpl[i] == '{')
+            {
+                size_t close = tmpl.find('}', i + 1);
+                if (close != std::string_view::npos)
+                {
+                    std::string_view key = tmpl.substr(i + 1, close - i - 1);
+                    if (key == "expected")      out += Utils::TypeToString(diag.expected);
+                    else if (key == "actual")   out += Utils::TypeToString(diag.actual);
+                    else if (key.size() == 1 && key[0] >= '0' && key[0] <= '3')
+                    {
+                        size_t idx = static_cast<size_t>(key[0] - '0');
+                        if (idx < arg_count) out += args[idx];
+                    }
+                    i = close;
+                    continue;
+                }
+            }
+            out += tmpl[i];
+        }
+        return out;
+    }
+
     void TypeChecker::DumpErrors(std::ostream& out) const
     {
         if (m_Errors.empty())
@@ -641,7 +731,7 @@ namespace Zenith {
                 target_tok_idx = static_cast<uint32_t>(m_Ast.tokens.size()) - 1;
 
             const Token& tok = m_Ast.tokens[target_tok_idx];
-            out << std::format("[Error #{}] {}\n", i + 1, err.message);
+            out << std::format("[Error #{}] {}\n", i + 1, FormatDiagnostic(err));
             out << std::format("  --> Line {}:{}\n", tok.line, tok.column);
             if (tok.literal.empty())
             {

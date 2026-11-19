@@ -13,11 +13,11 @@ namespace Zenith {
         if (node == ERROR_NODE || node >= m_Ast.nodes.size()) return CTType::Error();
         m_NodeTypes[node] = type;
         return type;
-    }   
+    }
 
-    void TypeChecker::PushScope() 
+    void TypeChecker::PushScope()
     {
-        ++m_CurrentDepth; 
+        ++m_CurrentDepth;
     }
 
     void TypeChecker::PopScope()
@@ -78,7 +78,7 @@ namespace Zenith {
         std::string_view name = (label != ERROR_NODE) ? GetName(label) : "";
         for (auto& target : m_Targets | std::views::reverse)
             if (target.is_loop)
-                if (label == ERROR_NODE || target.label == name) 
+                if (label == ERROR_NODE || target.label == name)
                     return &target;
         return nullptr;
     }
@@ -93,65 +93,14 @@ namespace Zenith {
     CTType TypeChecker::ResolveBinaryOp(uint32_t node, Operator op, CTType lhs, CTType rhs)
     {
         if (lhs == CTType::Error() || rhs == CTType::Error()) return CTType::Error();
-        if (lhs != rhs)
+        CTType result = Utils::CheckBinaryOp(op, lhs, rhs);
+        if (!result)
         {
-            AddError(node, {DiagType::OperandTypeMismatch, "Operands of binary operator must have the same type"});
+            DiagType dt = (lhs != rhs) ? DiagType::InvalidBinaryOp : DiagType::OperandTypeMismatch;
+            AddError(node, { dt, OperatorToString(op), lhs, rhs });
             return CTType::Error();
         }
-
-        switch (op)
-        {
-            case Operator::Add:
-            case Operator::Sub:
-            case Operator::Mul:
-            case Operator::Div:
-            {
-                if (!Utils::IsNumeric(lhs))
-                {
-                    AddError(node, {DiagType::OperandTypeMismatch, "Arithmetic operators require numeric operands"});
-                    return CTType::Error();
-                }
-                return lhs;
-            }
-            case Operator::Mod:
-            {
-                if (!Utils::IsInteger(lhs))
-                {
-                    AddError(node, {DiagType::OperandTypeMismatch, "Operator '%' requires integer operands"});
-                    return CTType::Error();
-                }
-                return lhs;
-            }
-            case Operator::Eq:
-            case Operator::Ne: return CTType::Bool();
-            case Operator::Lt:
-            case Operator::Lte:
-            case Operator::Gt:
-            case Operator::Gte:
-            {
-                if (!Utils::IsNumeric(lhs))
-                {
-                    AddError(node, {DiagType::OperandTypeMismatch, "Ordered comparison requires numeric operands"});
-                    return CTType::Error();
-                }
-                return CTType::Bool();
-            }
-            case Operator::And:
-            case Operator::Or:
-            {
-                if (lhs != CTType::Bool())
-                {
-                    AddError(node, {DiagType::OperandTypeMismatch, "Logical operators require boolean operands"});
-                    return CTType::Error();
-                }
-                return CTType::Bool();
-            }
-            default:
-            {
-                AddError(node, {DiagType::OperandTypeMismatch, "Unsupported binary operator"});
-                return CTType::Error();
-            }
-        }
+        return result;
     }
 
     CTType TypeChecker::ResolveTypeNode(uint32_t type_node)
@@ -161,49 +110,51 @@ namespace Zenith {
 
         switch (n.type)
         {
-            case NodeType::NamedType: 
+            case NodeType::NamedType:
             {
                 const auto& nt = n.data.named_type;
-                if (nt.args != ERROR_NODE) 
+                if (nt.args != ERROR_NODE)
                 {
-                    AddError(type_node, {DiagType::UnsupportedFeature,
-                            "generic type arguments not supported in Phase 3"});
+                    AddError(type_node, { DiagType::UnsupportedFeature, "generic type arguments" });
                     return CTType::Error();
                 }
                 ZN_CORE_ASSERT(nt.ident < m_Ast.tokens.size(), "NamedType: invalid token index");
                 std::string_view name = m_Ast.tokens[nt.ident].literal;
-                if (name == "i64") return CTType::I64();
-                if (name == "f64") return CTType::F64();
+                if (name == "i8")   return CTType::I8();
+                if (name == "i16")  return CTType::I16();
+                if (name == "i32")  return CTType::I32();
+                if (name == "i64")  return CTType::I64();
+                if (name == "u8")   return CTType::U8();
+                if (name == "u16")  return CTType::U16();
+                if (name == "u32")  return CTType::U32();
+                if (name == "u64")  return CTType::U64();
+                if (name == "f32")  return CTType::F32();
+                if (name == "f64")  return CTType::F64();
                 if (name == "bool") return CTType::Bool();
                 if (name == "unit") return CTType::Unit();
 
-                AddError(type_node, {DiagType::UnknownTypeName,
-                        "unknown type '" + std::string(name) + "'"});
+                AddError(type_node, { DiagType::UnknownTypeName, name });
                 return CTType::Error();
             }
-            case NodeType::TupleType: 
+            // TODO: support these features
+            case NodeType::TupleType:
             {
-                // TODO: Update tuple support later
-                AddError(type_node, {DiagType::UnsupportedFeature,
-                        "tuple types not supported yet"});
+                AddError(type_node, { DiagType::UnsupportedFeature, "tuple types" });
                 return CTType::Error();
             }
             case NodeType::RefType:
             {
-                AddError(type_node, {DiagType::UnsupportedFeature,
-                        "reference types not supported in Phase 3"});
+                AddError(type_node, { DiagType::UnsupportedFeature, "reference types" });
                 return CTType::Error();
             }
             case NodeType::DynType:
             {
-                AddError(type_node, {DiagType::UnsupportedFeature,
-                        "dyn types not supported in Phase 3"});
+                AddError(type_node, { DiagType::UnsupportedFeature, "dyn types" });
                 return CTType::Error();
             }
             default:
             {
-                AddError(type_node, {DiagType::UnknownTypeName,
-                        "unsupported type annotation"});
+                AddError(type_node, { DiagType::UnsupportedFeature, "type annotation" });
                 return CTType::Error();
             }
         }
@@ -212,15 +163,14 @@ namespace Zenith {
     uint32_t TypeChecker::CollectParams(std::vector<CTType>& buffer, uint32_t params_list_node)
     {
         const uint32_t count = ListCount(params_list_node);
-        for (uint32_t i = 0; i < count; ++i) 
+        for (uint32_t i = 0; i < count; ++i)
         {
-            const uint32_t param_idx = ListItem(params_list_node, i);  
+            const uint32_t param_idx = ListItem(params_list_node, i);
             const auto& ti = m_Ast.nodes[param_idx].data.typed_ident;
 
-            if (ti.type == ERROR_NODE) 
+            if (ti.type == ERROR_NODE)
             {
-                AddError(param_idx, {DiagType::MissingParamType,
-                        "parameter requires type annotation in Phase 3"});
+                AddError(param_idx, { DiagType::MissingParamType });
                 buffer.push_back(CTType::Error());
                 continue;
             }
@@ -244,7 +194,7 @@ namespace Zenith {
         const uint32_t root = m_Ast.root;
         const uint32_t child_count = ListCount(root);
 
-        for (uint32_t i = 0; i < child_count; ++i) 
+        for (uint32_t i = 0; i < child_count; ++i)
         {
             const uint32_t decl_idx = ListItem(root, i);
             const Node& decl = m_Ast.nodes[decl_idx];
@@ -257,10 +207,9 @@ namespace Zenith {
             const uint32_t name_idx = sign_node.data.func_sign.name;
             std::string_view name = GetName(name_idx);
 
-            if (m_Table.Find(name).has_value()) 
+            if (m_Table.Find(name).has_value())
             {
-                AddError(sign_idx, {DiagType::DuplicateFunction,
-                        "duplicate function '" + std::string(name) + "'"});
+                AddError(sign_idx, { DiagType::DuplicateFunction, name });
                 continue;
             }
 
@@ -279,8 +228,8 @@ namespace Zenith {
 
         m_Table.Freeze();
 
-        if (m_MainProtoId == UINT16_MAX) AddError(m_Ast.root, {DiagType::MissingMainFunction,
-                                                        "program must define 'func main'"});
+        if (m_MainProtoId == INVALID_PROTO)
+            AddError(m_Ast.root, { DiagType::MissingMainFunction });
     }
 
     void TypeChecker::AddError(uint32_t node, Error err)
@@ -291,9 +240,11 @@ namespace Zenith {
 
         m_Errors.push_back(Diagnostic
         {
-            .message = std::string(err.message),
+            .args = std::string(err.args),
             .node = node,
             .token = token,
+            .expected = err.expected,
+            .actual = err.actual,
             .diag = err.type,
         });
     }
