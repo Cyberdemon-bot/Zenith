@@ -8,6 +8,7 @@
 #include "Zenith/Compiler/Constraint.h"
 
 #include <cstdint>
+#include <iosfwd>
 #include <optional>
 #include <span>
 #include <string_view>
@@ -47,6 +48,7 @@ namespace Zenith {
 
         // Returns true if no Severity::Error was emitted.
         bool Validate();
+        void DumpErrors(std::ostream& out) const;
 
         const std::span<const Diagnostic> Diagnostics() const { return m_Errors; }
 

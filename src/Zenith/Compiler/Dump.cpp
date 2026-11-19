@@ -6,6 +6,7 @@
 #include <string_view>
 #include <cstdio>
 #include "Zenith/Compiler/Parser.h"
+#include "Zenith/Compiler/TypeChecker.h"
 
 namespace Zenith {
 
@@ -618,5 +619,69 @@ namespace Zenith {
         }
         
         DumpTreeNode(out, rootIdx, 0);
+    }
+
+    void TypeChecker::DumpErrors(std::ostream& out) const
+    {
+        if (m_Errors.empty())
+        {
+            out << "[TypeChecker] No errors found.\n";
+            return;
+        }
+
+        out << std::format("=== Found {} Type Error(s) ===\n", m_Errors.size());
+        const char* src_begin = m_Ast.source.data();
+        const char* src_end   = src_begin + m_Ast.source.size();
+
+        for (size_t i = 0; i < m_Errors.size(); ++i)
+        {
+            const auto& err = m_Errors[i];
+            uint32_t target_tok_idx = err.token;
+            if (target_tok_idx >= m_Ast.tokens.size())
+                target_tok_idx = static_cast<uint32_t>(m_Ast.tokens.size()) - 1;
+
+            const Token& tok = m_Ast.tokens[target_tok_idx];
+            out << std::format("[Error #{}] {}\n", i + 1, err.message);
+            out << std::format("  --> Line {}:{}\n", tok.line, tok.column);
+            if (tok.literal.empty())
+            {
+                out << "\n";
+                continue;
+            }
+
+            size_t highlight_len = std::max<size_t>(1, tok.literal.size());
+            if (err.node != ERROR_NODE && err.node < m_Ast.nodes.size())
+            {
+                const auto& node = m_Ast.nodes[err.node];
+                if (node.start_token < m_Ast.tokens.size() &&
+                    node.end_token   < m_Ast.tokens.size())
+                {
+                    const char* start_ptr = m_Ast.tokens[node.start_token].literal.data();
+                    const char* end_ptr   = m_Ast.tokens[node.end_token].literal.data()
+                                          + m_Ast.tokens[node.end_token].literal.size();
+                    if (end_ptr >= start_ptr)
+                        highlight_len = std::max<size_t>(1, static_cast<size_t>(end_ptr - start_ptr));
+                }
+            }
+
+            const char* tok_begin = tok.literal.data();
+            const char* line_start = tok_begin;
+            while (line_start > src_begin && line_start[-1] != '\n' && line_start[-1] != '\r')
+                --line_start;
+            const char* line_end = tok_begin;
+            while (line_end < src_end && *line_end != '\n' && *line_end != '\r')
+                ++line_end;
+
+            std::string_view line_snippet(line_start, static_cast<size_t>(line_end - line_start));
+            size_t indent_cols     = static_cast<size_t>(tok_begin - line_start);
+            size_t max_line_remain = static_cast<size_t>(line_end - tok_begin);
+            highlight_len = std::max<size_t>(1, std::min(highlight_len, max_line_remain));
+
+            out << "   |\n";
+            out << std::format("{:>3} | {}\n", tok.line, line_snippet);
+            out << std::format("   | {}{}\n",
+                std::string(indent_cols, ' '),
+                std::string(highlight_len, '^'));
+        }
     }
 }
