@@ -131,12 +131,14 @@ Zenith supports named types (with optional generic type arguments), references, 
 ```ebnf
 type_annotation  := named_type
                   | ref_type
+                  | dyn_type
                   | tuple_type
 
 named_type       := IDENT ( "<" type_arg_list ">" )?
 type_arg_list    := type_annotation ( "," type_annotation )* ","?
 
 ref_type         := "&" "mut"? type_annotation
+dyn_type         := "dyn" named_type
 tuple_type       := "(" ( type_annotation ( "," type_annotation )* ","? )? ")"
 ```
 
@@ -256,6 +258,7 @@ for item in &mut list { process(item); }
 ### Infix Operations
 ```ebnf
 infix_op         := binop
+                  | "as" type_annotation              (* primitive cast *)
                   | "." IDENT                         (* field access *)
                   | "(" arg_list? ")"                 (* call *)
                   | "[" expr "]"                      (* index *)
@@ -285,6 +288,7 @@ Precedence is strictly enforced during expression climbing:
 | **4** | `P_LESSGREATER` | `<`, `<=`, `>`, `>=` | Left | Relational comparisons |
 | **5** | `P_SUM` | `+`, `-` | Left | Addition, subtraction |
 | **6** | `P_PRODUCT` | `*`, `/`, `%` | Left | Multiplication, division, remainder |
-| **7** | `P_UNARY` | `!`, `-`, `*` (deref), `&`, `&mut`, `new`, `mut new` | Right | Unary prefix operators |
-| **8** | `P_CALL` | `.`, `(args)` | Left | Member access, function call |
-| **9** | `P_INDEX` | `[index]` | Left | Array / collection indexing |
+| **7** | `P_CAST` | `as` | Left | Type cast (`expr as T`) |
+| **8** | `P_UNARY` | `!`, `-`, `*` (deref), `&`, `&mut`, `new`, `mut new` | Right | Unary prefix operators |
+| **9** | `P_CALL` | `.`, `(args)` | Left | Member access, function call |
+| **10** | `P_INDEX` | `[index]` | Left | Array / collection indexing |
