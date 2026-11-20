@@ -1,13 +1,13 @@
 #pragma once
 
-#include "Zenith/VM/Proto.h"
-
 #include <cstddef>
 #include <cstdint>
 #include <iosfwd>
 #include <string>
 
 namespace Zenith {
+
+    class Module;
 
     class Disassembler
     {

@@ -54,7 +54,7 @@ namespace Zenith {
         {
             m_Code.clear(); m_Constants.clear();
             m_FirstChild = m_ChildCount = 0;
-            m_NumParams = m_MaxRegs = 0;
+            m_NumParams = m_NumReturn = m_MaxRegs = 0;
         }
     private:
         std::vector<Instruction> m_Code;

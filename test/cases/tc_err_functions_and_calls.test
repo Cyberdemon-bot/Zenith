@@ -24,6 +24,7 @@ func main(x: i64) -> i64 {
 }
 // === EXPECTED ERRORS ===
 5:6 Duplicate function 'dup'
+16:6 Invalid signature for 'main'
 11:17 Unsupported feature: expression
 13:5 Return type mismatch: expected 'i64', got 'unit'
 17:5 Nested functions are not supported
@@ -53,9 +54,9 @@ func main(x: i64) -> i64 {
       (ArgList)
       (NamedType "i64")
     )
-    (BlockExpr :type unit
-      (ReturnStmt :type unit
-        (Integer 2 :type i64)
+    (BlockExpr
+      (ReturnStmt
+        (Integer 2)
       )
     )
   )

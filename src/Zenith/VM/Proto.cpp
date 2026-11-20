@@ -75,6 +75,7 @@ namespace Zenith {
         p.FirstChild = b.m_FirstChild;
         p.ChildCount = b.m_ChildCount;
         p.NumParams = b.m_NumParams;
+        p.NumReturn = b.m_NumReturn;
         p.MaxRegs = b.m_MaxRegs;
 
         m_Code.insert(m_Code.end(), b.m_Code.begin(), b.m_Code.end());

@@ -156,7 +156,7 @@ namespace Zenith {
                     return IsInteger(lhs) ? lhs : CTType::Error();
                 case Operator::Eq:
                 case Operator::Ne:
-                    return CTType::Bool();
+                    return (IsNumeric(lhs) || lhs == CTType::Bool()) ? CTType::Bool() : CTType::Error();
                 case Operator::Lt:
                 case Operator::Lte:
                 case Operator::Gt:

@@ -2,14 +2,15 @@
 
 #include "Zenith/Compiler/Ast.h"
 #include "Zenith/Compiler/CTType.h"
-#include "Zenith/Compiler/Diagnostic.h"
-#include "Zenith/Compiler/Parser.h"
 
 #include <cstdint>
 #include <span>
 #include <string>
 
 namespace Zenith {
+
+    struct ParseError;
+    struct Diagnostic;
 
     class Dumper
     {

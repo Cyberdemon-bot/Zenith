@@ -1,0 +1,151 @@
+// === INPUT: SOURCE ===
+func dup() -> i64 {
+    return 1;
+}
+
+func dup(a: i64, b: bool) -> bool {
+    return b;
+}
+
+func noop() {}
+
+func main() {
+    let neg_u8: u8 = -1;
+    let bad_eq = noop() == noop();
+
+    'blk: {
+        break;
+    };
+
+    let mut i = 0;
+    for i < 5 {
+        break 10;
+    }
+
+    let bad_for: i64 = for i < 5 {
+        break;
+    };
+}
+// === EXPECTED ERRORS ===
+5:6 Duplicate function 'dup'
+12:22 Literal out of range for 'u8'
+13:18 Invalid operand type 'unit' for operator '=='
+16:9 'break' outside of loop or block
+21:15 Break value type mismatch: expected 'unit', got 'i64'
+24:24 Let binding type mismatch: expected 'i64', got 'unit'
+
+// === EXPECTED TYPES ===
+(Program
+  (FuncDecl :type i64
+    (FuncSign :type i64
+      (Identifier "dup" :type i64)
+      (ArgList)
+      (NamedType "i64" :type i64)
+    )
+    (BlockExpr :type unit
+      (ReturnStmt :type unit
+        (Integer 1 :type i64)
+      )
+    )
+  )
+  (FuncDecl :type <error>
+    (FuncSign :type <error>
+      (Identifier "dup")
+      (ArgList
+        (TypedIdentifier :mut false
+          (Identifier "a")
+          (NamedType "i64")
+        )
+        (TypedIdentifier :mut false
+          (Identifier "b")
+          (NamedType "bool")
+        )
+      )
+      (NamedType "bool")
+    )
+    (BlockExpr
+      (ReturnStmt
+        (Identifier "b")
+      )
+    )
+  )
+  (FuncDecl :type unit
+    (FuncSign :type unit
+      (Identifier "noop" :type unit)
+      (ArgList)
+    )
+    (BlockExpr :type unit)
+  )
+  (FuncDecl :type unit
+    (FuncSign :type unit
+      (Identifier "main" :type unit)
+      (ArgList)
+    )
+    (BlockExpr :type unit
+      (LetStmt :type u8
+        (TypedIdentifier :mut false :type u8
+          (Identifier "neg_u8" :type u8)
+          (NamedType "u8" :type u8)
+        )
+        (UnaryExpr :op "-" :type <error>
+          (Integer 1 :type <error>)
+        )
+      )
+      (LetStmt :type <error>
+        (Identifier "bad_eq" :type <error>)
+        (BinaryExpr :op "==" :type <error>
+          (CallExpr :type unit
+            (Identifier "noop")
+            (ArgList)
+          )
+          (CallExpr :type unit
+            (Identifier "noop")
+            (ArgList)
+          )
+        )
+      )
+      (ExprStmt :type unit
+        (LabeledExpr :type unit
+          (Label "blk")
+          (BlockExpr :type unit
+            (BreakStmt :type <error>)
+          )
+        )
+      )
+      (LetStmt :type i64
+        (TypedIdentifier :mut true :type i64
+          (Identifier "i" :type i64)
+        )
+        (Integer 0 :type i64)
+      )
+      (ExprStmt :type unit
+        (ForExpr :type unit
+          (BinaryExpr :op "<" :type bool
+            (Identifier "i" :type i64)
+            (Integer 5 :type i64)
+          )
+          (BlockExpr :type unit
+            (BreakStmt :type <error>
+              (Integer 10 :type <error>)
+            )
+          )
+        )
+      )
+      (LetStmt :type i64
+        (TypedIdentifier :mut false :type i64
+          (Identifier "bad_for" :type i64)
+          (NamedType "i64" :type i64)
+        )
+        (ForExpr :type <error>
+          (BinaryExpr :op "<" :type bool
+            (Identifier "i" :type i64)
+            (Integer 5 :type i64)
+          )
+          (BlockExpr :type unit
+            (BreakStmt :type unit)
+          )
+        )
+      )
+    )
+  )
+)

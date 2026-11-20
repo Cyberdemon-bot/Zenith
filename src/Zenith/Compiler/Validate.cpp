@@ -30,6 +30,7 @@ namespace Zenith {
             const uint32_t decl_idx = ListItem(m_Ast.root, i);
             const auto& decl = m_Ast.nodes[decl_idx];
             if (decl.type != NodeType::FuncDecl) continue;
+            if (m_NodeTypes[decl_idx] == CTType::Error()) continue;
 
             m_Solver.Reset();
             m_Targets.clear();
@@ -162,7 +163,40 @@ namespace Zenith {
             }
             case NodeType::UnaryExpr:
             {
-                auto operand = ValidateExpr(n.data.unary.operand, CTType::Unknown());
+                uint32_t opnd_idx = n.data.unary.operand;
+                if (n.data.unary.op == Operator::Neg &&
+                    opnd_idx != ERROR_NODE && opnd_idx < m_Ast.nodes.size() &&
+                    m_Ast.nodes[opnd_idx].type == NodeType::Integer)
+                {
+                    int64_t neg_val = -m_Ast.nodes[opnd_idx].data.i64;
+                    if (expected && !expected.IsVar())
+                    {
+                        if (!Utils::IsInteger(expected))
+                        {
+                            SetNodeType(opnd_idx, CTType::I64());
+                            ACTUAL(CTType::I64());
+                        }
+                        if (!Utils::CheckIntRange(neg_val, expected))
+                        {
+                            SetNodeType(opnd_idx, CTType::Error());
+                            COMMIT_ERROR(DiagType::LiteralOutOfRange, {}, expected, CTType::I64());
+                        }
+                        SetNodeType(opnd_idx, expected);
+                        ACTUAL(expected);
+                    }
+
+                    CTType v = m_Solver.Fresh();
+                    SetNodeType(opnd_idx, v);
+                    m_Solver.Emit({
+                        .kind = Constraint::Kind::IntLit,
+                        .lhs = v,
+                        .lit = { .i64 = neg_val },
+                        .diag = { .node = node, .token = n.start_token, .diag = diag }
+                    });
+                    ACTUAL(v);
+                }
+
+                auto operand = ValidateExpr(opnd_idx, CTType::Unknown());
                 if (operand == CTType::Error()) ERROR();
 
                 if (!operand.IsVar())
@@ -426,10 +460,13 @@ namespace Zenith {
         if (expected == CTType::Error()) return CTType::Error();
 
         const auto& fe = m_Ast.nodes[node].data.for_expr;
-        if (fe.cond != ERROR_NODE)
+        bool has_cond = (fe.cond != ERROR_NODE);
+        if (has_cond)
             ValidateExpr(fe.cond, CTType::Bool(), DiagType::OperandTypeMismatch);
 
-        CTType target_type = (expected != CTType::Unknown()) ? expected : m_Solver.Fresh();
+        CTType target_type = has_cond
+            ? CTType::Unit()
+            : ((expected != CTType::Unknown()) ? expected : m_Solver.Fresh());
         PushTarget({
             .label = label,
             .expected = target_type,
@@ -440,7 +477,7 @@ namespace Zenith {
         CheckBlock(fe.body, CTType::Unit(), "", false);
         bool has_break = PopTarget().has_break;
 
-        if (!has_break)
+        if (!has_cond && !has_break)
         {
             if (target_type.IsVar())
                 m_Solver.Emit({

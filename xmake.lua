@@ -1,4 +1,5 @@
 add_rules("mode.debug", "mode.release")
+set_warnings("all", "extra")
 
 target("ZenithCore")
     set_kind("static")

@@ -4,7 +4,6 @@
 #include <algorithm>
 #include <fstream>
 #include <iterator>
-#include <sstream>
 
 namespace {
 

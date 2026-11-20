@@ -49,17 +49,16 @@ namespace Zenith {
         bool Validate();
 
         std::span<const Diagnostic> Diagnostics() const { return m_Errors; }
-        std::span<const CTType> NodeTypes() const
-        {
-            return m_Validated ? std::span<const CTType>(m_NodeTypes) : std::span<const CTType>{};
-        }
+        const SignatureTable& Signatures() const { return m_Table; }
+        uint16_t MainProtoId() const { return m_MainProtoId; }
+        std::span<const CTType> NodeTypes() const { return std::span<const CTType>(m_NodeTypes); }
 
     private:
         AstView m_Ast;
         SignatureTable m_Table;
         ConstraintSolver m_Solver;
         uint32_t m_CurrentDepth = 0;
-        uint32_t m_NextProtoId = 1; 
+        uint32_t m_NextProtoId = 0;
         uint16_t m_MainProtoId = INVALID_PROTO;
         FuncContext m_CurrentFunc;
         bool m_Validated = false;

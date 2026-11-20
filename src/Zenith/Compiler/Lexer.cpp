@@ -295,6 +295,8 @@ namespace Zenith {
     Token Lexer::ReadString()
     {
         uint32_t contentStart = m_Pos + 1;
+        uint32_t startLine = m_Line;
+        uint32_t startCol = GetColumn(contentStart);
         bool terminated = false;
 
         while (true)
@@ -323,7 +325,13 @@ namespace Zenith {
         auto lil = GetLil(contentStart);
         if (terminated) ReadChar();
 
-        return NewToken(terminated ? TokenType::STRING : TokenType::ILLEGAL, lil, contentStart);
+        return Token
+        {
+            .type = terminated ? TokenType::STRING : TokenType::ILLEGAL,
+            .literal = lil,
+            .line = startLine,
+            .column = startCol
+        };
     }
 
     Token Lexer::ReadLabel()

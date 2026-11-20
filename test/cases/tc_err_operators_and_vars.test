@@ -19,6 +19,7 @@ func main() {
 }
 // === EXPECTED ERRORS ===
 2:17 Literal out of range for 'i8'
+3:17 Literal out of range for 'i8'
 4:18 Literal out of range for 'u16'
 8:23 Type mismatch: expected 'i8', got 'i64'
 9:23 Type mismatch: expected 'i64', got 'f64'
@@ -26,7 +27,6 @@ func main() {
 16:14 Assignment type mismatch: expected 'u8', got 'f64'
 17:25 Let binding type mismatch: expected 'bool', got 'i64'
 11:20 Type mismatch: expected 'bool', got 'i64'
-3:18 Literal out of range for 'i8'
 13:21 Invalid operand type 'i64' for operator 'and'
 
 // === EXPECTED TYPES ===
@@ -49,8 +49,8 @@ func main() {
           (Identifier "b" :type i8)
           (NamedType "i8" :type i8)
         )
-        (UnaryExpr :op "-" :type i8
-          (Integer 129 :type i8)
+        (UnaryExpr :op "-" :type <error>
+          (Integer 129 :type <error>)
         )
       )
       (LetStmt :type u16

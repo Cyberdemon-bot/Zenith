@@ -1,12 +1,12 @@
 #pragma once
 
-#include "Zenith/VM/Proto.h"
-
 #include <iosfwd>
 #include <string>
 #include <string_view>
 
 namespace Zenith {
+
+    class ProtoBuilder;
 
     class Assembler
     {

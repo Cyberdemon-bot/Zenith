@@ -1,9 +1,8 @@
 #pragma once
 
-#include <limits>
+#include <cstddef>
 #include <cstdint>
-#include <memory>
-#include <type_traits>
+#include <limits>
 
 #ifdef _WIN32
 	#ifdef _WIN64

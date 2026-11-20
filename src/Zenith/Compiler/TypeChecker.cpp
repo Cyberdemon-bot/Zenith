@@ -63,7 +63,12 @@ namespace Zenith {
     ControlTarget* TypeChecker::FindBreak(uint32_t label)
     {
         if (m_Targets.empty()) return nullptr;
-        if (label == ERROR_NODE) return &m_Targets.back();
+        if (label == ERROR_NODE)
+        {
+            for (auto& target : m_Targets | std::views::reverse)
+                if (target.is_loop) return &target;
+            return nullptr;
+        }
 
         std::string_view name = GetName(label);
         for (auto& target : m_Targets | std::views::reverse)
@@ -230,7 +235,12 @@ namespace Zenith {
                         { m_Scratch.data(), p_count },
                         ret_type,
                         protoId);
-            if (name == "main") m_MainProtoId = protoId;
+            if (name == "main")
+            {
+                m_MainProtoId = protoId;
+                if (p_count != 0 || (ret_type != CTType::Unit() && ret_type != CTType::I64()))
+                    AddError(sign_idx, { DiagType::InvalidMainSignature });
+            }
         }
 
         m_Table.Freeze();

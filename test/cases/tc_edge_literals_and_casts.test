@@ -1,0 +1,125 @@
+// === INPUT: SOURCE ===
+func take_i8(v: i8) -> i8 {
+    return v;
+}
+
+func main() {
+    let min_i8: i8 = -128;
+    let min_i16: i16 = -32768;
+    let min_i32: i32 = -2147483648;
+
+    let inferred_min = -128;
+    let pass_min = take_i8(inferred_min);
+
+    let chain = (((min_i8 as f32) as i64) as bool) as u8;
+    let eq_bool = (true == false) or (chain != 0);
+}
+// === EXPECTED TYPES ===
+(Program
+  (FuncDecl :type i8
+    (FuncSign :type i8
+      (Identifier "take_i8" :type i8)
+      (ArgList
+        (TypedIdentifier :mut false :type i8
+          (Identifier "v" :type i8)
+          (NamedType "i8" :type i8)
+        )
+      )
+      (NamedType "i8" :type i8)
+    )
+    (BlockExpr :type unit
+      (ReturnStmt :type unit
+        (Identifier "v" :type i8)
+      )
+    )
+  )
+  (FuncDecl :type unit
+    (FuncSign :type unit
+      (Identifier "main" :type unit)
+      (ArgList)
+    )
+    (BlockExpr :type unit
+      (LetStmt :type i8
+        (TypedIdentifier :mut false :type i8
+          (Identifier "min_i8" :type i8)
+          (NamedType "i8" :type i8)
+        )
+        (UnaryExpr :op "-" :type i8
+          (Integer 128 :type i8)
+        )
+      )
+      (LetStmt :type i16
+        (TypedIdentifier :mut false :type i16
+          (Identifier "min_i16" :type i16)
+          (NamedType "i16" :type i16)
+        )
+        (UnaryExpr :op "-" :type i16
+          (Integer 32768 :type i16)
+        )
+      )
+      (LetStmt :type i32
+        (TypedIdentifier :mut false :type i32
+          (Identifier "min_i32" :type i32)
+          (NamedType "i32" :type i32)
+        )
+        (UnaryExpr :op "-" :type i32
+          (Integer 2147483648 :type i32)
+        )
+      )
+      (LetStmt :type i8
+        (Identifier "inferred_min" :type i8)
+        (UnaryExpr :op "-" :type i8
+          (Integer 128 :type i8)
+        )
+      )
+      (LetStmt :type i8
+        (Identifier "pass_min" :type i8)
+        (CallExpr :type i8
+          (Identifier "take_i8")
+          (ArgList
+            (Identifier "inferred_min" :type i8)
+          )
+        )
+      )
+      (LetStmt :type u8
+        (Identifier "chain" :type u8)
+        (CastExpr :type u8
+          (ParenExpr :type bool
+            (CastExpr :type bool
+              (ParenExpr :type i64
+                (CastExpr :type i64
+                  (ParenExpr :type f32
+                    (CastExpr :type f32
+                      (Identifier "min_i8" :type i8)
+                      (NamedType "f32" :type f32)
+                    )
+                  )
+                  (NamedType "i64" :type i64)
+                )
+              )
+              (NamedType "bool" :type bool)
+            )
+          )
+          (NamedType "u8" :type u8)
+        )
+      )
+      (LetStmt :type bool
+        (Identifier "eq_bool" :type bool)
+        (BinaryExpr :op "or" :type bool
+          (ParenExpr :type bool
+            (BinaryExpr :op "==" :type bool
+              (Bool true :type bool)
+              (Bool false :type bool)
+            )
+          )
+          (ParenExpr :type bool
+            (BinaryExpr :op "!=" :type bool
+              (Identifier "chain" :type u8)
+              (Integer 0 :type u8)
+            )
+          )
+        )
+      )
+    )
+  )
+)

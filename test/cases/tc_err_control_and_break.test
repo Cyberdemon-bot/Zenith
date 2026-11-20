@@ -16,6 +16,7 @@ func main() {
 // === EXPECTED ERRORS ===
 2:5 'break' outside of loop or block
 4:9 Type mismatch: expected 'bool', got 'i64'
+5:15 Break value type mismatch: expected 'unit', got 'i64'
 9:13 Unsupported feature: expression
 10:24 Break value type mismatch: expected 'i64', got 'bool'
 12:9 Break value type mismatch: expected 'i64', got 'unit'
@@ -30,11 +31,11 @@ func main() {
     (BlockExpr :type unit
       (BreakStmt :type <error>)
       (ExprStmt :type unit
-        (ForExpr :type i64
+        (ForExpr :type unit
           (Integer 123 :type <error>)
           (BlockExpr :type unit
-            (BreakStmt :type unit
-              (Integer 10 :type i64)
+            (BreakStmt :type <error>
+              (Integer 10 :type <error>)
             )
           )
         )

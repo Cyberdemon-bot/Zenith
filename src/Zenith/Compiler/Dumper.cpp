@@ -1,4 +1,6 @@
 #include "Zenith/Compiler/Dumper.h"
+#include "Zenith/Compiler/Diagnostic.h"
+#include "Zenith/Compiler/Parser.h"
 #include "Zenith/Compiler/Utils.h"
 
 #include <algorithm>

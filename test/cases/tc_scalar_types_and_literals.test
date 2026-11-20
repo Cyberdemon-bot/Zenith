@@ -15,9 +15,6 @@ func main() {
     let flag = true and !false or (1 < 2) and (a <= b);
     let cmp_f = (x < 0.0) or (y >= 1.0);
 }
-// === EXPECTED ERRORS ===
-2:18 Literal out of range for 'i8'
-
 // === EXPECTED TYPES ===
 (Program
   (FuncDecl :type unit

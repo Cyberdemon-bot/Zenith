@@ -2,6 +2,7 @@
 
 #include "Zenith/Compiler/Node.h"
 #include "Zenith/Compiler/Token.h"
+#include <cstdint>
 #include <string_view>
 #include <span>
 

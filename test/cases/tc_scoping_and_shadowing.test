@@ -1,0 +1,137 @@
+// === INPUT: SOURCE ===
+func main() {
+    let x: i8 = 10;
+    {
+        let x: f64 = 2.5;
+        let y = x + 1.0;
+    }
+    let z: i8 = x + 1;
+
+    let mut n = 0;
+    let loop_val: i64 = for {
+        'inner: {
+            n = n + 1;
+            if n == 2 {
+                break n;
+            }
+            break 'inner;
+        };
+    };
+
+    let grade: u8 = if loop_val < 1 => 0
+                    else if loop_val == 2 => 100
+                    else => 255;
+}
+// === EXPECTED TYPES ===
+(Program
+  (FuncDecl :type unit
+    (FuncSign :type unit
+      (Identifier "main" :type unit)
+      (ArgList)
+    )
+    (BlockExpr :type unit
+      (LetStmt :type i8
+        (TypedIdentifier :mut false :type i8
+          (Identifier "x" :type i8)
+          (NamedType "i8" :type i8)
+        )
+        (Integer 10 :type i8)
+      )
+      (ExprStmt :type unit
+        (BlockExpr :type unit
+          (LetStmt :type f64
+            (TypedIdentifier :mut false :type f64
+              (Identifier "x" :type f64)
+              (NamedType "f64" :type f64)
+            )
+            (Decimal 2.5 :type f64)
+          )
+          (LetStmt :type f64
+            (Identifier "y" :type f64)
+            (BinaryExpr :op "+" :type f64
+              (Identifier "x" :type f64)
+              (Decimal 1 :type f64)
+            )
+          )
+        )
+      )
+      (LetStmt :type i8
+        (TypedIdentifier :mut false :type i8
+          (Identifier "z" :type i8)
+          (NamedType "i8" :type i8)
+        )
+        (BinaryExpr :op "+" :type i8
+          (Identifier "x" :type i8)
+          (Integer 1 :type i8)
+        )
+      )
+      (LetStmt :type i64
+        (TypedIdentifier :mut true :type i64
+          (Identifier "n" :type i64)
+        )
+        (Integer 0 :type i64)
+      )
+      (LetStmt :type i64
+        (TypedIdentifier :mut false :type i64
+          (Identifier "loop_val" :type i64)
+          (NamedType "i64" :type i64)
+        )
+        (ForExpr :type i64
+          (BlockExpr :type unit
+            (ExprStmt :type unit
+              (LabeledExpr :type unit
+                (Label "inner")
+                (BlockExpr :type unit
+                  (AssignStmt :type unit
+                    (Identifier "n" :type i64)
+                    (BinaryExpr :op "+" :type i64
+                      (Identifier "n" :type i64)
+                      (Integer 1 :type i64)
+                    )
+                  )
+                  (ExprStmt :type unit
+                    (IfExpr :type unit
+                      (BinaryExpr :op "==" :type bool
+                        (Identifier "n" :type i64)
+                        (Integer 2 :type i64)
+                      )
+                      (BlockExpr :type unit
+                        (BreakStmt :type unit
+                          (Identifier "n" :type i64)
+                        )
+                      )
+                    )
+                  )
+                  (BreakStmt :type unit
+                    (Label "inner")
+                  )
+                )
+              )
+            )
+          )
+        )
+      )
+      (LetStmt :type u8
+        (TypedIdentifier :mut false :type u8
+          (Identifier "grade" :type u8)
+          (NamedType "u8" :type u8)
+        )
+        (IfExpr :type u8
+          (BinaryExpr :op "<" :type bool
+            (Identifier "loop_val" :type i64)
+            (Integer 1 :type i64)
+          )
+          (Integer 0 :type u8)
+          (IfExpr :type u8
+            (BinaryExpr :op "==" :type bool
+              (Identifier "loop_val" :type i64)
+              (Integer 2 :type i64)
+            )
+            (Integer 100 :type u8)
+            (Integer 255 :type u8)
+          )
+        )
+      )
+    )
+  )
+)

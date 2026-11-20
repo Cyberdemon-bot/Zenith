@@ -2,6 +2,7 @@
 
 #include "Zenith/VM/Instruction.h"
 #include "Zenith/VM/Opcode.h"
+#include "Zenith/VM/Proto.h"
 
 #include <algorithm>
 #include <bit>
