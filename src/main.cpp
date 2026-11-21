@@ -101,17 +101,17 @@ int main(int argc, char* argv[])
     }
 
     Zenith::TypeChecker checker(ast);
-    bool ok = checker.Validate();
-    if (!ok)
+    auto typed = checker.Validate();
+    if (checker.HasErrors())
     {
         std::cerr << Zenith::Dumper::DumpDiagnostics(ast, checker.Diagnostics(), "TypeChecker");
         return 1;
     }
 
     if (mode == Mode::FlatTypes)
-        std::cout << Zenith::Dumper::DumpTypes(ast, checker.NodeTypes());
+        std::cout << Zenith::Dumper::DumpTypes(typed.ast, typed.node_types);
     else
-        std::cout << Zenith::Dumper::DumpTypedAst(ast, checker.NodeTypes());
+        std::cout << Zenith::Dumper::DumpTypedAst(typed.ast, typed.node_types);
 
     std::cout.flush();
     return 0;

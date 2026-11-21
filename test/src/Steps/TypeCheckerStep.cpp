@@ -47,21 +47,23 @@ TypeCheckerStep::Result TypeCheckerStep::Run(std::string_view source)
     }
 
     Zenith::TypeChecker checker(ast);
+    auto typed = [&]()
     {
         ZN_PROFILE_SCOPE(&res.profile.checkTimeMs);
-        checker.Validate();
+        auto view = checker.Validate();
         for (const auto& diag : checker.Diagnostics())
         {
             uint32_t line = 0, col = 0;
             AppendTokenLocation(ast, diag.token, line, col);
             res.errors.push_back({ line, col, Zenith::FormatDiagnostic(diag) });
         }
-    }
+        return view;
+    }();
 
     {
         ZN_PROFILE_SCOPE(&res.profile.dumpTimeMs);
         res.typedAst = Diff::Trim(Diff::NormalizeNewlines(
-            Zenith::Dumper::DumpTypedAst(ast, checker.NodeTypes())));
+            Zenith::Dumper::DumpTypedAst(typed.ast, typed.node_types)));
     }
 
     return res;

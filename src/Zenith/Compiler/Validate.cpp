@@ -15,7 +15,14 @@
 
 namespace Zenith {
 
-    bool TypeChecker::Validate()
+    bool TypeChecker::HasErrors() const
+    {
+        for (const auto& d : m_Errors)
+            if (d.severity == Severity::Error) return true;
+        return false;
+    }
+
+    TypedAstView TypeChecker::Validate()
     {
         ZN_CORE_ASSERT(!m_Validated, "Validate() called twice");
         m_Validated = true;
@@ -99,9 +106,13 @@ namespace Zenith {
             }
         }
 
-        for (const auto& d : m_Errors)
-            if (d.severity == Severity::Error) return false;
-        return true;
+        return TypedAstView
+        {
+            .ast = m_Ast,
+            .node_types = m_NodeTypes,
+            .signatures = m_Table,
+            .main_proto_id = m_MainProtoId,
+        };
     }
 
     CTType TypeChecker::ValidateExpr(uint32_t node, CTType expected, DiagType diag)

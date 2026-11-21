@@ -39,6 +39,14 @@ namespace Zenith {
         bool has_break = false;
     };
 
+    struct TypedAstView
+    {
+        AstView ast;
+        std::span<const CTType> node_types;
+        const SignatureTable& signatures;
+        uint16_t main_proto_id = INVALID_PROTO;
+    };
+
     class TypeChecker
     {
     public:
@@ -46,21 +54,10 @@ namespace Zenith {
             : m_Ast(ast)
         {}
 
-        // Returns true if no Severity::Error was emitted
-        bool Validate();
+        TypedAstView Validate();
 
+        bool HasErrors() const;
         std::span<const Diagnostic> Diagnostics() const { return m_Errors; }
-        const SignatureTable& Signatures() const
-        {
-            ZN_CORE_ASSERT(m_Validated, "Signatures() called before Validate()");
-            return m_Table;
-        }
-        uint16_t MainProtoId() const
-        {
-            ZN_CORE_ASSERT(m_Validated, "MainProtoId() called before Validate()");
-            return m_MainProtoId;
-        }
-        std::span<const CTType> NodeTypes() const { return std::span<const CTType>(m_NodeTypes); }
 
     private:
         AstView m_Ast;
