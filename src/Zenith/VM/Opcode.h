@@ -16,10 +16,40 @@ namespace Zenith {
         LoadImm, Mov,     
         Add, Sub, Mul, Div, 
         DivS, DivU, RemS, RemU, Neg,
-        Eq, Lt, LNot,      
+        Eq, Lt, LNot, Cast,
         Jmp, Jz, Jnz,  
         Call, Return,
         Halt, Count
+    };
+
+    enum class CastKind : uint8_t
+    {
+        TruncI8 = 0,
+        TruncI16,
+        TruncU8,
+        TruncU16,
+        I32ToI64,
+        I64ToI32,
+        I32ToF32,
+        I32ToF64,
+        U32ToF32,
+        U32ToF64,
+        I64ToF32,
+        I64ToF64,
+        U64ToF32,
+        U64ToF64,
+        F32ToI32,
+        F32ToU32,
+        F32ToI64,
+        F32ToU64,
+        F64ToI32,
+        F64ToU32,
+        F64ToI64,
+        F64ToU64,
+        F32ToF64,
+        F64ToF32,
+        ToBool,
+        Count
     };
 
     inline constexpr uint32_t OPCODE_COUNT = static_cast<uint32_t>(Opcode::Count);
@@ -63,6 +93,7 @@ namespace Zenith {
         { Opcode::Eq,        Format::iABC,  Type::U32, Type::U64, Type::F32, Type::F64 },
         { Opcode::Lt,        Format::iABC,  Type::U32, Type::I32, Type::F32, Type::U64, Type::I64, Type::F64 },
         { Opcode::LNot,      Format::iABC,  Type::None },
+        { Opcode::Cast,      Format::iABC,  Type::None },
         { Opcode::Jmp,       Format::iAsBx, Type::None },
         { Opcode::Jz,        Format::iAsBx, Type::None },
         { Opcode::Jnz,       Format::iAsBx, Type::None },

@@ -1,0 +1,27 @@
+// === INPUT: ASM ===
+.proto
+.params 0
+.regs 10
+.const F64 42.75
+.const F32 3.5
+
+LoadImm   R0, 255
+Cast      R1, R0, TruncI8
+Cast      R2, R1, TruncU8
+Cast      R3, R1, I32ToI64
+LoadConst R4, K0
+Cast      R5, R4, F64ToI32
+Cast      R6, R5, I32ToF64
+LoadConst R7, K1
+Cast      R8, R7, F32ToF64
+Cast      R9, R0, ToBool
+Halt
+
+// === EXPECTED VM ===
+R1 = -1 (I32)
+R2 = 255 (U32)
+R3 = -1 (I64)
+R5 = 42 (I32)
+R6 = 42 (F64)
+R8 = 3.5 (F64)
+R9 = 1 (U64)

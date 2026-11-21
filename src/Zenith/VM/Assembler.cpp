@@ -104,6 +104,7 @@ namespace {
         if (name == "Eq")        return Opcode::Eq;
         if (name == "Lt")        return Opcode::Lt;
         if (name == "LNot")      return Opcode::LNot;
+        if (name == "Cast")      return Opcode::Cast;
         if (name == "Jmp")       return Opcode::Jmp;
         if (name == "Jz")        return Opcode::Jz;
         if (name == "Jnz")       return Opcode::Jnz;
@@ -123,6 +124,36 @@ namespace {
         if (name == "F64") return Type::F64;
         if (name == "REF") return Type::REF;
         return Type::None;
+    }
+
+    std::optional<CastKind> ParseCastKind(std::string_view name)
+    {
+        if (name == "TruncI8")  return CastKind::TruncI8;
+        if (name == "TruncI16") return CastKind::TruncI16;
+        if (name == "TruncU8")  return CastKind::TruncU8;
+        if (name == "TruncU16") return CastKind::TruncU16;
+        if (name == "I32ToI64") return CastKind::I32ToI64;
+        if (name == "I64ToI32") return CastKind::I64ToI32;
+        if (name == "I32ToF32") return CastKind::I32ToF32;
+        if (name == "I32ToF64") return CastKind::I32ToF64;
+        if (name == "U32ToF32") return CastKind::U32ToF32;
+        if (name == "U32ToF64") return CastKind::U32ToF64;
+        if (name == "I64ToF32") return CastKind::I64ToF32;
+        if (name == "I64ToF64") return CastKind::I64ToF64;
+        if (name == "U64ToF32") return CastKind::U64ToF32;
+        if (name == "U64ToF64") return CastKind::U64ToF64;
+        if (name == "F32ToI32") return CastKind::F32ToI32;
+        if (name == "F32ToU32") return CastKind::F32ToU32;
+        if (name == "F32ToI64") return CastKind::F32ToI64;
+        if (name == "F32ToU64") return CastKind::F32ToU64;
+        if (name == "F64ToI32") return CastKind::F64ToI32;
+        if (name == "F64ToU32") return CastKind::F64ToU32;
+        if (name == "F64ToI64") return CastKind::F64ToI64;
+        if (name == "F64ToU64") return CastKind::F64ToU64;
+        if (name == "F32ToF64") return CastKind::F32ToF64;
+        if (name == "F64ToF32") return CastKind::F64ToF32;
+        if (name == "ToBool")   return CastKind::ToBool;
+        return std::nullopt;
     }
 
     struct PendingJump
@@ -317,6 +348,36 @@ bool Assembler::Assemble(ProtoBuilder& builder, std::string_view source, std::st
                     b = static_cast<uint8_t>(flag);
                 }
                 highestReg = std::max(highestReg, a);
+            }
+            else if (op == Opcode::Cast)
+            {
+                if (tokens.size() < 4)
+                {
+                    if (outError) *outError = "Line " + std::to_string(lineNo)
+                                              + ": Cast requires dst register, src register, and CastKind";
+                    return false;
+                }
+                if (!ParseRegister(tokens[1], a))
+                {
+                    if (outError) *outError = "Line " + std::to_string(lineNo)
+                                              + ": Invalid register '" + std::string(tokens[1]) + "'";
+                    return false;
+                }
+                if (!ParseRegister(tokens[2], b))
+                {
+                    if (outError) *outError = "Line " + std::to_string(lineNo)
+                                              + ": Invalid register '" + std::string(tokens[2]) + "'";
+                    return false;
+                }
+                auto kindOpt = ParseCastKind(tokens[3]);
+                if (!kindOpt)
+                {
+                    if (outError) *outError = "Line " + std::to_string(lineNo)
+                                              + ": Unknown CastKind '" + std::string(tokens[3]) + "'";
+                    return false;
+                }
+                c = static_cast<uint8_t>(*kindOpt);
+                highestReg = std::max({ highestReg, a, b });
             }
             else
             {

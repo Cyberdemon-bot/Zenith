@@ -34,6 +34,7 @@ namespace {
             case Opcode::Eq:        return "Eq";
             case Opcode::Lt:        return "Lt";
             case Opcode::LNot:      return "LNot";
+            case Opcode::Cast:      return "Cast";
             case Opcode::Jmp:       return "Jmp";
             case Opcode::Jz:        return "Jz";
             case Opcode::Jnz:       return "Jnz";
@@ -57,6 +58,39 @@ namespace {
             case Type::REF:  return ".REF";
             case Type::None: return "";
             default:         return "";
+        }
+    }
+
+    std::string_view CastKindName(uint8_t raw)
+    {
+        switch (static_cast<CastKind>(raw))
+        {
+            case CastKind::TruncI8:  return "TruncI8";
+            case CastKind::TruncI16: return "TruncI16";
+            case CastKind::TruncU8:  return "TruncU8";
+            case CastKind::TruncU16: return "TruncU16";
+            case CastKind::I32ToI64: return "I32ToI64";
+            case CastKind::I64ToI32: return "I64ToI32";
+            case CastKind::I32ToF32: return "I32ToF32";
+            case CastKind::I32ToF64: return "I32ToF64";
+            case CastKind::U32ToF32: return "U32ToF32";
+            case CastKind::U32ToF64: return "U32ToF64";
+            case CastKind::I64ToF32: return "I64ToF32";
+            case CastKind::I64ToF64: return "I64ToF64";
+            case CastKind::U64ToF32: return "U64ToF32";
+            case CastKind::U64ToF64: return "U64ToF64";
+            case CastKind::F32ToI32: return "F32ToI32";
+            case CastKind::F32ToU32: return "F32ToU32";
+            case CastKind::F32ToI64: return "F32ToI64";
+            case CastKind::F32ToU64: return "F32ToU64";
+            case CastKind::F64ToI32: return "F64ToI32";
+            case CastKind::F64ToU32: return "F64ToU32";
+            case CastKind::F64ToI64: return "F64ToI64";
+            case CastKind::F64ToU64: return "F64ToU64";
+            case CastKind::F32ToF64: return "F32ToF64";
+            case CastKind::F64ToF32: return "F64ToF32";
+            case CastKind::ToBool:   return "ToBool";
+            default:                 return "UnknownCast";
         }
     }
 
@@ -152,6 +186,9 @@ void Disassembler::DumpInstruction(const Module& module, uint16_t proto_id,
             os << "R" << static_cast<int>(a) << ", R" << static_cast<int>(b);
         else if (info.op == Opcode::Return)
             os << "R" << static_cast<int>(a) << ", " << static_cast<int>(b);
+        else if (info.op == Opcode::Cast)
+            os << "R" << static_cast<int>(a) << ", R" << static_cast<int>(b)
+               << ", " << CastKindName(c);
         else
             os << "R" << static_cast<int>(a) << ", R" << static_cast<int>(b)
                << ", R" << static_cast<int>(c);

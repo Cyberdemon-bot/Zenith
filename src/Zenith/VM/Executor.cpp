@@ -20,6 +20,43 @@
 
 namespace Zenith {
 
+    namespace {
+
+        inline void ApplyCast(Value& dst, const Value& src, CastKind kind) noexcept
+        {
+            switch (kind)
+            {
+                case CastKind::TruncI8:  dst.SetAs<Type::I32>(static_cast<int32_t>(static_cast<int8_t>(src.u64))); break;
+                case CastKind::TruncI16: dst.SetAs<Type::I32>(static_cast<int32_t>(static_cast<int16_t>(src.u64))); break;
+                case CastKind::TruncU8:  dst.SetAs<Type::U32>(static_cast<uint32_t>(static_cast<uint8_t>(src.u64))); break;
+                case CastKind::TruncU16: dst.SetAs<Type::U32>(static_cast<uint32_t>(static_cast<uint16_t>(src.u64))); break;
+                case CastKind::I32ToI64: dst.SetAs<Type::I64>(static_cast<int64_t>(src.GetAs<Type::I32>())); break;
+                case CastKind::I64ToI32: dst.SetAs<Type::I32>(static_cast<int32_t>(src.GetAs<Type::I64>())); break;
+                case CastKind::I32ToF32: dst.SetAs<Type::F32>(static_cast<float>(src.GetAs<Type::I32>())); break;
+                case CastKind::I32ToF64: dst.SetAs<Type::F64>(static_cast<double>(src.GetAs<Type::I32>())); break;
+                case CastKind::U32ToF32: dst.SetAs<Type::F32>(static_cast<float>(src.GetAs<Type::U32>())); break;
+                case CastKind::U32ToF64: dst.SetAs<Type::F64>(static_cast<double>(src.GetAs<Type::U32>())); break;
+                case CastKind::I64ToF32: dst.SetAs<Type::F32>(static_cast<float>(src.GetAs<Type::I64>())); break;
+                case CastKind::I64ToF64: dst.SetAs<Type::F64>(static_cast<double>(src.GetAs<Type::I64>())); break;
+                case CastKind::U64ToF32: dst.SetAs<Type::F32>(static_cast<float>(src.GetAs<Type::U64>())); break;
+                case CastKind::U64ToF64: dst.SetAs<Type::F64>(static_cast<double>(src.GetAs<Type::U64>())); break;
+                case CastKind::F32ToI32: dst.SetAs<Type::I32>(static_cast<int32_t>(src.GetAs<Type::F32>())); break;
+                case CastKind::F32ToU32: dst.SetAs<Type::U32>(static_cast<uint32_t>(src.GetAs<Type::F32>())); break;
+                case CastKind::F32ToI64: dst.SetAs<Type::I64>(static_cast<int64_t>(src.GetAs<Type::F32>())); break;
+                case CastKind::F32ToU64: dst.SetAs<Type::U64>(static_cast<uint64_t>(src.GetAs<Type::F32>())); break;
+                case CastKind::F64ToI32: dst.SetAs<Type::I32>(static_cast<int32_t>(src.GetAs<Type::F64>())); break;
+                case CastKind::F64ToU32: dst.SetAs<Type::U32>(static_cast<uint32_t>(src.GetAs<Type::F64>())); break;
+                case CastKind::F64ToI64: dst.SetAs<Type::I64>(static_cast<int64_t>(src.GetAs<Type::F64>())); break;
+                case CastKind::F64ToU64: dst.SetAs<Type::U64>(static_cast<uint64_t>(src.GetAs<Type::F64>())); break;
+                case CastKind::F32ToF64: dst.SetAs<Type::F64>(static_cast<double>(src.GetAs<Type::F32>())); break;
+                case CastKind::F64ToF32: dst.SetAs<Type::F32>(static_cast<float>(src.GetAs<Type::F64>())); break;
+                case CastKind::ToBool:   dst.u64 = (src.u64 != 0) ? 1 : 0; break;
+                default: break;
+            }
+        }
+
+    }
+
     template<uint32_t Slot>
     StepRet Executor::Step(State* state, const Instruction* ip, Value* regs, const Value* consts)
     {
@@ -119,6 +156,12 @@ namespace Zenith {
         {
             ZN_EXTRACT(iABC, a, b, c);
             regs[a].u64 = (regs[b].u64 == 0) ? 1 : 0;
+        }
+        else if constexpr (op == Opcode::Cast)
+        {
+            ZN_EXTRACT(iABC, a, b, c);
+            ZN_CORE_ASSERT(c < static_cast<uint8_t>(CastKind::Count), "Invalid CastKind");
+            ApplyCast(regs[a], regs[b], static_cast<CastKind>(c));
         }
         else if constexpr (op == Opcode::Jmp)
         {
