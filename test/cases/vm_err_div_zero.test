@@ -1,0 +1,12 @@
+// === INPUT: ASM ===
+.proto
+.params 0
+.regs 3
+
+LoadImm   R0, 10
+LoadImm   R1, 0
+DivS.I64  R2, R0, R1
+Halt
+
+// === EXPECTED VM ===
+TRAP: Division by zero at Proto#0[2]

@@ -1,0 +1,13 @@
+// === INPUT: ASM ===
+.proto
+.params 0
+.regs 3
+.const I32 -2147483648
+
+LoadConst R0, K0
+LoadImm   R1, -1
+DivS.I32  R2, R0, R1
+Halt
+
+// === EXPECTED VM ===
+TRAP: Signed integer division overflow at Proto#0[2]

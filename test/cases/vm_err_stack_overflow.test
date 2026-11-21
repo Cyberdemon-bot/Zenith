@@ -1,0 +1,10 @@
+// === INPUT: ASM ===
+.proto
+.params 0
+.regs 2
+
+Call      R1, Proto#0
+Return    R0, 0
+
+// === EXPECTED VM ===
+TRAP: Call stack overflow at Proto#0[0]

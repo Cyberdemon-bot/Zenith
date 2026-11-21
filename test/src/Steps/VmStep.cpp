@@ -139,15 +139,27 @@ VmStep::Result VmStep::RunAsm(std::string_view asmSource, const std::string& exp
     state.SetModule(sharedModule);
     state.Prepare(entryId);
 
+    bool ok = true;
     try
     {
         ZN_PROFILE_SCOPE(&res.profile.executeTimeMs);
-        Executor::Execute(state);
+        ok = Executor::Execute(state);
     }
     catch (const std::exception& e)
     {
         res.success = false;
         res.errorMessage = "VM execution exception: " + std::string(e.what());
+        return res;
+    }
+
+    if (!ok)
+    {
+        const RuntimeError& err = state.GetError();
+        std::ostringstream trapOut;
+        trapOut << "TRAP: " << RuntimeErrorToString(err.code)
+                << " at Proto#" << err.proto_id << "[" << err.pc << "]";
+        res.actualVm = trapOut.str();
+        res.success = true;
         return res;
     }
 

@@ -9,7 +9,7 @@ namespace Zenith {
 
     State::State()
     {
-        m_Stack.resize(DEFAULT_STACK_SIZE); 
+        m_Stack.resize(DEFAULT_STACK_SIZE);
         m_Frames.reserve(MAX_CALL_FRAMES);
     }
 
@@ -26,6 +26,7 @@ namespace Zenith {
         ZN_CORE_ASSERT(m_Module != nullptr, "Module not set");
         ZN_CORE_ASSERT(entryProtoId < m_Module->GetNumProtos(), "Invalid entry proto");
         m_Frames.clear();
+        m_Error = {};
 
         m_Frames.push_back(CallFrame
         {
@@ -46,13 +47,29 @@ namespace Zenith {
         ZN_CORE_ASSERT(!m_Frames.empty(), "Reg() called after all frames popped");
         return m_Frames.back().StackBase[idx];
     }
-    
-    void State::PushFrame(Value* stackBase, uint16_t protoId, const Instruction* ip)
+
+    RuntimeErrorCode State::PushFrame(Value* stackBase, uint16_t protoId, const Instruction* ip) noexcept
     {
-        ZN_CORE_ASSERT(m_Frames.size() < MAX_CALL_FRAMES, "Call stack overflow");
-        ZN_CORE_ASSERT(stackBase >= m_Stack.data() &&
-                       static_cast<size_t>(stackBase - m_Stack.data()) + m_Module->GetProto(protoId).MaxRegs
-                        <= m_Stack.size(), "Register stack overflow");
+        if (m_Frames.size() >= MAX_CALL_FRAMES) [[unlikely]]
+            return RuntimeErrorCode::CallStackOverflow;
+        if (stackBase < m_Stack.data() ||
+            static_cast<size_t>(stackBase - m_Stack.data()) + m_Module->GetProto(protoId).MaxRegs > m_Stack.size()) [[unlikely]]
+            return RuntimeErrorCode::RegisterStackOverflow;
+
         m_Frames.push_back(CallFrame{ stackBase, ip, protoId });
+        return RuntimeErrorCode::None;
+    }
+
+    void State::Trap(RuntimeErrorCode code, const Instruction* fault_ip) noexcept
+    {
+        ZN_CORE_ASSERT(!m_Frames.empty(), "Trap() called without active frame");
+        CallFrame& cur = m_Frames.back();
+        auto code_span = m_Module->GetCode(cur.ProtoId);
+        uint32_t pc = 0;
+        if (fault_ip >= code_span.data() && fault_ip < code_span.data() + code_span.size())
+            pc = static_cast<uint32_t>(fault_ip - code_span.data());
+
+        cur.IP = fault_ip;
+        m_Error = RuntimeError{ .code = code, .proto_id = cur.ProtoId, .pc = pc };
     }
 }
