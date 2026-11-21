@@ -23,9 +23,9 @@ func main() {
 4:18 Literal out of range for 'u16'
 8:23 Type mismatch: expected 'i8', got 'i64'
 9:23 Type mismatch: expected 'i64', got 'f64'
-12:24 Invalid operand type 'bool' for operator '+'
 16:14 Assignment type mismatch: expected 'u8', got 'f64'
 17:25 Let binding type mismatch: expected 'bool', got 'i64'
+12:24 Invalid operand type 'bool' for operator '+'
 11:20 Type mismatch: expected 'bool', got 'i64'
 13:21 Invalid operand type 'i64' for operator 'and'
 
@@ -101,9 +101,9 @@ func main() {
           (Bool false :type bool)
         )
       )
-      (LetStmt :type bool
-        (Identifier "bad_logic" :type bool)
-        (BinaryExpr :op "and" :type bool
+      (LetStmt :type <error>
+        (Identifier "bad_logic" :type <error>)
+        (BinaryExpr :op "and" :type <error>
           (Integer 1 :type i64)
           (Integer 2 :type i64)
         )

@@ -95,19 +95,6 @@ namespace Zenith {
         return m_Ast.tokens[m_Ast.nodes[node].start_token].literal;
     }
 
-    CTType TypeChecker::ResolveBinaryOp(uint32_t node, Operator op, CTType lhs, CTType rhs)
-    {
-        if (lhs == CTType::Error() || rhs == CTType::Error()) return CTType::Error();
-        CTType result = Utils::CheckBinaryOp(op, lhs, rhs);
-        if (!result)
-        {
-            DiagType dt = (lhs != rhs) ? DiagType::InvalidBinaryOp : DiagType::OperandTypeMismatch;
-            AddError(node, { dt, OperatorToString(op), lhs, rhs });
-            return CTType::Error();
-        }
-        return result;
-    }
-
     CTType TypeChecker::ResolveTypeNode(uint32_t type_node)
     {
         if (type_node == ERROR_NODE) return CTType::Error();

@@ -140,7 +140,12 @@ namespace Zenith {
     {
         Constraint& c = m_Constraints[idx];
         CTType opnd = Resolve(c.lhs);
-        if (opnd == CTType::Error()) { m_Done[idx] = true; return false; }
+        if (opnd == CTType::Error())
+        {
+            m_Done[idx] = true;
+            Unify(c.result, CTType::Error());
+            return false;
+        }
 
         if (!opnd.IsVar())
         {
@@ -153,6 +158,7 @@ namespace Zenith {
                     : DiagType::InvalidUnaryOp;
                 c.diag.args = std::string(OperatorToString(c.op));
                 c.diag.actual = opnd;
+                Unify(c.result, CTType::Error());
                 m_Failed.push_back(idx);
             }
             else if (!Unify(c.result, res_type))
@@ -169,7 +175,12 @@ namespace Zenith {
             // '!' requires bool operand and yields bool
             m_Done[idx] = true;
             Unify(opnd, CTType::Bool());
-            Unify(c.result, CTType::Bool());
+            if (!Unify(c.result, CTType::Bool()))
+            {
+                c.diag.expected = Resolve(c.result);
+                c.diag.actual = CTType::Bool();
+                m_Failed.push_back(idx);
+            }
             return true;
         }
 
@@ -189,32 +200,41 @@ namespace Zenith {
     bool ConstraintSolver::SolveBinaryOp(uint32_t idx)
     {
         Constraint& c = m_Constraints[idx];
+        CTType l = Resolve(c.lhs);
+        CTType r = Resolve(c.rhs);
+        if (l == CTType::Error() || r == CTType::Error())
+        {
+            m_Done[idx] = true;
+            Unify(c.result, CTType::Error());
+            return false;
+        }
 
-        if (!Unify(c.lhs, c.rhs))
+        bool unified_vars = (l != r);
+        if (!Unify(l, r))
         {
             m_Done[idx] = true;
             c.diag.diag = DiagType::InvalidBinaryOp;
             c.diag.args = std::string(OperatorToString(c.op));
-            c.diag.expected = Resolve(c.lhs);
-            c.diag.actual = Resolve(c.rhs);
+            c.diag.expected = l;
+            c.diag.actual = r;
+            Unify(c.result, CTType::Error());
             m_Failed.push_back(idx);
             return false;
         }
 
-        CTType l = Resolve(c.lhs);
-        CTType r = Resolve(c.rhs);
-        if (l == CTType::Error() || r == CTType::Error()) { m_Done[idx] = true; return false; }
-
+        l = Resolve(c.lhs);
+        r = Resolve(c.rhs);
         if (!l.IsVar() && !r.IsVar())
         {
             m_Done[idx] = true;
             CTType res_type = Utils::CheckBinaryOp(c.op, l, r);
             if (!res_type)
             {
-                c.diag.diag = (l != r) ? DiagType::InvalidBinaryOp : DiagType::OperandTypeMismatch;
+                c.diag.diag = DiagType::OperandTypeMismatch;
                 c.diag.args = std::string(OperatorToString(c.op));
                 c.diag.expected = l;
                 c.diag.actual = r;
+                Unify(c.result, CTType::Error());
                 m_Failed.push_back(idx);
             }
             else if (!Unify(c.result, res_type))
@@ -237,7 +257,7 @@ namespace Zenith {
             }
         }
 
-        return false;
+        return unified_vars;
     }
 
     bool ConstraintSolver::SolveCast(uint32_t idx)

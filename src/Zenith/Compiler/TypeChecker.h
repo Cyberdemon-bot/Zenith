@@ -92,7 +92,7 @@ namespace Zenith {
 
         CTType SetNodeType(uint32_t node, CTType type);
         CTType ResolveTypeNode(uint32_t type_node);
-        CTType ResolveBinaryOp(uint32_t node, Operator op, CTType lhs, CTType rhs);
+        CTType ValidateIntLiteral(uint32_t node, int64_t val, CTType expected, DiagType diag);
         CTType ValidateExpr(uint32_t node, CTType expected, DiagType diag = DiagType::TypeMismatch);
 
         void CollectSignature();

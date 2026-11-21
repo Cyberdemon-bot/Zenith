@@ -29,10 +29,10 @@ func main() {
 // === EXPECTED ERRORS ===
 5:6 Duplicate function 'dup'
 12:22 Literal out of range for 'u8'
-13:18 Invalid operand type 'unit' for operator '=='
 16:9 'break' outside of loop or block
 21:15 Break value type mismatch: expected 'unit', got 'i64'
 24:24 Let binding type mismatch: expected 'i64', got 'unit'
+13:18 Invalid operand type 'unit' for operator '=='
 
 // === EXPECTED TYPES ===
 (Program

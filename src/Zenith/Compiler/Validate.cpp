@@ -48,7 +48,6 @@ namespace Zenith {
             auto func = m_Table.Find(func_name);
             if (!func.has_value()) continue;
             m_CurrentFunc = { .ret_type = func->ret_type, .has_ret = false };
-
             PushScope();
 
             uint32_t params_cnt = ListCount(sign.data.func_sign.params);
@@ -64,10 +63,7 @@ namespace Zenith {
                     .depth = m_CurrentDepth,
                     .type = param_type,
                     .is_mut = (ti.is_mut != 0)
-                }))
-                {
-                    AddError(ti.ident, { DiagType::RedeclaredIdentifier, param_name });
-                }
+                })) AddError(ti.ident, { DiagType::RedeclaredIdentifier, param_name });
 
                 SetNodeType(param_idx, param_type);
                 SetNodeType(ti.ident, param_type);
@@ -99,10 +95,7 @@ namespace Zenith {
                     AddError(idx, { DiagType::CannotInferType });
                     m_NodeTypes[idx] = CTType::Error();
                 }
-                else
-                {
-                    m_NodeTypes[idx] = resolved;
-                }
+                else m_NodeTypes[idx] = resolved;
             }
         }
 
@@ -115,6 +108,29 @@ namespace Zenith {
         };
     }
 
+    CTType TypeChecker::ValidateIntLiteral(uint32_t node, int64_t val, CTType expected, DiagType diag)
+    {
+        if (expected && !expected.IsVar())
+        {
+            if (!Utils::IsInteger(expected)) return CTType::I64();
+            if (!Utils::CheckIntRange(val, expected))
+            {
+                AddError(node, { DiagType::LiteralOutOfRange, {}, expected, CTType::I64() });
+                return CTType::Error();
+            }
+            return expected;
+        }
+
+        CTType v = m_Solver.Fresh();
+        m_Solver.Emit({
+            .kind = Constraint::Kind::IntLit,
+            .lhs = v,
+            .lit = { .i64 = val },
+            .diag = { .node = node, .token = m_Ast.nodes[node].start_token, .diag = diag }
+        });
+        return v;
+    }
+
     CTType TypeChecker::ValidateExpr(uint32_t node, CTType expected, DiagType diag)
     {
         if (node == ERROR_NODE || node >= m_Ast.nodes.size()) return CTType::Error();
@@ -122,25 +138,7 @@ namespace Zenith {
         CTType actual = CTType::Error();
         switch (n.type)
         {
-            case NodeType::Integer:
-            {
-                if (expected && !expected.IsVar())
-                {
-                    if (!Utils::IsInteger(expected)) ACTUAL(CTType::I64());
-                    if (!Utils::CheckIntRange(n.data.i64, expected))
-                        COMMIT_ERROR(DiagType::LiteralOutOfRange, {}, expected, CTType::I64());
-                    ACTUAL(expected);
-                }
-
-                CTType v = m_Solver.Fresh();
-                m_Solver.Emit({
-                    .kind = Constraint::Kind::IntLit,
-                    .lhs = v,
-                    .lit = { .i64 = n.data.i64 },
-                    .diag = { .node = node, .token = n.start_token, .diag = diag }
-                });
-                ACTUAL(v);
-            }
+            case NodeType::Integer: ACTUAL(ValidateIntLiteral(node, n.data.i64, expected, diag));
             case NodeType::Decimal:
             {
                 if (expected && !expected.IsVar())
@@ -174,140 +172,6 @@ namespace Zenith {
                 // TODO: Update tuple support later
                 COMMIT_ERROR(DiagType::UnsupportedFeature, "tuple expressions");
             }
-            case NodeType::UnaryExpr:
-            {
-                uint32_t opnd_idx = n.data.unary.operand;
-                // Fold unary '-' with integer literals so signed min bounds (e.g. -128 for i8) pass range checks.
-                if (n.data.unary.op == Operator::Neg &&
-                    opnd_idx != ERROR_NODE && opnd_idx < m_Ast.nodes.size() &&
-                    m_Ast.nodes[opnd_idx].type == NodeType::Integer)
-                {
-                    int64_t neg_val = -m_Ast.nodes[opnd_idx].data.i64;
-                    if (expected && !expected.IsVar())
-                    {
-                        if (!Utils::IsInteger(expected))
-                        {
-                            SetNodeType(opnd_idx, CTType::I64());
-                            ACTUAL(CTType::I64());
-                        }
-                        if (!Utils::CheckIntRange(neg_val, expected))
-                        {
-                            SetNodeType(opnd_idx, CTType::Error());
-                            COMMIT_ERROR(DiagType::LiteralOutOfRange, {}, expected, CTType::I64());
-                        }
-                        SetNodeType(opnd_idx, expected);
-                        ACTUAL(expected);
-                    }
-
-                    CTType v = m_Solver.Fresh();
-                    SetNodeType(opnd_idx, v);
-                    m_Solver.Emit({
-                        .kind = Constraint::Kind::IntLit,
-                        .lhs = v,
-                        .lit = { .i64 = neg_val },
-                        .diag = { .node = node, .token = n.start_token, .diag = diag }
-                    });
-                    ACTUAL(v);
-                }
-
-                auto operand = ValidateExpr(opnd_idx, CTType::Unknown());
-                if (operand == CTType::Error()) ERROR();
-
-                if (!operand.IsVar())
-                {
-                    CTType result = Utils::CheckUnaryOp(n.data.unary.op, operand);
-                    if (!result)
-                    {
-                        DiagType dt = (n.data.unary.op == Operator::Not || n.data.unary.op == Operator::Neg)
-                            ? DiagType::OperandTypeMismatch
-                            : DiagType::InvalidUnaryOp;
-                        COMMIT_ERROR(dt, OperatorToString(n.data.unary.op), CTType::Error(), operand);
-                    }
-                    ACTUAL(result);
-                }
-
-                if (n.data.unary.op == Operator::Not)
-                {
-                    m_Solver.Emit({
-                        .kind = Constraint::Kind::Eq,
-                        .lhs = operand,
-                        .rhs = CTType::Bool(),
-                        .diag = { .args = std::string(OperatorToString(Operator::Not)), .node = node, .token = n.start_token, .diag = DiagType::OperandTypeMismatch }
-                    });
-                    ACTUAL(CTType::Bool());
-                }
-                if (n.data.unary.op == Operator::Neg)
-                {
-                    CTType res = (expected && !expected.IsVar()) ? expected : m_Solver.Fresh();
-                    m_Solver.Emit({
-                        .kind = Constraint::Kind::UnaryOp,
-                        .lhs = operand,
-                        .result = res,
-                        .op = Operator::Neg,
-                        .diag = { .node = node, .token = n.start_token, .diag = DiagType::TypeMismatch }
-                    });
-                    ACTUAL(res);
-                }
-                COMMIT_ERROR(DiagType::InvalidUnaryOp, OperatorToString(n.data.unary.op));
-            }
-            case NodeType::BinaryExpr:
-            {
-                auto lhs = ValidateExpr(n.data.binary.lhs, CTType::Unknown());
-                CTType rhs_expected = (lhs.kind == CTType::Kind::Error ||
-                                       lhs.kind == CTType::Kind::Unknown)
-                    ? CTType::Unknown() : lhs;
-                auto rhs = ValidateExpr(n.data.binary.rhs, rhs_expected);
-                if (lhs == CTType::Error() || rhs == CTType::Error()) ERROR();
-
-                if (!lhs.IsVar() && !rhs.IsVar())
-                    ACTUAL(ResolveBinaryOp(node, n.data.binary.op, lhs, rhs));
-
-                m_Solver.Emit({
-                    .kind = Constraint::Kind::Eq,
-                    .lhs = lhs,
-                    .rhs = rhs,
-                    .diag = { .args = std::string(OperatorToString(n.data.binary.op)), .node = node, .token = n.start_token, .diag = DiagType::InvalidBinaryOp }
-                });
-
-                Operator op = n.data.binary.op;
-                bool is_bool_res = (op == Operator::Eq || op == Operator::Ne ||
-                                    op == Operator::Lt || op == Operator::Lte ||
-                                    op == Operator::Gt || op == Operator::Gte ||
-                                    op == Operator::And || op == Operator::Or);
-                CTType res = is_bool_res
-                    ? CTType::Bool()
-                    : ((expected && !expected.IsVar()) ? expected : m_Solver.Fresh());
-
-                m_Solver.Emit({
-                    .kind = Constraint::Kind::BinaryOp,
-                    .lhs = lhs,
-                    .rhs = rhs,
-                    .result = res,
-                    .op = op,
-                    .diag = { .node = node, .token = n.start_token, .diag = DiagType::TypeMismatch }
-                });
-                ACTUAL(res);
-            }
-            case NodeType::CastExpr:
-            {
-                auto src = ValidateExpr(n.data.cast.expr, CTType::Unknown());
-                auto dst = ResolveTypeNode(n.data.cast.type);
-                if (src == CTType::Error() || dst == CTType::Error()) ERROR();
-
-                if (!src.IsVar())
-                {
-                    if (Utils::ValidatePrimitiveCast(src, dst)) ACTUAL(dst);
-                    COMMIT_ERROR(DiagType::CoerceFailure, {}, dst, src);
-                }
-
-                m_Solver.Emit({
-                    .kind = Constraint::Kind::Cast,
-                    .lhs = src,
-                    .rhs = dst,
-                    .diag = { .node = node, .token = n.start_token, .diag = DiagType::CoerceFailure }
-                });
-                ACTUAL(dst);
-            }
             case NodeType::CallExpr:
             {
                 if (n.data.call.callee == ERROR_NODE || n.data.call.callee >= m_Ast.nodes.size()) ERROR();
@@ -338,6 +202,72 @@ namespace Zenith {
                 }
                 if (has_error) ERROR();
                 ACTUAL(sig->ret_type);
+            }
+            case NodeType::UnaryExpr:
+            {
+                uint32_t opnd_idx = n.data.unary.operand;
+                // Fold unary '-' with integer literals so signed min bounds (e.g. -128 for i8) pass range checks.
+                if (n.data.unary.op == Operator::Neg &&
+                    opnd_idx != ERROR_NODE && opnd_idx < m_Ast.nodes.size() &&
+                    m_Ast.nodes[opnd_idx].type == NodeType::Integer)
+                {
+                    CTType t = ValidateIntLiteral(node, -m_Ast.nodes[opnd_idx].data.i64, expected, diag);
+                    SetNodeType(opnd_idx, t);
+                    ACTUAL(t);
+                }
+
+                auto operand = ValidateExpr(opnd_idx, CTType::Unknown());
+                if (operand == CTType::Error()) ERROR();
+
+                CTType res = m_Solver.Fresh();
+                m_Solver.Emit({
+                    .kind = Constraint::Kind::UnaryOp,
+                    .lhs = operand,
+                    .result = res,
+                    .op = n.data.unary.op,
+                    .diag = { .node = node, .token = n.start_token, .diag = diag }
+                });
+                ACTUAL(res);
+            }
+            case NodeType::BinaryExpr:
+            {
+                auto lhs = ValidateExpr(n.data.binary.lhs, CTType::Unknown());
+                CTType rhs_expected = (lhs.kind == CTType::Kind::Error ||
+                                       lhs.kind == CTType::Kind::Unknown)
+                    ? CTType::Unknown() : lhs;
+                auto rhs = ValidateExpr(n.data.binary.rhs, rhs_expected);
+                if (lhs == CTType::Error() || rhs == CTType::Error()) ERROR();
+
+                CTType res = m_Solver.Fresh();
+                m_Solver.Emit({
+                    .kind = Constraint::Kind::BinaryOp,
+                    .lhs = lhs,
+                    .rhs = rhs,
+                    .result = res,
+                    .op = n.data.binary.op,
+                    .diag = { .node = node, .token = n.start_token, .diag = diag }
+                });
+                ACTUAL(res);
+            }
+            case NodeType::CastExpr:
+            {
+                auto src = ValidateExpr(n.data.cast.expr, CTType::Unknown());
+                auto dst = ResolveTypeNode(n.data.cast.type);
+                if (src == CTType::Error() || dst == CTType::Error()) ERROR();
+
+                if (!src.IsVar())
+                {
+                    if (Utils::ValidatePrimitiveCast(src, dst)) ACTUAL(dst);
+                    COMMIT_ERROR(DiagType::CoerceFailure, {}, dst, src);
+                }
+
+                m_Solver.Emit({
+                    .kind = Constraint::Kind::Cast,
+                    .lhs = src,
+                    .rhs = dst,
+                    .diag = { .node = node, .token = n.start_token, .diag = DiagType::CoerceFailure }
+                });
+                ACTUAL(dst);
             }
             case NodeType::BlockExpr: ACTUAL(CheckBlock(node, expected, "", true));
             case NodeType::IfExpr:    ACTUAL(CheckIf(node, expected));

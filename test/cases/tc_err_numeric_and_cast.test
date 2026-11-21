@@ -8,8 +8,8 @@ func main() {
 }
 // === EXPECTED ERRORS ===
 2:24 Literal out of range for 'u8'
-4:19 Invalid operand type 'u8' for operator '-'
 6:21 Type mismatch: expected 'bool', got 'i64'
+4:19 Invalid operand type 'u8' for operator '-'
 5:20 Invalid type cast from 'f64' to 'bool'
 6:38 Type mismatch: expected 'i64', got 'f64'
 
