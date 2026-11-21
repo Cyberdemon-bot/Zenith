@@ -39,6 +39,8 @@ namespace Zenith {
         // Any FuncView span obtained before Add() or Freeze() may be invalidated.
         void Freeze();
 
+        size_t Count() const { return m_Signs.size(); }
+
     private:
         std::vector<CTType> m_TPool;
         std::vector<FuncSign> m_Signs;

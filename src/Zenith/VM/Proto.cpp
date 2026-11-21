@@ -85,6 +85,15 @@ namespace Zenith {
         m_Constants.insert(m_Constants.end(), b.m_Constants.begin(), b.m_Constants.end());
     }
 
+    void Module::SetEntry(uint16_t id)
+    {
+        ZN_CORE_ASSERT(!m_Frozen, "Module is frozen");
+        ZN_CORE_ASSERT(!m_HasEntry, "Entry proto already set");
+        ZN_CORE_ASSERT(id < m_Protos.size(), "Invalid entry proto id");
+        m_EntryProto = id;
+        m_HasEntry = true;
+    }
+
     void Module::Freeze() 
     {
         ZN_CORE_ASSERT(!m_Frozen, "Already frozen");

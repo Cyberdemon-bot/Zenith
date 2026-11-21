@@ -1,8 +1,10 @@
 #pragma once
 
+#include "Zenith/Core/Base.h"
 #include "Zenith/VM/Instruction.h"
 #include "Zenith/VM/Value.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <span>
 #include <vector>
@@ -10,7 +12,7 @@
 namespace Zenith {
 
     class Module;
-    struct Proto 
+    struct Proto
     {
         Proto() = default;
 
@@ -44,13 +46,13 @@ namespace Zenith {
         uint32_t GetCodeSize() const  { return static_cast<uint32_t>(m_Code.size()); }
         uint16_t GetConstSize() const { return static_cast<uint16_t>(m_Constants.size()); }
 
-        void SetChildren(uint16_t first, uint16_t count) 
+        void SetChildren(uint16_t first, uint16_t count)
         {
             m_FirstChild = first;
             m_ChildCount = count;
         }
 
-        void Clear() 
+        void Clear()
         {
             m_Code.clear(); m_Constants.clear();
             m_FirstChild = m_ChildCount = 0;
@@ -71,7 +73,7 @@ namespace Zenith {
         Module() = default;
         Module(Module&&) = default;
         Module& operator=(Module&&) = default;
-        Module(const Module&) = delete;            
+        Module(const Module&) = delete;
         Module& operator=(const Module&) = delete;
 
         const Proto& GetProto(uint16_t id) const;
@@ -80,8 +82,13 @@ namespace Zenith {
         std::span<const Value> GetConsts(uint16_t id) const;
 
         uint16_t Reserve();
+        void ReserveProtos(size_t count) { m_Protos.reserve(count); }
         uint16_t Add(ProtoBuilder&& b);
         void Fill(uint16_t id, ProtoBuilder&& b);
+
+        void SetEntry(uint16_t id);
+        uint16_t GetEntry() const { return m_EntryProto; }
+        bool HasEntry() const { return m_HasEntry; }
 
         void Freeze();
         bool IsFrozen() const { return m_Frozen; }
@@ -89,6 +96,8 @@ namespace Zenith {
         std::vector<Proto> m_Protos;
         std::vector<Value> m_Constants;
         std::vector<Instruction> m_Code;
+        uint16_t m_EntryProto = INVALID_PROTO;
+        bool m_HasEntry = false;
         bool m_Frozen = false;
     };
 }

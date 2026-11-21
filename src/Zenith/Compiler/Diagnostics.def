@@ -47,3 +47,8 @@ DIAG(BlockMissingBreak,    245, Error, "Block does not break with a value of exp
 // General (290-299)
 DIAG(UnsupportedFeature,   290, Error, "Unsupported feature: {0}")
 DIAG(TooManyErrors,        291, Error, "Too many errors")
+
+// CodeGen (300-309)
+DIAG(RegisterOverflow,     300, Error, "Function '{0}' exceeds maximum register limit (255)")
+DIAG(ConstantPoolOverflow, 301, Error, "Function '{0}' exceeds maximum constant pool limit (65535)")
+DIAG(JumpOffsetOverflow,   302, Error, "Jump offset out of range in function '{0}'")
