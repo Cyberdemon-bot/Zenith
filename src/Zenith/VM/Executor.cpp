@@ -1,5 +1,6 @@
 #include "Zenith/VM/Executor.h"
 
+#include "Zenith/Core/Assert.h"
 #include "Zenith/Core/Base.h"
 #include "Zenith/VM/Instruction.h"
 #include "Zenith/VM/State.h"
@@ -27,6 +28,8 @@ namespace Zenith {
         if constexpr (op == Opcode::LoadConst) 
         {
             ZN_EXTRACT(iABx, a, bx);
+            ZN_CORE_ASSERT(bx < state->GetModule().GetProto(state->CurrentFrame().ProtoId).ConstCount,
+                           "Constant index out of bounds");
             regs[a].u64 = consts[bx].u64;
         }
         else if constexpr (op == Opcode::LoadImm) 
@@ -88,32 +91,55 @@ namespace Zenith {
         {
             ZN_EXTRACT(iAsBx, a, sbx);
             ip += sbx;
+            ZN_CORE_ASSERT(ip >= state->GetModule().GetCode(state->CurrentFrame().ProtoId).data() &&
+                           ip <  state->GetModule().GetCode(state->CurrentFrame().ProtoId).data() +
+                                 state->GetModule().GetCode(state->CurrentFrame().ProtoId).size(),
+                           "Jump target out of bounds");
         }
         else if constexpr (op == Opcode::Jz) 
         {
             ZN_EXTRACT(iAsBx, a, sbx);
-            if (regs[a].u64 == 0) ip += sbx;
+            if (regs[a].u64 == 0)
+            {
+                ip += sbx;
+                ZN_CORE_ASSERT(ip >= state->GetModule().GetCode(state->CurrentFrame().ProtoId).data() &&
+                               ip <  state->GetModule().GetCode(state->CurrentFrame().ProtoId).data() +
+                                     state->GetModule().GetCode(state->CurrentFrame().ProtoId).size(),
+                               "Jump target out of bounds");
+            }
         }
         else if constexpr (op == Opcode::Jnz) 
         {
             ZN_EXTRACT(iAsBx, a, sbx);
-            if (regs[a].u64 != 0) ip += sbx;
+            if (regs[a].u64 != 0)
+            {
+                ip += sbx;
+                ZN_CORE_ASSERT(ip >= state->GetModule().GetCode(state->CurrentFrame().ProtoId).data() &&
+                               ip <  state->GetModule().GetCode(state->CurrentFrame().ProtoId).data() +
+                                     state->GetModule().GetCode(state->CurrentFrame().ProtoId).size(),
+                               "Jump target out of bounds");
+            }
         }
         else if constexpr (op == Opcode::Call)
         {
             ZN_EXTRACT(iABx, a, Bx);
             state->CurrentFrame().IP = ip;
             const Module& module = state->GetModule();
+            ZN_CORE_ASSERT(Bx < module.GetNumProtos(), "Proto index out of bounds");
+            ZN_CORE_ASSERT(module.GetProto(Bx).CodeCount > 0, "Target proto has empty code");
 
+            // Register window overlap: callee R0 aliases caller R[a].
             regs += a;
-            ip = module.GetCode(Bx).data();        
-            consts = module.GetConsts(Bx).data();    
+            ip = module.GetCode(Bx).data();
+            consts = module.GetConsts(Bx).data();
             state->PushFrame(regs, Bx, ip);
         }
         else if constexpr (op == Opcode::Return)
         {
             ZN_EXTRACT(iABC, a, b, c);
-            if (b != 0 && a != 0) // copy return values back to regs[0] of callee
+            ZN_CORE_ASSERT(static_cast<uint16_t>(a) + b <= 256, "Return register range out of bounds");
+            // Copy return values to callee R[0..b-1], which aliases caller R[call_a..call_a+b-1].
+            if (b != 0 && a != 0)
                 for (uint8_t i = 0; i < b; ++i)
                     regs[i] = regs[a + i];
             if (state->GetFrameDepth() == 1) 
@@ -146,10 +172,13 @@ namespace Zenith {
 
     void Executor::Execute(State& state) noexcept 
     {
+        ZN_CORE_ASSERT(!state.IsFramesEmpty(), "Execute() called without active frame");
         CallFrame& frame = state.CurrentFrame();
         const Module& module = state.GetModule();
+        ZN_CORE_ASSERT(module.GetProto(frame.ProtoId).CodeCount > 0, "Entry proto has empty code");
 
         const Instruction* ip = frame.IP;
+        ZN_CORE_ASSERT(ip != nullptr, "Null instruction pointer");
         Value* regs = frame.StackBase;
         const Value* consts = module.GetConsts(frame.ProtoId).data();
 

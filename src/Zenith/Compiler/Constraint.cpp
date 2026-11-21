@@ -1,5 +1,6 @@
 #include "Zenith/Compiler/Constraint.h"
 #include "Zenith/Compiler/Utils.h"
+#include "Zenith/Core/Assert.h"
 
 namespace Zenith {
 
@@ -28,8 +29,12 @@ namespace Zenith {
     CTType ConstraintSolver::Resolve(CTType t)
     {
         CTType curr = t;
-        while (curr.IsVar() && m_Parents[curr.var_id] != curr)
+        while (curr.IsVar())
+        {
+            ZN_CORE_ASSERT(curr.var_id < m_Parents.size(), "Type variable id out of bounds");
+            if (m_Parents[curr.var_id] == curr) break;
             curr = m_Parents[curr.var_id];
+        }
 
         CTType temp = t;
         while (temp.IsVar() && m_Parents[temp.var_id] != temp)
@@ -102,6 +107,8 @@ namespace Zenith {
                 }
             }
 
+            // Default one unresolved numeric literal per outer pass, then re-propagate
+            // so linked constraints converge before defaulting remaining literals.
             for (uint32_t i = 0; i < count; ++i)
             {
                 if (m_Done[i]) continue;
@@ -159,7 +166,7 @@ namespace Zenith {
 
         if (c.op == Operator::Not)
         {
-            // op '!' always cast result to <bool>
+            // '!' requires bool operand and yields bool
             m_Done[idx] = true;
             Unify(opnd, CTType::Bool());
             Unify(c.result, CTType::Bool());
@@ -183,7 +190,6 @@ namespace Zenith {
     {
         Constraint& c = m_Constraints[idx];
 
-        // both operands must have a same type
         if (!Unify(c.lhs, c.rhs))
         {
             m_Done[idx] = true;

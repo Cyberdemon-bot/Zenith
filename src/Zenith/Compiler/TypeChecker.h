@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Zenith/Core/Assert.h"
 #include "Zenith/Core/Base.h"
 #include "Zenith/Compiler/Ast.h"
 #include "Zenith/Compiler/CTType.h"
@@ -45,12 +46,20 @@ namespace Zenith {
             : m_Ast(ast)
         {}
 
-        // Returns true if no Severity::Error was emitted.
+        // Returns true if no Severity::Error was emitted
         bool Validate();
 
         std::span<const Diagnostic> Diagnostics() const { return m_Errors; }
-        const SignatureTable& Signatures() const { return m_Table; }
-        uint16_t MainProtoId() const { return m_MainProtoId; }
+        const SignatureTable& Signatures() const
+        {
+            ZN_CORE_ASSERT(m_Validated, "Signatures() called before Validate()");
+            return m_Table;
+        }
+        uint16_t MainProtoId() const
+        {
+            ZN_CORE_ASSERT(m_Validated, "MainProtoId() called before Validate()");
+            return m_MainProtoId;
+        }
         std::span<const CTType> NodeTypes() const { return std::span<const CTType>(m_NodeTypes); }
 
     private:
@@ -87,7 +96,7 @@ namespace Zenith {
         CTType SetNodeType(uint32_t node, CTType type);
         CTType ResolveTypeNode(uint32_t type_node);
         CTType ResolveBinaryOp(uint32_t node, Operator op, CTType lhs, CTType rhs);
-        CTType ValidateExpr(uint32_t node, CTType expected, DiagType diag = DiagType::OperandTypeMismatch);
+        CTType ValidateExpr(uint32_t node, CTType expected, DiagType diag = DiagType::TypeMismatch);
 
         void CollectSignature();
         uint32_t CollectParams(std::vector<CTType>& buffer, uint32_t params_list_node);
@@ -95,8 +104,18 @@ namespace Zenith {
 
         std::string_view GetName(uint32_t node) const;
 
-        constexpr uint32_t ListCount(uint32_t list_node) const { return m_Ast.nodes[list_node].data.list.count; }
-        constexpr uint32_t ListItem(uint32_t list_node, uint32_t i) const { return m_Ast.extra[m_Ast.nodes[list_node].data.list.start + i]; } 
+        uint32_t ListCount(uint32_t list_node) const
+        {
+            ZN_CORE_ASSERT(list_node < m_Ast.nodes.size(), "ListCount: invalid list node");
+            return m_Ast.nodes[list_node].data.list.count;
+        }
+        uint32_t ListItem(uint32_t list_node, uint32_t i) const
+        {
+            ZN_CORE_ASSERT(list_node < m_Ast.nodes.size(), "ListItem: invalid list node");
+            uint32_t idx = m_Ast.nodes[list_node].data.list.start + i;
+            ZN_CORE_ASSERT(idx < m_Ast.extra.size(), "ListItem: index out of bounds");
+            return m_Ast.extra[idx];
+        } 
 
         void AddError(uint32_t node, Error err);
     };

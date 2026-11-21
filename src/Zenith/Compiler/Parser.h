@@ -1,27 +1,21 @@
 #pragma once
 
-#include <string>
-#include <vector>
-#include <string_view>
+#include <cstdint>
 #include <span>
-#include "Zenith/Compiler/Lexer.h"
+#include <string_view>
+#include <vector>
+#include "Zenith/Core/Assert.h"
 #include "Zenith/Compiler/Ast.h"
+#include "Zenith/Compiler/Diagnostic.h"
+#include "Zenith/Compiler/Lexer.h"
 
 namespace Zenith {
 
     enum class ErrorScope : uint8_t
     {
-        Token,       
-        NodeStart,    
-        TokenBefore, 
-    };
-
-    struct ParseError
-    {
-        std::string message;
-        uint32_t node = ERROR_NODE;
-        uint32_t token = 0;
-        ErrorScope scope = ErrorScope::Token;
+        Token,
+        NodeStart,
+        TokenBefore,
     };
 
     struct ListHeader 
@@ -59,7 +53,7 @@ namespace Zenith {
         Parser(std::string_view source);
         AstView ParseProgram();
 
-        std::span<const ParseError> Errors() const { return m_Errors; }
+        std::span<const Diagnostic> Diagnostics() const { return m_Errors; }
         bool HasErrors() const { return !m_Errors.empty(); }
         uint32_t GetErrorsCount() const { return static_cast<uint32_t>(m_Errors.size()); }
     private:
@@ -69,27 +63,36 @@ namespace Zenith {
         std::vector<Token> m_Tokens;
         std::vector<uint32_t> m_Extra;
         std::vector<uint32_t> m_Scratch;
-        std::vector<ParseError> m_Errors;
+        std::vector<Diagnostic> m_Errors;
         Lexer m_Lexer;
         bool m_NoStructLit = false;
 
-        // recursion guard
+        // recursion & error guard
         static constexpr uint32_t MAX_DEPTH = 256;
+        static constexpr uint32_t MAX_ERRORS = 64;
         uint32_t m_Depth = 0;
 
         // error handler
         void Synchronize();
-        uint32_t AddError(std::string_view message, uint32_t node = ERROR_NODE, ErrorScope scope = ErrorScope::Token);
+        uint32_t AddError(std::string_view message, uint32_t node = ERROR_NODE, ErrorScope scope = ErrorScope::Token, DiagType diag = DiagType::ExpectedToken);
 
         // buffer's methods
         size_t GetScratchMarker() const { return m_Scratch.size(); }
         void PushScratch(uint32_t node) { m_Scratch.push_back(node); }
-        void RollbackScratch(size_t marker) { m_Scratch.resize(marker); }
+        void RollbackScratch(size_t marker)
+        {
+            ZN_CORE_ASSERT(marker <= m_Scratch.size(), "RollbackScratch: invalid marker");
+            m_Scratch.resize(marker);
+        }
         ListHeader CommitList(size_t marker);
 
         uint32_t NextToken() { return ++m_Cursor; }
         uint32_t CurrToken() { return m_Cursor; }
-        const Token& GetToken(uint32_t idx) const { return m_Tokens[idx]; }
+        const Token& GetToken(uint32_t idx) const
+        {
+            ZN_CORE_ASSERT(idx < m_Tokens.size(), "GetToken: index out of bounds");
+            return m_Tokens[idx];
+        }
 
         const Token& GetCurrToken() const { return GetToken(m_Cursor); }
         const Token& GetPeekToken() const { return GetToken(m_Cursor + 1); }
@@ -102,7 +105,11 @@ namespace Zenith {
         bool CurrTokenIs(TokenType type) { return GetToken(m_Cursor).type == type; }
         bool PeekTokenIs(TokenType type) { return GetToken(m_Cursor + 1).type == type; }
 
-        const Node& GetNode(uint32_t idx) const { return m_Nodes[idx]; }
+        const Node& GetNode(uint32_t idx) const
+        {
+            ZN_CORE_ASSERT(idx < m_Nodes.size(), "GetNode: index out of bounds");
+            return m_Nodes[idx];
+        }
         uint32_t GetCurrNode() { return static_cast<uint32_t>(m_Nodes.size() - 1); }
         uint32_t GetListStart() { return static_cast<uint32_t>(m_Extra.size()); }
         void PushList(uint32_t elem, uint32_t& count) { m_Extra.push_back(elem); ++count; }

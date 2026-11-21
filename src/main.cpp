@@ -89,7 +89,7 @@ int main(int argc, char* argv[])
 
     if (parser.HasErrors())
     {
-        std::cerr << Zenith::Dumper::DumpParseErrors(ast, parser.Errors());
+        std::cerr << Zenith::Dumper::DumpDiagnostics(ast, parser.Diagnostics(), "Parser");
         return 1;
     }
 
@@ -104,7 +104,7 @@ int main(int argc, char* argv[])
     bool ok = checker.Validate();
     if (!ok)
     {
-        std::cerr << Zenith::Dumper::DumpTypeErrors(ast, checker.Diagnostics());
+        std::cerr << Zenith::Dumper::DumpDiagnostics(ast, checker.Diagnostics(), "TypeChecker");
         return 1;
     }
 

@@ -68,6 +68,8 @@ namespace Zenith {
 
             CheckBlock(decl.data.func_decl.body, CTType::Unit(), "", false);
             PopScope();
+            ZN_CORE_ASSERT(m_CurrentDepth == 0, "Unbalanced scope depth after function check");
+            ZN_CORE_ASSERT(m_Targets.empty(), "Unbalanced control target stack after function check");
 
             if (m_CurrentFunc.ret_type != CTType::Unit() &&
                 m_CurrentFunc.ret_type != CTType::Error() &&
@@ -164,6 +166,7 @@ namespace Zenith {
             case NodeType::UnaryExpr:
             {
                 uint32_t opnd_idx = n.data.unary.operand;
+                // Fold unary '-' with integer literals so signed min bounds (e.g. -128 for i8) pass range checks.
                 if (n.data.unary.op == Operator::Neg &&
                     opnd_idx != ERROR_NODE && opnd_idx < m_Ast.nodes.size() &&
                     m_Ast.nodes[opnd_idx].type == NodeType::Integer)
@@ -230,7 +233,7 @@ namespace Zenith {
                         .lhs = operand,
                         .result = res,
                         .op = Operator::Neg,
-                        .diag = { .node = node, .token = n.start_token, .diag = DiagType::OperandTypeMismatch }
+                        .diag = { .node = node, .token = n.start_token, .diag = DiagType::TypeMismatch }
                     });
                     ACTUAL(res);
                 }
@@ -270,7 +273,7 @@ namespace Zenith {
                     .rhs = rhs,
                     .result = res,
                     .op = op,
-                    .diag = { .node = node, .token = n.start_token, .diag = DiagType::OperandTypeMismatch }
+                    .diag = { .node = node, .token = n.start_token, .diag = DiagType::TypeMismatch }
                 });
                 ACTUAL(res);
             }
@@ -432,7 +435,7 @@ namespace Zenith {
         if (expected == CTType::Error()) return CTType::Error();
 
         const auto& ie = m_Ast.nodes[node].data.if_expr;
-        ValidateExpr(ie.cond, CTType::Bool(), DiagType::OperandTypeMismatch);
+        ValidateExpr(ie.cond, CTType::Bool(), DiagType::TypeMismatch);
 
         bool has_else = (ie.else_branch != ERROR_NODE);
         bool is_check = (expected != CTType::Unknown());
@@ -462,7 +465,7 @@ namespace Zenith {
         const auto& fe = m_Ast.nodes[node].data.for_expr;
         bool has_cond = (fe.cond != ERROR_NODE);
         if (has_cond)
-            ValidateExpr(fe.cond, CTType::Bool(), DiagType::OperandTypeMismatch);
+            ValidateExpr(fe.cond, CTType::Bool(), DiagType::TypeMismatch);
 
         CTType target_type = has_cond
             ? CTType::Unit()
@@ -666,10 +669,9 @@ namespace Zenith {
                 SetNodeType(node, expr_type == CTType::Error() ? CTType::Error() : CTType::Unit());
                 break;
             }
-            // TODO: add implementation
             case NodeType::FuncDecl:
             {
-                AddError(node, { DiagType::NestedFunction });
+                AddError(node, { DiagType::UnsupportedFeature, "nested functions" });
                 SetNodeType(node, CTType::Error());
                 break;
             }

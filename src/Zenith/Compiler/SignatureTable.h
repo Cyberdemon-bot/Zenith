@@ -35,8 +35,8 @@ namespace Zenith {
                  CTType ret_type = CTType::Unit(),
                  uint16_t protoId = 0);
 
-        // MUST be called before any Find().
-        // Invalidates spans returned by previous Find()
+        // Locks Add() and shrinks internal buffers.
+        // Any FuncView span obtained before Add() or Freeze() may be invalidated.
         void Freeze();
 
     private:

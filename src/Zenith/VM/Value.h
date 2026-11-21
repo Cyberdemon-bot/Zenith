@@ -52,6 +52,7 @@ namespace Zenith {
             else static_assert(always_false_v<T>, "Unsupported Value Type");
         }
 
+        // 32-bit writes zero-extend into u64 so Jz/Jnz/LNot can uniformly test u64 == 0.
         template<Type T, typename V>
         constexpr void SetAs(V val) noexcept 
         {

@@ -49,7 +49,7 @@ namespace Zenith {
         {
             if (CurrTokenIs(TokenType::RBRACE))
             {
-                AddError("Unexpected '}' at top level");
+                AddError("Unexpected '}' at top level", ERROR_NODE, ErrorScope::Token, DiagType::UnexpectedToken);
                 NextToken();
                 continue;
             }
@@ -76,7 +76,7 @@ namespace Zenith {
     uint32_t Parser::ParseExpr(PrecedenceType precedence)
     {
         DepthGuard guard(m_Depth);
-        if (m_Depth > MAX_DEPTH) return AddError("Nesting is too deep");
+        if (m_Depth > MAX_DEPTH) return AddError({}, ERROR_NODE, ErrorScope::Token, DiagType::NestingTooDeep);
         uint32_t left = ParsePrefixExpr();
         if (left == ERROR_NODE) return ERROR_NODE;
         while (precedence < GetPrecedence(GetCurrToken().type))
@@ -98,7 +98,7 @@ namespace Zenith {
                 Token tok = GetCurrToken();
                 int64_t val = 0;
                 auto [ptr, ec] = std::from_chars(tok.literal.data(), tok.literal.data() + tok.literal.size(), val);
-                if (ec != std::errc{}) return AddError("Integer literal out of range");
+                if (ec != std::errc{}) return AddError("Integer literal out of range", ERROR_NODE, ErrorScope::Token, DiagType::InvalidLiteral);
                 uint32_t idx = PushNode(NodeType::Integer, CurrToken(), { .i64 = val });
                 NextToken(); 
                 return idx;
@@ -108,7 +108,7 @@ namespace Zenith {
                 Token tok = GetCurrToken();
                 double val = 0.0;
                 auto [ptr, ec] = std::from_chars(tok.literal.data(), tok.literal.data() + tok.literal.size(), val);
-                if (ec != std::errc{}) return AddError("Invalid decimal literal");
+                if (ec != std::errc{}) return AddError("Invalid decimal literal", ERROR_NODE, ErrorScope::Token, DiagType::InvalidLiteral);
                 uint32_t idx = PushNode(NodeType::Decimal, CurrToken(), { .f64 = val });
                 NextToken(); 
                 return idx;
@@ -168,7 +168,7 @@ namespace Zenith {
             case TokenType::AMPERSAND: return ParseBorrowExpr(CurrToken());
             case TokenType::MUT: return ParseMutExpr();
             case TokenType::NEW: return ParseNewExpr(CurrToken(), 0);
-            default: return AddError("Unexpected token in prefix expression");
+            default: return AddError("Unexpected token in prefix expression", ERROR_NODE, ErrorScope::Token, DiagType::UnexpectedToken);
         }
     }
 
@@ -195,7 +195,7 @@ namespace Zenith {
             case TokenType::DOT: return ParseFieldAccessExpr(left);
             case TokenType::LPAREN:  return ParseCallExpr(left);
             case TokenType::LBRACKET: return ParseIndexExpr(left);
-            default: return AddError("Unexpected token in binary/infix expression", left);
+            default: return AddError("Unexpected token in binary/infix expression", left, ErrorScope::Token, DiagType::UnexpectedToken);
         }
     }
 
@@ -219,7 +219,7 @@ namespace Zenith {
         NextToken();
 
         if (CurrTokenIs(TokenType::LABEL) || !IsBlockLikeStart(GetCurrToken().type))
-            return AddError("A label must be followed by a block, 'if', or 'for'");
+            return AddError("A label must be followed by a block, 'if', or 'for'", ERROR_NODE, ErrorScope::Token, DiagType::InvalidSyntax);
         uint32_t body = ParseBlockLikeExpr();
         if (body == ERROR_NODE) return ERROR_NODE;
 
@@ -257,7 +257,7 @@ namespace Zenith {
 
     uint32_t Parser::ParseFieldAccessExpr(uint32_t left)
     {
-        NextToken(); // consume '.'
+        NextToken();
         if (!CurrTokenIs(TokenType::IDENT)) return AddError("Expected field identifier after '.'", left);
         uint32_t field = ParseIdentifier();
         uint32_t start = GetNode(left).start_token, end = GetNode(field).end_token;
@@ -285,13 +285,13 @@ namespace Zenith {
     uint32_t Parser::ParseIndexExpr(uint32_t left)
     {
         StructLitScope allow(m_NoStructLit, false);
-        NextToken(); // consume '['
+        NextToken();
         uint32_t index_expr = ParseExpr(PrecedenceType::P_LOWEST);
         if (index_expr == ERROR_NODE) return ERROR_NODE;
         if (!CurrTokenIs(TokenType::RBRACKET)) return AddError("Expected ']' after index expression", index_expr); 
         
         uint32_t start = GetNode(left).start_token, end = CurrToken();
-        NextToken(); // consume ']'
+        NextToken();
 
         return PushNode(NodeType::IndexExpr, start, end,
             { .access = { .target = left, .member = index_expr } });
@@ -299,12 +299,12 @@ namespace Zenith {
 
     uint32_t Parser::ParseBorrowExpr(uint32_t start)
     {
-        NextToken(); // consume '&'
+        NextToken();
         uint8_t is_mut = 0;
         if (CurrTokenIs(TokenType::MUT))
         {
             is_mut = 1;
-            NextToken(); // consume 'mut'
+            NextToken();
         }
 
         uint32_t expr = ParseExpr(PrecedenceType::P_UNARY);
@@ -316,17 +316,17 @@ namespace Zenith {
 
     uint32_t Parser::ParseMutExpr()
     {
-        uint32_t mut_tok = CurrToken(); NextToken(); // consume 'mut'
+        uint32_t mut_tok = CurrToken(); NextToken();
         if (CurrTokenIs(TokenType::AMPERSAND))
-            return AddError("Write '&mut x' instead of 'mut &x'", mut_tok);
+            return AddError("Write '&mut x' instead of 'mut &x'", ERROR_NODE, ErrorScope::Token, DiagType::InvalidSyntax);
         if (CurrTokenIs(TokenType::NEW))
             return ParseNewExpr(mut_tok, 1);
-        return AddError("Expected 'new' after 'mut'", mut_tok);
+        return AddError("Expected 'new' after 'mut'");
     }
 
     uint32_t Parser::ParseNewExpr(uint32_t start, uint8_t is_mut)
     {
-        NextToken(); // consume 'new'
+        NextToken();
         uint32_t type = ParseNamedType();
         if (type == ERROR_NODE) return ERROR_NODE;
 
@@ -345,7 +345,7 @@ namespace Zenith {
         else if (CurrTokenIs(TokenType::LBRACE))
         {
             if (m_NoStructLit)
-                return AddError("Struct initializer is not allowed here; wrap the expression in parentheses");
+                return AddError("Struct initializer is not allowed here; wrap the expression in parentheses", ERROR_NODE, ErrorScope::Token, DiagType::InvalidSyntax);
             StructLitScope allow(m_NoStructLit, false);
             args = ParseDelimitedList(
                 NodeType::FieldInitList,
@@ -446,14 +446,14 @@ namespace Zenith {
     {
         NextToken(); // consume '=>'
         if (CurrTokenIs(TokenType::LBRACE) || CurrTokenIs(TokenType::LABEL))
-            return AddError("'=>' takes a single expression; use '{ }' or '=>', not both");
+            return AddError("'=>' takes a single expression; use '{ }' or '=>', not both", ERROR_NODE, ErrorScope::Token, DiagType::InvalidSyntax);
         return ParseExpr(PrecedenceType::P_LOWEST);
     }
 
     uint32_t Parser::ParseBlockExpr()
     {
         DepthGuard guard(m_Depth);
-        if (m_Depth > MAX_DEPTH) return AddError("Nesting is too deep");
+        if (m_Depth > MAX_DEPTH) return AddError({}, ERROR_NODE, ErrorScope::Token, DiagType::NestingTooDeep);
         StructLitScope allow(m_NoStructLit, false);
         uint32_t start = CurrToken(), end; NextToken(); // consume '{'
         size_t marker = GetScratchMarker();
@@ -480,7 +480,7 @@ namespace Zenith {
     uint32_t Parser::ParseIfExpr()
     {
         DepthGuard guard(m_Depth);
-        if (m_Depth > MAX_DEPTH) return AddError("Nesting is too deep");
+        if (m_Depth > MAX_DEPTH) return AddError({}, ERROR_NODE, ErrorScope::Token, DiagType::NestingTooDeep);
         uint32_t start = CurrToken(), end, cond; NextToken(); // consume 'if'
         {
             StructLitScope restrict_literals(m_NoStructLit, true);
@@ -584,7 +584,7 @@ namespace Zenith {
                 NextToken();
                 if (CurrTokenIs(TokenType::FUNC))   return ParseFuncDecl(start, 1);
                 if (CurrTokenIs(TokenType::STRUCT)) return ParseStructDecl(start, 1);
-                return AddError("Expected 'func' or 'struct' after 'pub'", start);
+                return AddError("Expected 'func' or 'struct' after 'pub'");
             }
             default: return DefaultParser();
         }
@@ -598,7 +598,7 @@ namespace Zenith {
         if (!block_like && CurrTokenIs(TokenType::EQ)) return ParseAssignStmt(expr);
 
         if (!block_like && m_Nodes[expr].type != NodeType::CallExpr)
-            return AddError("Expression is not valid as a statement; only calls can be used as statements", expr, ErrorScope::NodeStart);
+            return AddError("Expression is not valid as a statement; only calls can be used as statements", expr, ErrorScope::NodeStart, DiagType::InvalidStatement);
 
         uint32_t start = GetNode(expr).start_token, end = GetNode(expr).end_token;
         bool closed_by_brace = block_like && m_Tokens[end].type == TokenType::RBRACE;
@@ -617,7 +617,7 @@ namespace Zenith {
             lt != NodeType::FieldAccess &&
             lt != NodeType::IndexExpr   &&
             lt != NodeType::DerefExpr)
-            return AddError("Invalid assignment target", lhs, ErrorScope::NodeStart);
+            return AddError("Invalid assignment target", lhs, ErrorScope::NodeStart, DiagType::InvalidStatement);
 
         NextToken();
         uint32_t rhs = ParseExpr(PrecedenceType::P_LOWEST);
@@ -708,8 +708,7 @@ namespace Zenith {
 
         if (!CurrTokenIs(TokenType::SEMICOLON)) 
         {
-            uint32_t ref = (value != ERROR_NODE) ? value 
-                        : (label != ERROR_NODE ? label : break_tok);
+            uint32_t ref = (value != ERROR_NODE) ? value : label;
             return AddError("Expected ';' after break statement", ref, ErrorScope::TokenBefore);
         }
 
@@ -733,8 +732,7 @@ namespace Zenith {
 
         if (!CurrTokenIs(TokenType::SEMICOLON)) 
         {
-            uint32_t ref = (label != ERROR_NODE) ? label : cont_tok;
-            return AddError("Expected ';' after continue statement", ref, ErrorScope::TokenBefore);
+            return AddError("Expected ';' after continue statement", label, ErrorScope::TokenBefore);
         }
         end = CurrToken(); NextToken();
         return PushNode(NodeType::ContinueStmt, cont_tok, end,
@@ -841,17 +839,17 @@ namespace Zenith {
     uint32_t Parser::ParseTypeAnnotation()
     {
         DepthGuard guard(m_Depth);
-        if (m_Depth > MAX_DEPTH) return AddError("Nesting is too deep");
+        if (m_Depth > MAX_DEPTH) return AddError({}, ERROR_NODE, ErrorScope::Token, DiagType::NestingTooDeep);
         uint32_t start = CurrToken();
 
         switch (GetCurrToken().type)
         {
             case TokenType::MUT:
             {
-                uint32_t mut_tok = CurrToken(); NextToken();
+                NextToken();
                 if (CurrTokenIs(TokenType::AMPERSAND))
-                    return AddError("Write '&mut T' instead of 'mut &T'", mut_tok);
-                return AddError("Expected '&' after 'mut' in type; 'mut' only applies to references", mut_tok);
+                    return AddError("Write '&mut T' instead of 'mut &T'", ERROR_NODE, ErrorScope::Token, DiagType::InvalidSyntax);
+                return AddError("Expected '&' after 'mut' in type; 'mut' only applies to references");
             }
             case TokenType::AMPERSAND:
             {
@@ -963,10 +961,26 @@ namespace Zenith {
         }
     }
 
-    uint32_t Parser::AddError(std::string_view message, uint32_t node, ErrorScope scope)
+    uint32_t Parser::AddError(std::string_view message, uint32_t node, ErrorScope scope, DiagType diag)
     {
-        uint32_t pos = CurrToken();
+        if (m_Errors.size() >= MAX_ERRORS)
+        {
+            if (m_Errors.size() == MAX_ERRORS)
+            {
+                uint32_t eof_tok = m_Tokens.empty() ? 0 : static_cast<uint32_t>(m_Tokens.size() - 1);
+                m_Errors.push_back(Diagnostic
+                {
+                    .node = ERROR_NODE,
+                    .token = eof_tok,
+                    .severity = GetDiagDef(DiagType::TooManyErrors).severity,
+                    .diag = DiagType::TooManyErrors,
+                    .use_node_span = false,
+                });
+            }
+            return ERROR_NODE;
+        }
 
+        uint32_t pos = CurrToken();
         switch (scope)
         {
             case ErrorScope::NodeStart:
@@ -980,18 +994,21 @@ namespace Zenith {
         }
         if (pos >= m_Tokens.size()) pos = static_cast<uint32_t>(m_Tokens.size()) - 1;
 
-        m_Errors.push_back(ParseError
+        m_Errors.push_back(Diagnostic
         {
-            .message = std::string(message),
-            .node    = node,
-            .token   = pos,
-            .scope   = scope
+            .args = std::string(message),
+            .node = node,
+            .token = pos,
+            .severity = GetDiagDef(diag).severity,
+            .diag = diag,
+            .use_node_span = (scope == ErrorScope::NodeStart && node != ERROR_NODE),
         });
         return ERROR_NODE;
     }
 
     ListHeader Parser::CommitList(size_t marker)
     {
+        ZN_CORE_ASSERT(marker <= m_Scratch.size(), "CommitList: invalid marker");
         uint32_t count = static_cast<uint32_t>(m_Scratch.size() - marker);
         uint32_t start = static_cast<uint32_t>(m_Extra.size());
         m_Extra.insert(m_Extra.end(), m_Scratch.begin() + marker, m_Scratch.end());

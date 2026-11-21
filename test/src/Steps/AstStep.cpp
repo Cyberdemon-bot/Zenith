@@ -1,5 +1,6 @@
 #include "AstStep.h"
 #include "Diff.h"
+#include "Zenith/Compiler/Diagnostic.h"
 #include "Zenith/Compiler/Dumper.h"
 #include "Zenith/Compiler/Parser.h"
 #include "Zenith/Core/ProfileTimer.h"
@@ -14,9 +15,9 @@ AstStep::Result AstStep::Run(std::string_view source)
     {
         ZN_PROFILE_SCOPE(&res.profile.parseTimeMs);
         ast = parser.ParseProgram();
-        for (const auto& err : parser.Errors())
+        for (const auto& diag : parser.Diagnostics())
         {
-            uint32_t tok_idx = err.token;
+            uint32_t tok_idx = diag.token;
             if (!ast.tokens.empty() && tok_idx >= ast.tokens.size())
                 tok_idx = static_cast<uint32_t>(ast.tokens.size()) - 1;
 
@@ -27,7 +28,7 @@ AstStep::Result AstStep::Run(std::string_view source)
                 line = ast.tokens[tok_idx].line;
                 col = ast.tokens[tok_idx].column;
             }
-            res.errors.push_back({ line, col, err.message });
+            res.errors.push_back({ line, col, Zenith::FormatDiagnostic(diag) });
         }
     }
 

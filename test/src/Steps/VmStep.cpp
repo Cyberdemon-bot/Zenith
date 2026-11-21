@@ -16,6 +16,17 @@ using namespace Zenith;
 
 namespace {
 
+    bool HasCodeOrDirective(const std::string& block)
+    {
+        for (const auto& raw : Diff::SplitLines(block))
+        {
+            std::string trimmed = Diff::Trim(raw);
+            if (trimmed.empty() || trimmed.starts_with(";") || trimmed.starts_with("//")) continue;
+            return true;
+        }
+        return false;
+    }
+
     std::vector<std::string> SplitProtos(std::string_view asmSource)
     {
         std::vector<std::string> blocks;
@@ -29,9 +40,13 @@ namespace {
             std::string trimmed = Diff::Trim(line);
             if (trimmed.starts_with(".proto"))
             {
-                if (hasExplicitProto || !Diff::Trim(current).empty())
+                if (hasExplicitProto || HasCodeOrDirective(current))
                 {
                     blocks.push_back(current);
+                    current.clear();
+                }
+                else
+                {
                     current.clear();
                 }
                 hasExplicitProto = true;
@@ -39,7 +54,7 @@ namespace {
             }
             current += line + "\n";
         }
-        if (!Diff::Trim(current).empty() || blocks.empty())
+        if (HasCodeOrDirective(current) || blocks.empty())
             blocks.push_back(current);
 
         return blocks;

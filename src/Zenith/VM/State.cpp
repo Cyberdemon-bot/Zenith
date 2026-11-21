@@ -50,7 +50,8 @@ namespace Zenith {
     void State::PushFrame(Value* stackBase, uint16_t protoId, const Instruction* ip)
     {
         ZN_CORE_ASSERT(m_Frames.size() < MAX_CALL_FRAMES, "Call stack overflow");
-        ZN_CORE_ASSERT((stackBase - m_Stack.data()) + m_Module->GetProto(protoId).MaxRegs
+        ZN_CORE_ASSERT(stackBase >= m_Stack.data() &&
+                       static_cast<size_t>(stackBase - m_Stack.data()) + m_Module->GetProto(protoId).MaxRegs
                         <= m_Stack.size(), "Register stack overflow");
         m_Frames.push_back(CallFrame{ stackBase, ip, protoId });
     }

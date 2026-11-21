@@ -141,7 +141,7 @@ namespace Zenith {
                 AddError(type_node, { DiagType::UnknownTypeName, name });
                 return SetNodeType(type_node, CTType::Error());
             }
-            // TODO: support these features
+            // Phase 4+: composite and reference types
             case NodeType::TupleType:
             {
                 AddError(type_node, { DiagType::UnsupportedFeature, "tuple types" });
@@ -175,7 +175,7 @@ namespace Zenith {
 
             if (ti.type == ERROR_NODE)
             {
-                AddError(param_idx, { DiagType::MissingParamType });
+                AddError(param_idx, { DiagType::UnsupportedFeature, "untyped parameters" });
                 SetNodeType(param_idx, CTType::Error());
                 buffer.push_back(CTType::Error());
                 continue;
@@ -225,6 +225,7 @@ namespace Zenith {
 
             const uint32_t p_count = CollectParams(m_Scratch, sign_node.data.func_sign.params);
             const CTType ret_type  = CollectRet(sign_node.data.func_sign.ret_type);
+            ZN_CORE_ASSERT(m_NextProtoId < INVALID_PROTO, "Proto id overflow");
             const uint16_t protoId = static_cast<uint16_t>(m_NextProtoId++);
 
             SetNodeType(sign_idx, ret_type);
@@ -262,6 +263,7 @@ namespace Zenith {
             .token = token,
             .expected = err.expected,
             .actual = err.actual,
+            .severity = GetDiagDef(err.type).severity,
             .diag = err.type,
         });
     }

@@ -63,7 +63,7 @@ namespace Zenith {
 
         uint32_t m_NextVar = 0;
         std::vector<Constraint> m_Constraints;
-        std::vector<CTType> m_Parents; // m_NextVar increase linearly
+        std::vector<CTType> m_Parents;
         std::vector<bool> m_Done;
         std::vector<uint32_t> m_Failed;
     };

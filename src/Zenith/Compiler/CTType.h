@@ -17,7 +17,7 @@ namespace Zenith {
         };
 
         Kind kind = Kind::Error;
-        uint32_t var_id = 0; // meaningfull only when kind == Kind::Var
+        uint32_t var_id = 0; // meaningful only when kind == Kind::Var
 
         static constexpr CTType Unknown() { return {Kind::Unknown, 0}; }
         static constexpr CTType Error()   { return {Kind::Error, 0}; }

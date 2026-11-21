@@ -36,11 +36,11 @@ TypeCheckerStep::Result TypeCheckerStep::Run(std::string_view source)
         ast = parser.ParseProgram();
         if (parser.HasErrors())
         {
-            for (const auto& err : parser.Errors())
+            for (const auto& diag : parser.Diagnostics())
             {
                 uint32_t line = 0, col = 0;
-                AppendTokenLocation(ast, err.token, line, col);
-                res.errors.push_back({ line, col, err.message });
+                AppendTokenLocation(ast, diag.token, line, col);
+                res.errors.push_back({ line, col, Zenith::FormatDiagnostic(diag) });
             }
             return res;
         }

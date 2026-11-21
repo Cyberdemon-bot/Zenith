@@ -1,6 +1,5 @@
 #include "Zenith/Compiler/Dumper.h"
 #include "Zenith/Compiler/Diagnostic.h"
-#include "Zenith/Compiler/Parser.h"
 #include "Zenith/Compiler/Utils.h"
 
 #include <algorithm>
@@ -381,108 +380,22 @@ namespace Zenith {
             out << ")\n";
         }
 
-        constexpr std::string_view GetDiagTemplate(DiagType type) noexcept
-        {
-            switch (type)
-            {
-                case DiagType::DuplicateFunction:    return "Duplicate function '{0}'";
-                case DiagType::MissingMainFunction:  return "Program must define 'func main'";
-                case DiagType::InvalidMainSignature: return "Invalid signature for 'main'";
-                case DiagType::NestedFunction:       return "Nested functions are not supported";
-                case DiagType::MissingParamType:     return "Parameter requires type annotation in Phase 3";
-                case DiagType::UnknownTypeName:      return "Unknown type '{0}'";
-                case DiagType::UnknownIdentifier:    return "Unknown identifier '{0}'";
-                case DiagType::RedeclaredIdentifier: return "Redeclared identifier '{0}'";
-                case DiagType::OperandTypeMismatch:  return "Invalid operand type '{actual}' for operator '{0}'";
-                case DiagType::InvalidUnaryOp:       return "Unsupported unary operator '{0}'";
-                case DiagType::InvalidBinaryOp:      return "Operands of '{0}' must have the same type (got '{expected}' and '{actual}')";
-                case DiagType::WrongArgCount:        return "Argument count mismatch: expected {0}, got {1}";
-                case DiagType::CannotInferType:      return "Cannot infer type";
-                case DiagType::CoerceFailure:        return "Invalid type cast from '{actual}' to '{expected}'";
-                case DiagType::LiteralOutOfRange:    return "Literal out of range for '{expected}'";
-                case DiagType::LetTypeMismatch:      return "Let binding type mismatch: expected '{expected}', got '{actual}'";
-                case DiagType::ReturnTypeMismatch:   return "Return type mismatch: expected '{expected}', got '{actual}'";
-                case DiagType::ArgTypeMismatch:      return "Argument type mismatch: expected '{expected}', got '{actual}'";
-                case DiagType::AssignTypeMismatch:   return "Assignment type mismatch: expected '{expected}', got '{actual}'";
-                case DiagType::BreakTypeMismatch:    return "Break value type mismatch: expected '{expected}', got '{actual}'";
-                case DiagType::MissingReturn:        return "Function '{0}' must return a value";
-                case DiagType::ImmutableAssignment:  return "Cannot assign twice to immutable variable '{0}'";
-                case DiagType::InvalidAssignTarget:  return "Invalid assignment target";
-                case DiagType::UndeclaredLabel:      return "Undeclared label '{0}'";
-                case DiagType::InvalidContinue:      return "'continue' must target an enclosing loop";
-                case DiagType::BreakOutsideLoop:     return "'break' outside of loop or block";
-                case DiagType::BlockMissingBreak:    return "Block does not break with a value of expected type";
-                case DiagType::UnsupportedFeature:   return "Unsupported feature: {0}";
-                case DiagType::TooManyErrors:        return "Too many errors";
-                default:                             return "Unknown error";
-            }
-        }
-
     }
 
-    std::string FormatDiagnostic(const Diagnostic& diag)
+    std::string Dumper::DumpDiagnostics(AstView ast, std::span<const Diagnostic> diagnostics, std::string_view phase)
     {
-        std::string_view tmpl = (diag.diag == DiagType::OperandTypeMismatch && diag.args.empty())
-            ? std::string_view("Type mismatch: expected '{expected}', got '{actual}'")
-            : GetDiagTemplate(diag.diag);
-
-        std::string_view args[4]{};
-        size_t arg_count = 0;
-        if (!diag.args.empty())
-        {
-            size_t start = 0;
-            while (arg_count < 4)
-            {
-                size_t pos = diag.args.find('\x1f', start);
-                if (pos == std::string::npos)
-                {
-                    args[arg_count++] = std::string_view(diag.args).substr(start);
-                    break;
-                }
-                args[arg_count++] = std::string_view(diag.args).substr(start, pos - start);
-                start = pos + 1;
-            }
-        }
-
-        std::string out;
-        out.reserve(tmpl.size() + 32);
-        for (size_t i = 0; i < tmpl.size(); ++i)
-        {
-            if (tmpl[i] == '{')
-            {
-                size_t close = tmpl.find('}', i + 1);
-                if (close != std::string_view::npos)
-                {
-                    std::string_view key = tmpl.substr(i + 1, close - i - 1);
-                    if (key == "expected")      out += Utils::TypeToString(diag.expected);
-                    else if (key == "actual")   out += Utils::TypeToString(diag.actual);
-                    else if (key.size() == 1 && key[0] >= '0' && key[0] <= '3')
-                    {
-                        size_t idx = static_cast<size_t>(key[0] - '0');
-                        if (idx < arg_count) out += args[idx];
-                    }
-                    i = close;
-                    continue;
-                }
-            }
-            out += tmpl[i];
-        }
-        return out;
-    }
-
-    std::string Dumper::DumpParseErrors(AstView ast, std::span<const ParseError> errors)
-    {
-        if (errors.empty())
-            return "[Parser] No errors found.\n";
+        if (diagnostics.empty())
+            return std::format("[{}] No errors found.\n", phase);
 
         std::ostringstream out;
-        out << std::format("=== Found {} Parse Error(s) ===\n", errors.size());
+        out << std::format("=== [{}] Found {} Diagnostic(s) ===\n", phase, diagnostics.size());
 
-        for (size_t i = 0; i < errors.size(); ++i)
+        for (size_t i = 0; i < diagnostics.size(); ++i)
         {
-            const auto& err = errors[i];
-            out << std::format("[Error #{}] {}\n", i + 1, err.message);
-            AppendSourceSnippet(out, ast, err.token, err.node, err.scope == ErrorScope::NodeStart);
+            const auto& diag = diagnostics[i];
+            const DiagDef& def = GetDiagDef(diag.diag);
+            out << std::format("[Error #{} E{:04}] {}\n", i + 1, def.code, FormatDiagnostic(diag));
+            AppendSourceSnippet(out, ast, diag.token, diag.node, diag.use_node_span);
         }
         return out.str();
     }
@@ -506,23 +419,6 @@ namespace Zenith {
             return "(Error: No Program node found)\n";
 
         DumpTreeNode(out, ast, node_types, resolved_root, 0);
-        return out.str();
-    }
-
-    std::string Dumper::DumpTypeErrors(AstView ast, std::span<const Diagnostic> errors)
-    {
-        if (errors.empty())
-            return "[TypeChecker] No errors found.\n";
-
-        std::ostringstream out;
-        out << std::format("=== Found {} Type Error(s) ===\n", errors.size());
-
-        for (size_t i = 0; i < errors.size(); ++i)
-        {
-            const auto& err = errors[i];
-            out << std::format("[Error #{}] {}\n", i + 1, FormatDiagnostic(err));
-            AppendSourceSnippet(out, ast, err.token, err.node, true);
-        }
         return out.str();
     }
 

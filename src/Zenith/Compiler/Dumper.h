@@ -6,19 +6,18 @@
 #include <cstdint>
 #include <span>
 #include <string>
+#include <string_view>
 
 namespace Zenith {
 
-    struct ParseError;
     struct Diagnostic;
 
     class Dumper
     {
     public:
-        static std::string DumpParseErrors(AstView ast, std::span<const ParseError> errors);
+        static std::string DumpDiagnostics(AstView ast, std::span<const Diagnostic> diagnostics, std::string_view phase = "Compiler");
         static std::string DumpTreeAst(AstView ast, uint32_t root_idx = ERROR_NODE);
         static std::string DumpTypedAst(AstView ast, std::span<const CTType> node_types, uint32_t root_idx = ERROR_NODE);
-        static std::string DumpTypeErrors(AstView ast, std::span<const Diagnostic> errors);
         static std::string DumpTypes(AstView ast, std::span<const CTType> node_types);
     };
 
