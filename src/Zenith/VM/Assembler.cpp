@@ -102,7 +102,9 @@ namespace {
         if (name == "Mov")       return Opcode::Mov;
         if (name == "LoadImm")   return Opcode::LoadImm;
         if (name == "Eq")        return Opcode::Eq;
+        if (name == "Ne")        return Opcode::Ne;
         if (name == "Lt")        return Opcode::Lt;
+        if (name == "Le")        return Opcode::Le;
         if (name == "LNot")      return Opcode::LNot;
         if (name == "Cast")      return Opcode::Cast;
         if (name == "Jmp")       return Opcode::Jmp;

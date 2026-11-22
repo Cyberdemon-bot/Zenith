@@ -140,17 +140,32 @@ namespace Zenith {
         else if constexpr (op == Opcode::Neg)
         {
             ZN_EXTRACT(iABC, a, b, c);
-            regs[a].SetAs<ty>(-regs[b].GetAs<ty>());
+            if constexpr (ty == Type::I32)
+                regs[a].SetAs<Type::U32>(0u - regs[b].GetAs<Type::U32>());
+            else if constexpr (ty == Type::I64)
+                regs[a].SetAs<Type::U64>(0ull - regs[b].GetAs<Type::U64>());
+            else
+                regs[a].SetAs<ty>(-regs[b].GetAs<ty>());
         }
         else if constexpr (op == Opcode::Eq)
         {
             ZN_EXTRACT(iABC, a, b, c);
             regs[a].u64 = static_cast<uint64_t>(regs[b].GetAs<ty>() == regs[c].GetAs<ty>());
         }
+        else if constexpr (op == Opcode::Ne)
+        {
+            ZN_EXTRACT(iABC, a, b, c);
+            regs[a].u64 = static_cast<uint64_t>(regs[b].GetAs<ty>() != regs[c].GetAs<ty>());
+        }
         else if constexpr (op == Opcode::Lt)
         {
             ZN_EXTRACT(iABC, a, b, c);
             regs[a].u64 = static_cast<uint64_t>(regs[b].GetAs<ty>() < regs[c].GetAs<ty>());
+        }
+        else if constexpr (op == Opcode::Le)
+        {
+            ZN_EXTRACT(iABC, a, b, c);
+            regs[a].u64 = static_cast<uint64_t>(regs[b].GetAs<ty>() <= regs[c].GetAs<ty>());
         }
         else if constexpr (op == Opcode::LNot)
         {

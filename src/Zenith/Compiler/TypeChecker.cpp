@@ -123,7 +123,6 @@ namespace Zenith {
                 if (name == "f32")  return SetNodeType(type_node, CTType::F32());
                 if (name == "f64")  return SetNodeType(type_node, CTType::F64());
                 if (name == "bool") return SetNodeType(type_node, CTType::Bool());
-                if (name == "unit") return SetNodeType(type_node, CTType::Unit());
 
                 AddError(type_node, { DiagType::UnknownTypeName, name });
                 return SetNodeType(type_node, CTType::Error());
@@ -131,6 +130,7 @@ namespace Zenith {
             // Phase 4+: composite and reference types
             case NodeType::TupleType:
             {
+                if (ListCount(type_node) == 0) return SetNodeType(type_node, CTType::Unit());
                 AddError(type_node, { DiagType::UnsupportedFeature, "tuple types" });
                 return SetNodeType(type_node, CTType::Error());
             }

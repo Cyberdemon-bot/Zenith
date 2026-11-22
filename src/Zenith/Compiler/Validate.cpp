@@ -169,6 +169,7 @@ namespace Zenith {
             }
             case NodeType::Tuple:
             {
+                if (ListCount(node) == 0) ACTUAL(CTType::Unit());
                 // TODO: Update tuple support later
                 COMMIT_ERROR(DiagType::UnsupportedFeature, "tuple expressions");
             }

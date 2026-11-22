@@ -16,7 +16,7 @@ namespace Zenith {
         LoadImm, Mov,     
         Add, Sub, Mul, Div, 
         DivS, DivU, RemS, RemU, Neg,
-        Eq, Lt, LNot, Cast,
+        Eq, Ne, Lt, Le, LNot, Cast,
         Jmp, Jz, Jnz,  
         Call, Return,
         Halt, Count
@@ -91,7 +91,9 @@ namespace Zenith {
         { Opcode::Neg,       Format::iABC,  Type::I32, Type::I64, Type::F32, Type::F64 },
 
         { Opcode::Eq,        Format::iABC,  Type::U32, Type::U64, Type::F32, Type::F64 },
+        { Opcode::Ne,        Format::iABC,  Type::U32, Type::U64, Type::F32, Type::F64 },
         { Opcode::Lt,        Format::iABC,  Type::U32, Type::I32, Type::F32, Type::U64, Type::I64, Type::F64 },
+        { Opcode::Le,        Format::iABC,  Type::U32, Type::I32, Type::F32, Type::U64, Type::I64, Type::F64 },
         { Opcode::LNot,      Format::iABC,  Type::None },
         { Opcode::Cast,      Format::iABC,  Type::None },
         { Opcode::Jmp,       Format::iAsBx, Type::None },
@@ -183,6 +185,9 @@ namespace Zenith {
         { Opcode::Eq,  Type::I32, Type::U32 },
         { Opcode::Eq,  Type::I64, Type::U64 },
         { Opcode::Eq,  Type::REF, Type::U64 },
+        { Opcode::Ne,  Type::I32, Type::U32 },
+        { Opcode::Ne,  Type::I64, Type::U64 },
+        { Opcode::Ne,  Type::REF, Type::U64 },
     });
 
     constexpr bool AliasesAreValid() 

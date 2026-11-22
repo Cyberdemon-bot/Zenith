@@ -1,22 +1,39 @@
 // === INPUT: ASM ===
 .params 0
-.regs 10
+.regs 22
+.const F64 0.0
+.const F64 1.0
 
 LoadImm   R0, -10
 LoadImm   R1, 10
 
-; Signed vs Unsigned Lt
+; Signed vs Unsigned Lt & Le
 Lt.I32    R2, R0, R1
 Lt.U32    R3, R0, R1
+Le.I32    R9, R0, R0
+Le.I32    R10, R1, R0
+Le.U32    R11, R0, R1
 
-; Eq and LNot
+; Eq, Ne, and LNot
 Eq.I32    R4, R0, R1
+Ne.I32    R12, R0, R1
+Ne.I32    R13, R0, R0
 LNot      R5, R4
 LNot      R6, R5
 
 ; Mov
 Mov       R7, R0
 Eq.I32    R8, R7, R0
+
+; IEEE-754 NaN comparisons (0.0 / 0.0)
+LoadConst R14, K0
+LoadConst R15, K1
+Div.F64   R16, R14, R14
+Eq.F64    R17, R16, R16
+Ne.F64    R18, R16, R16
+Lt.F64    R19, R16, R15
+Le.F64    R20, R16, R15
+Le.F64    R21, R15, R16
 Halt
 
 // === EXPECTED VM ===
@@ -27,3 +44,13 @@ R5 = 1 (U64)
 R6 = 0 (U64)
 R7 = -10 (I32)
 R8 = 1 (U64)
+R9 = 1 (U64)
+R10 = 0 (U64)
+R11 = 0 (U64)
+R12 = 1 (U64)
+R13 = 0 (U64)
+R17 = 0 (U64)
+R18 = 1 (U64)
+R19 = 0 (U64)
+R20 = 0 (U64)
+R21 = 0 (U64)

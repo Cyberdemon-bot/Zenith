@@ -32,7 +32,9 @@ namespace {
             case Opcode::RemU:      return "RemU";
             case Opcode::Neg:       return "Neg";
             case Opcode::Eq:        return "Eq";
+            case Opcode::Ne:        return "Ne";
             case Opcode::Lt:        return "Lt";
+            case Opcode::Le:        return "Le";
             case Opcode::LNot:      return "LNot";
             case Opcode::Cast:      return "Cast";
             case Opcode::Jmp:       return "Jmp";
