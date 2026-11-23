@@ -54,9 +54,15 @@ namespace Zenith {
         }
     }
 
-    Lexer::Lexer(std::string_view source)
-        : m_Source(source)
+    void Lexer::Reset(std::string_view source)
     {
+        m_Source = source;
+        m_Pos = 0;
+        m_ReadPos = 0;
+        m_Line = 1;
+        m_LineStartPos = 0;
+        m_CurrChar = NONE_CHAR;
+        m_HadUnterminatedComment = false;
         ReadChar();
     }
 

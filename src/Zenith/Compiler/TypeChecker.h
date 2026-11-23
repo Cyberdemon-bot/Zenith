@@ -50,24 +50,22 @@ namespace Zenith {
     class TypeChecker
     {
     public:
-        explicit TypeChecker(AstView ast)
-            : m_Ast(ast)
-        {}
+        TypeChecker() = default;
 
-        TypedAstView Validate();
+        void Clear();
+        TypedAstView Validate(AstView ast);
 
         bool HasErrors() const;
         std::span<const Diagnostic> Diagnostics() const { return m_Errors; }
 
     private:
-        AstView m_Ast;
+        AstView m_Ast{};
         SignatureTable m_Table;
         ConstraintSolver m_Solver;
         uint32_t m_CurrentDepth = 0;
         uint32_t m_NextProtoId = 0;
         uint16_t m_MainProtoId = INVALID_PROTO;
         FuncContext m_CurrentFunc;
-        bool m_Validated = false;
 
         std::vector<Diagnostic> m_Errors;
         std::vector<Symbol> m_Symbols;

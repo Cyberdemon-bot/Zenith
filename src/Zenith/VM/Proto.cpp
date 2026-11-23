@@ -106,4 +106,14 @@ namespace Zenith {
         m_Constants.shrink_to_fit();
         m_Frozen = true;
     }
+
+    void Module::Clear()
+    {
+        m_Protos.clear();
+        m_Constants.clear();
+        m_Code.clear();
+        m_EntryProto = INVALID_PROTO;
+        m_HasEntry = false;
+        m_Frozen = false;
+    }
 }

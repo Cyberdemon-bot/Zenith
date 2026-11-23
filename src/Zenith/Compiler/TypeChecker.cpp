@@ -1,7 +1,6 @@
 #include "Zenith/Core/Assert.h"
 #include "Zenith/Compiler/Node.h"
 #include "Zenith/Compiler/TypeChecker.h"
-#include "Zenith/Compiler/Utils.h"
 
 #include <optional>
 #include <ranges>

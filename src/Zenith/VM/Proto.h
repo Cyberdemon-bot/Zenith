@@ -92,6 +92,7 @@ namespace Zenith {
 
         void Freeze();
         bool IsFrozen() const { return m_Frozen; }
+        void Clear();
     private:
         std::vector<Proto> m_Protos;
         std::vector<Value> m_Constants;

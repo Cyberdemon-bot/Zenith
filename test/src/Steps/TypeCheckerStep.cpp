@@ -29,11 +29,11 @@ TypeCheckerStep::Result TypeCheckerStep::Run(std::string_view source)
     Result res;
     ZN_PROFILE_SCOPE(&res.profile.totalTimeMs);
 
-    Zenith::Parser parser(source);
+    Zenith::Parser parser;
     Zenith::AstView ast;
     {
         ZN_PROFILE_SCOPE(&res.profile.parseTimeMs);
-        ast = parser.ParseProgram();
+        ast = parser.ParseProgram(source);
         if (parser.HasErrors())
         {
             for (const auto& diag : parser.Diagnostics())
@@ -46,11 +46,11 @@ TypeCheckerStep::Result TypeCheckerStep::Run(std::string_view source)
         }
     }
 
-    Zenith::TypeChecker checker(ast);
+    Zenith::TypeChecker checker;
     auto typed = [&]()
     {
         ZN_PROFILE_SCOPE(&res.profile.checkTimeMs);
-        auto view = checker.Validate();
+        auto view = checker.Validate(ast);
         for (const auto& diag : checker.Diagnostics())
         {
             uint32_t line = 0, col = 0;

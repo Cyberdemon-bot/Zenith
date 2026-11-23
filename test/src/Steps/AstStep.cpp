@@ -10,11 +10,11 @@ AstStep::Result AstStep::Run(std::string_view source)
     Result res;
     ZN_PROFILE_SCOPE(&res.profile.totalTimeMs);
 
-    Zenith::Parser parser(source);
+    Zenith::Parser parser;
     Zenith::AstView ast;
     {
         ZN_PROFILE_SCOPE(&res.profile.parseTimeMs);
-        ast = parser.ParseProgram();
+        ast = parser.ParseProgram(source);
         for (const auto& diag : parser.Diagnostics())
         {
             uint32_t tok_idx = diag.token;

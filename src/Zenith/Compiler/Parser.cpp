@@ -27,21 +27,41 @@ namespace Zenith {
         }
     }
 
-    Parser::Parser(std::string_view source)
-         : m_Source(source), m_Lexer(source)
+    Parser::Parser()
     {
         m_Tokens.reserve(256);
+        m_Nodes.reserve(256);
+        m_Extra.reserve(128);
+        m_Scratch.reserve(64);
+    }
+
+    void Parser::Clear()
+    {
+        m_Source = {};
+        m_Cursor = 0;
+        m_Depth = 0;
+        m_NoStructLit = false;
+        m_Nodes.clear();
+        m_Tokens.clear();
+        m_Extra.clear();
+        m_Scratch.clear();
+        m_Errors.clear();
+        m_Lexer.Reset({});
+    }
+
+    AstView Parser::ParseProgram(std::string_view source)
+    {
+        Clear();
+        m_Source = source;
+        m_Lexer.Reset(source);
         m_Nodes.push_back({});
         Token token;
-        do 
+        do
         {
             token = m_Lexer.NextToken();
             m_Tokens.push_back(token);
         } while (token.type != TokenType::END_OF_FILE);
-    }
 
-    AstView Parser::ParseProgram()
-    {
         size_t marker = GetScratchMarker();
         uint32_t start = CurrToken(), end;
 

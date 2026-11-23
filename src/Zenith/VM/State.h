@@ -5,7 +5,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <memory>
 #include <span>
 #include <string_view>
 #include <vector>
@@ -55,8 +54,9 @@ namespace Zenith {
     public:
         State();
 
-        void SetModule(std::shared_ptr<const Module> module);
+        void SetModule(Ref<const Module> module);
         void Prepare(uint16_t entryProtoId = 0);
+        void Reset();
 
         Value& Reg(uint8_t idx) noexcept;
         const Value& Reg(uint8_t idx) const noexcept;
@@ -70,7 +70,7 @@ namespace Zenith {
         std::vector<CallFrame> m_Frames;
         RuntimeError m_Error;
 
-        std::shared_ptr<const Module> m_Module;
+        Ref<const Module> m_Module;
 
         CallFrame& CurrentFrame() noexcept { return m_Frames.back(); }
         const CallFrame& CurrentFrame() const noexcept { return m_Frames.back(); }

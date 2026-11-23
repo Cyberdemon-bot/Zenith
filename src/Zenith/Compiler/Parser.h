@@ -50,8 +50,9 @@ namespace Zenith {
     class Parser 
     {
     public:
-        Parser(std::string_view source);
-        AstView ParseProgram();
+        Parser();
+        void Clear();
+        AstView ParseProgram(std::string_view source);
 
         std::span<const Diagnostic> Diagnostics() const { return m_Errors; }
         bool HasErrors() const { return !m_Errors.empty(); }

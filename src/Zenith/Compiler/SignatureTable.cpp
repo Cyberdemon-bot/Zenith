@@ -43,8 +43,14 @@ namespace Zenith {
     void SignatureTable::Freeze()
     {
         ZN_CORE_ASSERT(!m_Frozen, "SignatureTable already frozen");
-        m_TPool.shrink_to_fit();
-        m_Signs.shrink_to_fit();
         m_Frozen = true;
+    }
+
+    void SignatureTable::Clear()
+    {
+        m_TPool.clear();
+        m_Signs.clear();
+        m_FuncIndex.clear();
+        m_Frozen = false;
     }
 }

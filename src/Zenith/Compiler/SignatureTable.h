@@ -35,9 +35,10 @@ namespace Zenith {
                  CTType ret_type = CTType::Unit(),
                  uint16_t protoId = 0);
 
-        // Locks Add() and shrinks internal buffers.
-        // Any FuncView span obtained before Add() or Freeze() may be invalidated.
+        // Locks Add().
+        // Any FuncView span obtained before Add() or Clear() may be invalidated.
         void Freeze();
+        void Clear();
 
         size_t Count() const { return m_Signs.size(); }
 

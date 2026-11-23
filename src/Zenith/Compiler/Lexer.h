@@ -10,7 +10,8 @@ namespace Zenith {
     class Lexer
     {
     public:
-        Lexer(std::string_view source);
+        Lexer() = default;
+        void Reset(std::string_view source);
         Token NextToken();
     private:
         std::string_view m_Source;

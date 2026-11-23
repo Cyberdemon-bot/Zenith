@@ -22,11 +22,26 @@ namespace Zenith {
         return false;
     }
 
-    TypedAstView TypeChecker::Validate()
+    void TypeChecker::Clear()
     {
-        ZN_CORE_ASSERT(!m_Validated, "Validate() called twice");
-        m_Validated = true;
+        m_Ast = {};
+        m_Table.Clear();
+        m_Solver.Reset();
+        m_CurrentDepth = 0;
+        m_NextProtoId = 0;
+        m_MainProtoId = INVALID_PROTO;
+        m_CurrentFunc = {};
         m_Errors.clear();
+        m_Symbols.clear();
+        m_Targets.clear();
+        m_Scratch.clear();
+        m_NodeTypes.clear();
+    }
+
+    TypedAstView TypeChecker::Validate(AstView ast)
+    {
+        Clear();
+        m_Ast = ast;
 
         m_NodeTypes.assign(m_Ast.nodes.size(), CTType::Unknown());
         CollectSignature();

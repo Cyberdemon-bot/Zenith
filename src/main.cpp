@@ -84,8 +84,8 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    Zenith::Parser parser(source);
-    auto ast = parser.ParseProgram();
+    Zenith::Parser parser;
+    auto ast = parser.ParseProgram(source);
 
     if (parser.HasErrors())
     {
@@ -100,8 +100,8 @@ int main(int argc, char* argv[])
         return 0;
     }
 
-    Zenith::TypeChecker checker(ast);
-    auto typed = checker.Validate();
+    Zenith::TypeChecker checker;
+    auto typed = checker.Validate(ast);
     if (checker.HasErrors())
     {
         std::cerr << Zenith::Dumper::DumpDiagnostics(ast, checker.Diagnostics(), "TypeChecker");

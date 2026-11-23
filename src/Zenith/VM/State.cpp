@@ -13,7 +13,7 @@ namespace Zenith {
         m_Frames.reserve(MAX_CALL_FRAMES);
     }
 
-    void State::SetModule(std::shared_ptr<const Module> module)
+    void State::SetModule(Ref<const Module> module)
     {
         ZN_CORE_ASSERT(module != nullptr, "Cannot set null module");
         ZN_CORE_ASSERT(module->IsFrozen(), "Module must be frozen");
@@ -34,6 +34,12 @@ namespace Zenith {
             .IP = m_Module->GetCode(entryProtoId).data(),
             .ProtoId = entryProtoId,
         });
+    }
+
+    void State::Reset()
+    {
+        m_Frames.clear();
+        m_Error = {};
     }
 
     Value& State::Reg(uint8_t idx) noexcept

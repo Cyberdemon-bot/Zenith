@@ -7,9 +7,7 @@
 #include "Zenith/VM/Executor.h"
 #include "Zenith/VM/State.h"
 
-#include <algorithm>
 #include <charconv>
-#include <iomanip>
 #include <sstream>
 
 using namespace Zenith;
@@ -134,7 +132,7 @@ VmStep::Result VmStep::RunAsm(std::string_view asmSource, const std::string& exp
         res.actualDisasm = Diff::Trim(disasmOut.str());
     }
 
-    auto sharedModule = std::make_shared<const Module>(std::move(module));
+    auto sharedModule = CreateRef<const Module>(std::move(module));
     State state;
     state.SetModule(sharedModule);
     state.Prepare(entryId);
