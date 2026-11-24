@@ -15,29 +15,6 @@
 
 namespace Zenith {
 
-    bool TypeChecker::HasErrors() const
-    {
-        for (const auto& d : m_Errors)
-            if (d.severity == Severity::Error) return true;
-        return false;
-    }
-
-    void TypeChecker::Clear()
-    {
-        m_Ast = {};
-        m_Table.Clear();
-        m_Solver.Reset();
-        m_CurrentDepth = 0;
-        m_NextProtoId = 0;
-        m_MainProtoId = INVALID_PROTO;
-        m_CurrentFunc = {};
-        m_Errors.clear();
-        m_Symbols.clear();
-        m_Targets.clear();
-        m_Scratch.clear();
-        m_NodeTypes.clear();
-    }
-
     TypedAstView TypeChecker::Validate(AstView ast)
     {
         Clear();
@@ -46,23 +23,17 @@ namespace Zenith {
         m_NodeTypes.assign(m_Ast.nodes.size(), CTType::Unknown());
         CollectSignature();
 
-        uint32_t child_size = ListCount(m_Ast.root);
-        for (uint32_t i = 0; i < child_size; ++i)
+        m_Table.ForEach([this](const FuncView& func)
         {
-            const uint32_t decl_idx = ListItem(m_Ast.root, i);
-            const auto& decl = m_Ast.nodes[decl_idx];
-            if (decl.type != NodeType::FuncDecl) continue;
-            if (m_NodeTypes[decl_idx] == CTType::Error()) continue;
+            if (func.decl_node == ERROR_NODE) return;
+            const auto& decl = m_Ast.nodes[func.decl_node];
+            if (m_NodeTypes[func.decl_node] == CTType::Error()) return;
 
             m_Solver.Reset();
             m_Targets.clear();
 
             const auto& sign = m_Ast.nodes[decl.data.func_decl.sign];
-            std::string_view func_name = GetName(sign.data.func_sign.name);
-
-            auto func = m_Table.Find(func_name);
-            if (!func.has_value()) continue;
-            m_CurrentFunc = { .ret_type = func->ret_type, .has_ret = false };
+            m_CurrentFunc = { .ret_type = func.ret_type, .has_ret = false };
             PushScope();
 
             uint32_t params_cnt = ListCount(sign.data.func_sign.params);
@@ -71,7 +42,7 @@ namespace Zenith {
                 const uint32_t param_idx = ListItem(sign.data.func_sign.params, j);
                 const auto& ti = m_Ast.nodes[param_idx].data.typed_ident;
                 std::string_view param_name = GetName(ti.ident);
-                CTType param_type = func->params[j];
+                CTType param_type = func.params[j];
 
                 if (!AddSymbol({
                     .name = param_name,
@@ -93,8 +64,8 @@ namespace Zenith {
                 m_CurrentFunc.ret_type != CTType::Error() &&
                 !m_CurrentFunc.has_ret)
             {
-                AddError(sign.data.func_sign.name, { DiagType::MissingReturn, func_name });
-                SetNodeType(decl_idx, CTType::Error());
+                AddError(sign.data.func_sign.name, { DiagType::MissingReturn, func.name });
+                SetNodeType(func.decl_node, CTType::Error());
             }
 
             m_Solver.Solve([this](Diagnostic&& d) {
@@ -112,7 +83,7 @@ namespace Zenith {
                 }
                 else m_NodeTypes[idx] = resolved;
             }
-        }
+        });
 
         return TypedAstView
         {

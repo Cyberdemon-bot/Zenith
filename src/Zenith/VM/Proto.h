@@ -81,10 +81,10 @@ namespace Zenith {
         std::span<const Instruction> GetCode(uint16_t id) const;
         std::span<const Value> GetConsts(uint16_t id) const;
 
-        uint16_t Reserve();
-        void ReserveProtos(size_t count) { m_Protos.reserve(count); }
-        uint16_t Add(ProtoBuilder&& b);
-        void Fill(uint16_t id, ProtoBuilder&& b);
+        uint16_t Reserve(uint16_t count);
+        uint16_t Reserve() { return Reserve(1); }
+        uint16_t Add(const ProtoBuilder& b);
+        void Fill(uint16_t id, const ProtoBuilder& b);
 
         void SetEntry(uint16_t id);
         uint16_t GetEntry() const { return m_EntryProto; }

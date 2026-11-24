@@ -116,7 +116,7 @@ VmStep::Result VmStep::RunAsm(std::string_view asmSource, const std::string& exp
                 return res;
             }
             entryMaxRegs = builder.GetMaxRegs();
-            entryId = module.Add(std::move(builder));
+            entryId = module.Add(builder);
         }
         module.Freeze();
     }

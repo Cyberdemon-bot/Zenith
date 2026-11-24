@@ -48,23 +48,23 @@ namespace Zenith {
         return { m_Constants.data() + p.ConstOffset, p.ConstCount };
     }
 
-    uint16_t Module::Reserve() 
+    uint16_t Module::Reserve(uint16_t count)
     {
         ZN_CORE_ASSERT(!m_Frozen, "Module is frozen");
-        ZN_CORE_ASSERT(m_Protos.size() < INVALID_PROTO, "Proto table overflow");
-        uint16_t id = static_cast<uint16_t>(m_Protos.size());
-        m_Protos.emplace_back();
-        return id;
+        ZN_CORE_ASSERT(m_Protos.size() + count <= INVALID_PROTO, "Proto table overflow");
+        uint16_t base = static_cast<uint16_t>(m_Protos.size());
+        m_Protos.resize(m_Protos.size() + count);
+        return base;
     }
 
-    uint16_t Module::Add(ProtoBuilder&& b) 
+    uint16_t Module::Add(const ProtoBuilder& b) 
     {
         uint16_t id = Reserve();
         Fill(id, std::move(b));
         return id;
     }
 
-    void Module::Fill(uint16_t id, ProtoBuilder&& b) 
+    void Module::Fill(uint16_t id, const ProtoBuilder& b) 
     {
         ZN_CORE_ASSERT(!m_Frozen, "Module is frozen");
         ZN_CORE_ASSERT(id < m_Protos.size(), "Invalid reserved id");

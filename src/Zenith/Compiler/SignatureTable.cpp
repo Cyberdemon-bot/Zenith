@@ -11,6 +11,8 @@ namespace Zenith {
         const FuncSign& sig = m_Signs[it->second];
         return FuncView
         {
+            .name = sig.name,
+            .decl_node = sig.decl_node,
             .params = { m_TPool.data() + sig.params_start, sig.params_count },
             .ret_type = sig.ret_type,
             .protoId = sig.protoId,
@@ -20,7 +22,8 @@ namespace Zenith {
     void SignatureTable::Add(std::string_view name,
                             std::span<const CTType> params,
                             CTType ret_type,
-                            uint16_t protoId)
+                            uint16_t protoId,
+                            uint32_t decl_node)
     {
         ZN_CORE_ASSERT(!m_Frozen, "Cannot add signature: table is frozen");
         ZN_CORE_ASSERT(m_FuncIndex.find(name) == m_FuncIndex.end(),
@@ -32,6 +35,8 @@ namespace Zenith {
         const uint32_t sigIdx = static_cast<uint32_t>(m_Signs.size());
         m_Signs.push_back(FuncSign
         {
+            .name = name,
+            .decl_node = decl_node,
             .params_start = pOff,
             .params_count = static_cast<uint32_t>(params.size()),
             .ret_type = ret_type,

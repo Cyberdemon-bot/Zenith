@@ -94,6 +94,29 @@ namespace Zenith {
         return m_Ast.tokens[m_Ast.nodes[node].start_token].literal;
     }
 
+    bool TypeChecker::HasErrors() const
+    {
+        for (const auto& d : m_Errors)
+            if (d.severity == Severity::Error) return true;
+        return false;
+    }
+
+    void TypeChecker::Clear()
+    {
+        m_Ast = {};
+        m_Table.Clear();
+        m_Solver.Reset();
+        m_CurrentDepth = 0;
+        m_NextProtoId = 0;
+        m_MainProtoId = INVALID_PROTO;
+        m_CurrentFunc = {};
+        m_Errors.clear();
+        m_Symbols.clear();
+        m_Targets.clear();
+        m_Scratch.clear();
+        m_NodeTypes.clear();
+    }
+
     CTType TypeChecker::ResolveTypeNode(uint32_t type_node)
     {
         if (type_node == ERROR_NODE) return CTType::Error();
@@ -221,7 +244,8 @@ namespace Zenith {
             m_Table.Add(name,
                         { m_Scratch.data(), p_count },
                         ret_type,
-                        protoId);
+                        protoId,
+                        decl_idx);
             if (name == "main")
             {
                 m_MainProtoId = protoId;
