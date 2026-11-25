@@ -94,12 +94,6 @@ namespace Zenith {
         return m_Ast.tokens[m_Ast.nodes[node].start_token].literal;
     }
 
-    bool TypeChecker::HasErrors() const
-    {
-        for (const auto& d : m_Errors)
-            if (d.severity == Severity::Error) return true;
-        return false;
-    }
 
     void TypeChecker::Clear()
     {
@@ -110,7 +104,7 @@ namespace Zenith {
         m_NextProtoId = 0;
         m_MainProtoId = INVALID_PROTO;
         m_CurrentFunc = {};
-        m_Errors.clear();
+        m_Errors.Clear();
         m_Symbols.clear();
         m_Targets.clear();
         m_Scratch.clear();
@@ -266,7 +260,7 @@ namespace Zenith {
         const uint32_t token = m_Ast.nodes[node].start_token;
         ZN_CORE_ASSERT(token < m_Ast.tokens.size(), "AddError: invalid token index");
 
-        m_Errors.push_back(Diagnostic
+        m_Errors.Push(Diagnostic
         {
             .args = std::string(err.args),
             .node = node,

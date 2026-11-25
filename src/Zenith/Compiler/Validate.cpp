@@ -69,7 +69,7 @@ namespace Zenith {
             }
 
             m_Solver.Solve([this](Diagnostic&& d) {
-                m_Errors.push_back(std::move(d));
+                m_Errors.Push(std::move(d));
             });
 
             for (uint32_t idx = 1; idx < m_NodeTypes.size(); ++idx)

@@ -3,8 +3,10 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <span>
 #include <string>
 #include <string_view>
+#include <vector>
 #include "Zenith/Compiler/CTType.h"
 
 namespace Zenith {
@@ -93,6 +95,29 @@ namespace Zenith {
         std::string_view args = {};
         CTType expected = CTType::Error();
         CTType actual = CTType::Error();
+    };
+
+    class ErrorStack
+    {
+    public:
+        explicit ErrorStack(uint32_t max_errors = 64) : m_MaxErrors(max_errors) {}
+
+        void Push(Diagnostic diag);
+        void Clear();
+        void SetOverflowToken(uint32_t token) noexcept { m_OverflowToken = token; }
+
+        bool HasErrors() const noexcept { return m_HasError; }
+        bool IsFull() const noexcept { return m_MaxErrors > 0 && m_ErrorCount >= m_MaxErrors; }
+        uint32_t Count() const noexcept { return static_cast<uint32_t>(m_Items.size()); }
+        std::span<const Diagnostic> View() const noexcept { return m_Items; }
+
+    private:
+        std::vector<Diagnostic> m_Items;
+        uint32_t m_MaxErrors = 64;
+        uint32_t m_ErrorCount = 0;
+        uint32_t m_OverflowToken = 0;
+        bool m_HasError = false;
+        bool m_Truncated = false;
     };
 
     std::string FormatDiagnostic(const Diagnostic& diag);

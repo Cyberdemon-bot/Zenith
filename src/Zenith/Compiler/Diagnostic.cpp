@@ -50,4 +50,39 @@ namespace Zenith {
         }
         return out;
     }
+
+    void ErrorStack::Push(Diagnostic diag)
+    {
+        if (diag.severity == Severity::Error)
+        {
+            if (IsFull())
+            {
+                if (!m_Truncated)
+                {
+                    m_Items.push_back(Diagnostic
+                    {
+                        .node = 0,
+                        .token = m_OverflowToken,
+                        .severity = GetDiagDef(DiagType::TooManyErrors).severity,
+                        .diag = DiagType::TooManyErrors,
+                        .use_node_span = false,
+                    });
+                    m_Truncated = true;
+                }
+                return;
+            }
+            ++m_ErrorCount;
+            m_HasError = true;
+        }
+        m_Items.push_back(std::move(diag));
+    }
+
+    void ErrorStack::Clear()
+    {
+        m_Items.clear();
+        m_ErrorCount = 0;
+        m_OverflowToken = 0;
+        m_HasError = false;
+        m_Truncated = false;
+    }
 }

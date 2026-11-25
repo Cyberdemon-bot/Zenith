@@ -45,7 +45,7 @@ namespace Zenith {
         m_Tokens.clear();
         m_Extra.clear();
         m_Scratch.clear();
-        m_Errors.clear();
+        m_Errors.Clear();
         m_Lexer.Reset({});
     }
 
@@ -61,6 +61,7 @@ namespace Zenith {
             token = m_Lexer.NextToken();
             m_Tokens.push_back(token);
         } while (token.type != TokenType::END_OF_FILE);
+        m_Errors.SetOverflowToken(m_Tokens.empty() ? 0 : static_cast<uint32_t>(m_Tokens.size() - 1));
 
         size_t marker = GetScratchMarker();
         uint32_t start = CurrToken(), end;
@@ -983,20 +984,14 @@ namespace Zenith {
 
     uint32_t Parser::AddError(std::string_view message, uint32_t node, ErrorScope scope, DiagType diag)
     {
-        if (m_Errors.size() >= MAX_ERRORS)
+        if (m_Errors.IsFull())
         {
-            if (m_Errors.size() == MAX_ERRORS)
+            m_Errors.Push(Diagnostic
             {
-                uint32_t eof_tok = m_Tokens.empty() ? 0 : static_cast<uint32_t>(m_Tokens.size() - 1);
-                m_Errors.push_back(Diagnostic
-                {
-                    .node = ERROR_NODE,
-                    .token = eof_tok,
-                    .severity = GetDiagDef(DiagType::TooManyErrors).severity,
-                    .diag = DiagType::TooManyErrors,
-                    .use_node_span = false,
-                });
-            }
+                .node = ERROR_NODE,
+                .severity = Severity::Error,
+                .diag = diag,
+            });
             return ERROR_NODE;
         }
 
@@ -1014,7 +1009,7 @@ namespace Zenith {
         }
         if (pos >= m_Tokens.size()) pos = static_cast<uint32_t>(m_Tokens.size()) - 1;
 
-        m_Errors.push_back(Diagnostic
+        m_Errors.Push(Diagnostic
         {
             .args = std::string(message),
             .node = node,

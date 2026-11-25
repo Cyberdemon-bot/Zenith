@@ -55,8 +55,8 @@ namespace Zenith {
         void Clear();
         TypedAstView Validate(AstView ast);
 
-        bool HasErrors() const;
-        std::span<const Diagnostic> Diagnostics() const { return m_Errors; }
+        bool HasErrors() const { return m_Errors.HasErrors(); }
+        std::span<const Diagnostic> Diagnostics() const { return m_Errors.View(); }
 
     private:
         AstView m_Ast{};
@@ -67,37 +67,41 @@ namespace Zenith {
         uint16_t m_MainProtoId = INVALID_PROTO;
         FuncContext m_CurrentFunc;
 
-        std::vector<Diagnostic> m_Errors;
+        ErrorStack m_Errors;
         std::vector<Symbol> m_Symbols;
         std::vector<ControlTarget> m_Targets;
         std::vector<CTType> m_Scratch;
         std::vector<CTType> m_NodeTypes;
 
+        // checker
         CTType CheckBlock(uint32_t node, CTType expected, std::string_view label = "", bool push_target = false);
         CTType CheckIf(uint32_t node, CTType expected, std::string_view label = "");
         CTType CheckFor(uint32_t node, CTType expected, std::string_view label = "");
         void CheckStmt(uint32_t node);
 
+        // scope management
         void PushScope();
         void PopScope();
         bool AddSymbol(const Symbol& sb);
         std::optional<Symbol> FindSymbols(std::string_view name);
 
+        // control flow management
         void PushTarget(const ControlTarget& target);
         ControlTarget PopTarget();
         ControlTarget* FindBreak(uint32_t label);
         ControlTarget* FindContinue(uint32_t label);
 
-        CTType SetNodeType(uint32_t node, CTType type);
-        CTType ResolveTypeNode(uint32_t type_node);
-        CTType ValidateIntLiteral(uint32_t node, int64_t val, CTType expected, DiagType diag);
-        CTType ValidateExpr(uint32_t node, CTType expected, DiagType diag = DiagType::TypeMismatch);
-
+        // collect phase
         void CollectSignature();
         uint32_t CollectParams(std::vector<CTType>& buffer, uint32_t params_list_node);
         CTType CollectRet(uint32_t ret_type_node);
 
+        // helpers
         std::string_view GetName(uint32_t node) const;
+        CTType SetNodeType(uint32_t node, CTType type);
+        CTType ResolveTypeNode(uint32_t type_node);
+        CTType ValidateIntLiteral(uint32_t node, int64_t val, CTType expected, DiagType diag);
+        CTType ValidateExpr(uint32_t node, CTType expected, DiagType diag = DiagType::TypeMismatch);
 
         uint32_t ListCount(uint32_t list_node) const
         {

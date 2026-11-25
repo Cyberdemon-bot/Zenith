@@ -54,9 +54,9 @@ namespace Zenith {
         void Clear();
         AstView ParseProgram(std::string_view source);
 
-        std::span<const Diagnostic> Diagnostics() const { return m_Errors; }
-        bool HasErrors() const { return !m_Errors.empty(); }
-        uint32_t GetErrorsCount() const { return static_cast<uint32_t>(m_Errors.size()); }
+        std::span<const Diagnostic> Diagnostics() const { return m_Errors.View(); }
+        bool HasErrors() const { return m_Errors.HasErrors(); }
+        uint32_t GetErrorsCount() const { return m_Errors.Count(); }
     private:
         std::string_view m_Source;
         uint32_t m_Cursor = 0;
@@ -64,13 +64,12 @@ namespace Zenith {
         std::vector<Token> m_Tokens;
         std::vector<uint32_t> m_Extra;
         std::vector<uint32_t> m_Scratch;
-        std::vector<Diagnostic> m_Errors;
+        ErrorStack m_Errors;
         Lexer m_Lexer;
         bool m_NoStructLit = false;
 
         // recursion & error guard
         static constexpr uint32_t MAX_DEPTH = 256;
-        static constexpr uint32_t MAX_ERRORS = 64;
         uint32_t m_Depth = 0;
 
         // error handler
