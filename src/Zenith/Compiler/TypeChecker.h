@@ -1,6 +1,5 @@
 #pragma once
 
-#include "Zenith/Core/Assert.h"
 #include "Zenith/Core/Base.h"
 #include "Zenith/Compiler/Ast.h"
 #include "Zenith/Compiler/CTType.h"
@@ -43,7 +42,7 @@ namespace Zenith {
     {
         AstView ast;
         std::span<const CTType> node_types;
-        const SignatureTable& signatures;
+        const SignatureTable* signatures = nullptr;
         uint16_t main_proto_id = INVALID_PROTO;
     };
 
@@ -97,24 +96,14 @@ namespace Zenith {
         CTType CollectRet(uint32_t ret_type_node);
 
         // helpers
-        std::string_view GetName(uint32_t node) const;
         CTType SetNodeType(uint32_t node, CTType type);
         CTType ResolveTypeNode(uint32_t type_node);
         CTType ValidateIntLiteral(uint32_t node, int64_t val, CTType expected, DiagType diag);
         CTType ValidateExpr(uint32_t node, CTType expected, DiagType diag = DiagType::TypeMismatch);
 
-        uint32_t ListCount(uint32_t list_node) const
-        {
-            ZN_CORE_ASSERT(list_node < m_Ast.nodes.size(), "ListCount: invalid list node");
-            return m_Ast.nodes[list_node].data.list.count;
-        }
-        uint32_t ListItem(uint32_t list_node, uint32_t i) const
-        {
-            ZN_CORE_ASSERT(list_node < m_Ast.nodes.size(), "ListItem: invalid list node");
-            uint32_t idx = m_Ast.nodes[list_node].data.list.start + i;
-            ZN_CORE_ASSERT(idx < m_Ast.extra.size(), "ListItem: index out of bounds");
-            return m_Ast.extra[idx];
-        } 
+        std::string_view GetName(uint32_t node) const;
+        uint32_t ListCount(uint32_t list_node) const;
+        uint32_t ListItem(uint32_t list_node, uint32_t i) const;
 
         void AddError(uint32_t node, Error err);
     };

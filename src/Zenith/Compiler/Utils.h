@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Zenith/Compiler/Ast.h"
 #include "Zenith/Compiler/CTType.h"
 #include "Zenith/Compiler/Node.h"
 
@@ -183,6 +184,32 @@ namespace Zenith {
                 default:
                     return false;
             }
+        }
+
+        constexpr bool GetName(const AstView& ast, uint32_t node, std::string_view& out) noexcept
+        {
+            if (node >= ast.nodes.size()) return false;
+            const Node& n = ast.nodes[node];
+            if (n.type != NodeType::Identifier && n.type != NodeType::Label) return false;
+            if (n.start_token >= ast.tokens.size()) return false;
+            out = ast.tokens[n.start_token].literal;
+            return true;
+        }
+
+        constexpr bool ListCount(const AstView& ast, uint32_t list_node, uint32_t& out) noexcept
+        {
+            if (list_node >= ast.nodes.size()) return false;
+            out = ast.nodes[list_node].data.list.count;
+            return true;
+        }
+
+        constexpr bool ListItem(const AstView& ast, uint32_t list_node, uint32_t i, uint32_t& out) noexcept
+        {
+            if (list_node >= ast.nodes.size()) return false;
+            size_t idx = static_cast<size_t>(ast.nodes[list_node].data.list.start) + i;
+            if (idx >= ast.extra.size()) return false;
+            out = ast.extra[idx];
+            return true;
         }
     }
 }

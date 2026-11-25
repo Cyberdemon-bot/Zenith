@@ -1,5 +1,6 @@
 #include "Zenith/Core/Assert.h"
 #include "Zenith/Compiler/Node.h"
+#include "Zenith/Compiler/Utils.h"
 #include "Zenith/Compiler/TypeChecker.h"
 
 #include <optional>
@@ -85,13 +86,6 @@ namespace Zenith {
                 if (label == ERROR_NODE || target.label == name)
                     return &target;
         return nullptr;
-    }
-
-    std::string_view TypeChecker::GetName(uint32_t node) const
-    {
-        ZN_CORE_ASSERT(m_Ast.nodes[node].type == NodeType::Identifier || m_Ast.nodes[node].type == NodeType::Label,
-                    "GetName: expected Identifier or Label node");
-        return m_Ast.tokens[m_Ast.nodes[node].start_token].literal;
     }
 
 
@@ -270,5 +264,29 @@ namespace Zenith {
             .severity = GetDiagDef(err.type).severity,
             .diag = err.type,
         });
+    }
+
+    std::string_view TypeChecker::GetName(uint32_t node) const
+    {
+        std::string_view name;
+        [[maybe_unused]] bool ok = Utils::GetName(m_Ast, node, name);
+        ZN_CORE_ASSERT(ok, "GetName: expected Identifier or Label node");
+        return name;
+    }
+
+    uint32_t TypeChecker::ListCount(uint32_t list_node) const
+    {
+        uint32_t count = 0;
+        [[maybe_unused]] bool ok = Utils::ListCount(m_Ast, list_node, count);
+        ZN_CORE_ASSERT(ok, "ListCount: invalid list node");
+        return count;
+    }
+
+    uint32_t TypeChecker::ListItem(uint32_t list_node, uint32_t i) const
+    {
+        uint32_t item = 0;
+        [[maybe_unused]] bool ok = Utils::ListItem(m_Ast, list_node, i, item);
+        ZN_CORE_ASSERT(ok, "ListItem: invalid list node or index out of bounds");
+        return item;
     }
 }

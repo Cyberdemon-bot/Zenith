@@ -89,7 +89,7 @@ namespace Zenith {
         {
             .ast = m_Ast,
             .node_types = m_NodeTypes,
-            .signatures = m_Table,
+            .signatures = &m_Table,
             .main_proto_id = m_MainProtoId,
         };
     }
