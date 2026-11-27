@@ -3,11 +3,13 @@
 #include "Zenith/Compiler/Ast.h"
 #include "Zenith/Compiler/CTType.h"
 #include "Zenith/Compiler/Node.h"
+#include "Zenith/VM/Value.h"
 
 #include <cmath>
 #include <cstdint>
 #include <limits>
 #include <string_view>
+#include <algorithm>
 
 namespace Zenith {
     namespace Utils {
@@ -33,6 +35,26 @@ namespace Zenith {
                 default:                    return "<unknown>";
             }
         }
+
+        constexpr Type ToVMType(CTType type) noexcept
+        {
+            switch (type.kind)
+            {
+                case CTType::Kind::I8:
+                case CTType::Kind::I16:
+                case CTType::Kind::I32:  return Type::I32;
+                case CTType::Kind::U8:
+                case CTType::Kind::U16:
+                case CTType::Kind::U32:  return Type::U32;
+                case CTType::Kind::I64:  return Type::I64;
+                case CTType::Kind::U64:
+                case CTType::Kind::Bool: return Type::U64;
+                case CTType::Kind::F32:  return Type::F32;
+                case CTType::Kind::F64:  return Type::F64;
+                default:                 return Type::None;
+            }
+        }
+
 
         constexpr bool IsSignedInteger(CTType type) noexcept
         {

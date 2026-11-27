@@ -65,6 +65,7 @@ namespace Zenith {
     constexpr size_t MAX_CALL_FRAMES = 256;
 	constexpr uint16_t MAX_Bx = std::numeric_limits<uint16_t>::max();
 	constexpr uint16_t INVALID_PROTO = std::numeric_limits<uint16_t>::max();
+	constexpr uint8_t INVALID_REG = 255;
 
 	template<auto...>
     inline constexpr bool always_false_v = false;

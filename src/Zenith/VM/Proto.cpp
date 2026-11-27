@@ -70,6 +70,7 @@ namespace Zenith {
         ZN_CORE_ASSERT(id < m_Protos.size(), "Invalid reserved id");
         Proto& p = m_Protos[id];
         ZN_CORE_ASSERT(p.CodeCount == 0, "Proto already filled");
+        ZN_CORE_ASSERT(b.m_NumParams <= b.m_MaxRegs, "MaxRegs smaller than NumParams");
 
         p.CodeOffset = static_cast<uint32_t>(m_Code.size());
         p.CodeCount = static_cast<uint32_t>(b.m_Code.size());

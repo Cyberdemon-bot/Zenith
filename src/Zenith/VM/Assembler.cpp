@@ -59,7 +59,7 @@ namespace {
         if (tok.empty()) return false;
         int val = 0;
         auto [ptr, ec] = std::from_chars(tok.data(), tok.data() + tok.size(), val);
-        if (ec != std::errc() || ptr != tok.data() + tok.size() || val < 0 || val > 255) return false;
+        if (ec != std::errc() || ptr != tok.data() + tok.size() || val < 0 || val >= INVALID_REG) return false;
         outReg = static_cast<uint8_t>(val);
         return true;
     }
@@ -243,7 +243,13 @@ bool Assembler::Assemble(ProtoBuilder& builder, std::string_view source, std::st
                 return false;
             }
             int r = 0;
-            std::from_chars(tokens[1].data(), tokens[1].data() + tokens[1].size(), r);
+            auto [ptr, ec] = std::from_chars(tokens[1].data(), tokens[1].data() + tokens[1].size(), r);
+            if (ec != std::errc() || ptr != tokens[1].data() + tokens[1].size() || r < 0 || r > 255)
+            {
+                if (outError) *outError = "Line " + std::to_string(lineNo)
+                                          + ": Invalid .regs count '" + std::string(tokens[1]) + "'";
+                return false;
+            }
             builder.SetMaxRegs(static_cast<uint8_t>(r));
             continue;
         }
