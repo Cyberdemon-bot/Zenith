@@ -4,12 +4,13 @@
 #include "Zenith/Compiler/CTType.h"
 #include "Zenith/Compiler/Node.h"
 #include "Zenith/VM/Value.h"
+#include "Zenith/VM/Opcode.h"
 
+#include <optional>
 #include <cmath>
 #include <cstdint>
 #include <limits>
 #include <string_view>
-#include <algorithm>
 
 namespace Zenith {
     namespace Utils {
@@ -207,6 +208,46 @@ namespace Zenith {
                     return false;
             }
         }
+
+        constexpr std::optional<CastKind> FindNumericCast(Type src, Type dst) noexcept
+        {
+            if (src == dst) return std::nullopt;
+
+            if (src == Type::I32 && (dst == Type::I64 || dst == Type::U64)) return CastKind::I32ToI64;
+            if ((src == Type::I64 || src == Type::U64) && (dst == Type::I32 || dst == Type::U32)) return CastKind::I64ToI32;
+
+            if (src == Type::I32) return (dst == Type::F32) ? std::optional(CastKind::I32ToF32) : (dst == Type::F64 ? std::optional(CastKind::I32ToF64) : std::nullopt);
+            if (src == Type::U32) return (dst == Type::F32) ? std::optional(CastKind::U32ToF32) : (dst == Type::F64 ? std::optional(CastKind::U32ToF64) : std::nullopt);
+            if (src == Type::I64) return (dst == Type::F32) ? std::optional(CastKind::I64ToF32) : (dst == Type::F64 ? std::optional(CastKind::I64ToF64) : std::nullopt);
+            if (src == Type::U64) return (dst == Type::F32) ? std::optional(CastKind::U64ToF32) : (dst == Type::F64 ? std::optional(CastKind::U64ToF64) : std::nullopt);
+
+            if (src == Type::F32)
+            {
+                switch (dst)
+                {
+                    case Type::I32: return CastKind::F32ToI32;
+                    case Type::U32: return CastKind::F32ToU32;
+                    case Type::I64: return CastKind::F32ToI64;
+                    case Type::U64: return CastKind::F32ToU64;
+                    case Type::F64: return CastKind::F32ToF64;
+                    default:        return std::nullopt;
+                }
+            }
+            if (src == Type::F64)
+            {
+                switch (dst)
+                {
+                    case Type::I32: return CastKind::F64ToI32;
+                    case Type::U32: return CastKind::F64ToU32;
+                    case Type::I64: return CastKind::F64ToI64;
+                    case Type::U64: return CastKind::F64ToU64;
+                    case Type::F32: return CastKind::F64ToF32;
+                    default:        return std::nullopt;
+                }
+            }
+            return std::nullopt;
+        }
+
 
         constexpr bool GetName(const AstView& ast, uint32_t node, std::string_view& out) noexcept
         {

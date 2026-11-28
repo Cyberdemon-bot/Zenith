@@ -55,6 +55,13 @@ namespace Zenith {
         CTType ret_type = CTType::Unit();
     };
 
+    struct ControlScope
+    {
+        std::string_view label;
+        uint32_t loop_start_pc = 0;
+        std::vector<uint32_t> break_jmps;
+        uint8_t dst = 0; bool is_loop = false;
+    };
     
     class CodeGen
     {
@@ -70,8 +77,10 @@ namespace Zenith {
         ErrorStack m_Errors;
         RegContext m_Context;
         GenFuncContext m_Func;
+        std::vector<ControlScope> m_Scopes;
         std::unordered_map<uint64_t, uint16_t> m_ConstCache;
 
+        // main process
         void CompileFunc(const FuncView& func);
         void CompileStmt(uint32_t node);
         void CompileExpr(uint32_t node, uint8_t dst);
@@ -79,11 +88,15 @@ namespace Zenith {
         void CompileIf(uint32_t node, uint8_t dst, std::string_view label = "");
         void CompileFor(uint32_t node, uint8_t dst, std::string_view label = "");
 
+        // sub process
         void CompileUnary(uint32_t node, uint8_t dst);
         void CompileBinary(uint32_t node, uint8_t dst);
+        void CompileCast(uint32_t node, uint8_t dst);
+        void CompileCall(uint32_t node, uint8_t dst);
+        void CompileBranch(uint32_t node, uint8_t dst);
         uint8_t CompileOperand(uint32_t expr); 
 
-
+        // emitters
         uint32_t EmitJump(Opcode op, uint8_t reg);
         void PatchJump(uint32_t jmp_pc, uint32_t target_pc, uint32_t node);
         void EmitTruncIfNeeded(uint8_t reg, CTType type);
@@ -91,9 +104,16 @@ namespace Zenith {
         void EmitIntConst(uint8_t dst, int64_t val, CTType type, uint32_t node);
         void EmitFloatConst(uint8_t dst, double val, CTType type, uint32_t node);
 
+        // scope management
         void PushScope();
         void PopScope();
 
+        void PushControl(const ControlScope& scope);
+        void PopControl(uint32_t node);
+        size_t FindBreak(uint32_t label) const;
+        size_t FindContinue(uint32_t label) const;
+
+        // helpers
         uint8_t AllocTemp(uint32_t node);
         uint8_t AllocLocal(uint32_t node);
         const LocalVar* FindLocal(std::string_view name) const;

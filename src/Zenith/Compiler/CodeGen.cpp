@@ -1,4 +1,5 @@
 #include "Zenith/Compiler/CodeGen.h"
+#include "Zenith/Compiler/Node.h"
 #include "Zenith/Compiler/SignatureTable.h"
 #include "Zenith/Compiler/Utils.h"
 #include "Zenith/Core/Assert.h"
@@ -11,6 +12,7 @@
 #include <cstdint>
 #include <limits>
 #include <ranges>
+#include <string_view>
 
 namespace Zenith {
 
@@ -21,15 +23,14 @@ namespace Zenith {
         m_Errors.Clear();
         m_Context.Reset();
         m_Func = {};
+        m_Scopes.clear();
         m_ConstCache.clear();
     }
 
     bool CodeGen::Generate(TypedAstView ast, Module& out)
     {
         ZN_CORE_ASSERT(ast.signatures != nullptr, "TypedAstView signatures cannot be null");
-        Clear();
-        out.Clear();
-        m_Typed = ast;
+        Clear(); out.Clear(); m_Typed = ast;
         out.Reserve(static_cast<uint16_t>(m_Typed.signatures->Count()));
 
         bool is_valid = true;
@@ -41,7 +42,8 @@ namespace Zenith {
         });
 
         if (!is_valid || HasErrors()) return false;
-        out.SetEntry(m_Typed.main_proto_id);
+        if (m_Typed.main_proto_id != INVALID_PROTO)
+            out.SetEntry(m_Typed.main_proto_id);
         out.Freeze();
         return true;
     }
@@ -89,7 +91,7 @@ namespace Zenith {
 
     void CodeGen::PopScope()
     {
-        ZN_CORE_ASSERT(m_Context.depth > 0, "Scope underflow");
+        ZN_CORE_ASSERT(m_Context.depth > 0, "PopScope: Scope underflow");
         while (!m_Context.locals.empty() &&
                m_Context.locals.back().depth == m_Context.depth)
         {
@@ -123,6 +125,50 @@ namespace Zenith {
         for (const auto& var : m_Context.locals | std::views::reverse)
             if (var.name == name) return &var;
         return nullptr;
+    }
+
+    void CodeGen::PushControl(const ControlScope& scope)
+    {
+        m_Scopes.push_back(scope);
+    }
+
+    void CodeGen::PopControl(uint32_t node)
+    {
+        ZN_CORE_ASSERT(!m_Scopes.empty(), "PopControl: empty control stack");
+        const uint32_t end_pc = m_Builder.GetCodeSize();
+        for (uint32_t jmp_pc : m_Scopes.back().break_jmps)
+        {
+            PatchJump(jmp_pc, end_pc, node);
+            if (m_Func.failed) break;
+        }
+        m_Scopes.pop_back();
+    }
+
+    size_t CodeGen::FindBreak(uint32_t label) const
+    {
+        std::string_view name = (label == ERROR_NODE) ? "" : GetName(label);
+        for (size_t i = m_Scopes.size(); i > 0; --i)
+        {
+            const size_t idx = i - 1;
+            const auto& scope = m_Scopes[idx];
+            if (label == ERROR_NODE && scope.is_loop) return idx;
+            if (label != ERROR_NODE && scope.label == name) return idx;
+        }
+        ZN_CORE_ASSERT(false, "FindBreak: cannot find valid scope");
+        return m_Scopes.size();
+    }
+
+    size_t CodeGen::FindContinue(uint32_t label) const
+    {
+        std::string_view name = (label == ERROR_NODE) ? "" : GetName(label);
+        for (size_t i = m_Scopes.size(); i > 0; --i)
+        {
+            const size_t idx = i - 1;
+            const auto& scope = m_Scopes[idx];
+            if (scope.is_loop && (label == ERROR_NODE || scope.label == name)) return idx;
+        }
+        ZN_CORE_ASSERT(false, "FindContinue: cannot find valid scope");
+        return m_Scopes.size();
     }
 
     void CodeGen::EmitTruncIfNeeded(uint8_t reg, CTType type)
