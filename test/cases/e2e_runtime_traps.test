@@ -1,0 +1,11 @@
+// === INPUT: SOURCE ===
+func div_by(a: i64, b: i64) -> i64 {
+    return a / b;
+}
+
+func main() -> i64 {
+    return div_by(10, 0);
+}
+
+// === EXPECTED VM ===
+TRAP: Division by zero at Proto#0[0]

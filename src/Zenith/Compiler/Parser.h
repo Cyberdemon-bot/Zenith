@@ -81,7 +81,7 @@ namespace Zenith {
         void PushScratch(uint32_t node) { m_Scratch.push_back(node); }
         void RollbackScratch(size_t marker)
         {
-            ZN_CORE_ASSERT(marker <= m_Scratch.size(), "RollbackScratch: invalid marker");
+            ZN_CORE_ASSERT(marker <= m_Scratch.size(), "Invalid scratch marker");
             m_Scratch.resize(marker);
         }
         ListHeader CommitList(size_t marker);
@@ -90,7 +90,7 @@ namespace Zenith {
         uint32_t CurrToken() { return m_Cursor; }
         const Token& GetToken(uint32_t idx) const
         {
-            ZN_CORE_ASSERT(idx < m_Tokens.size(), "GetToken: index out of bounds");
+            ZN_CORE_ASSERT(idx < m_Tokens.size(), "Token index out of bounds");
             return m_Tokens[idx];
         }
 
@@ -107,7 +107,7 @@ namespace Zenith {
 
         const Node& GetNode(uint32_t idx) const
         {
-            ZN_CORE_ASSERT(idx < m_Nodes.size(), "GetNode: index out of bounds");
+            ZN_CORE_ASSERT(idx < m_Nodes.size(), "Node index out of bounds");
             return m_Nodes[idx];
         }
         uint32_t GetCurrNode() { return static_cast<uint32_t>(m_Nodes.size() - 1); }

@@ -3,9 +3,7 @@
 
 #include "Zenith/Core/ProfileTimer.h"
 #include "Zenith/VM/Assembler.h"
-#include "Zenith/VM/Disassembler.h"
 #include "Zenith/VM/Executor.h"
-#include "Zenith/VM/State.h"
 
 #include <charconv>
 #include <sstream>
@@ -92,19 +90,15 @@ std::vector<VmStep::RegisterExpectation> VmStep::ParseExpectations(const std::st
     return expects;
 }
 
-VmStep::Result VmStep::RunAsm(std::string_view asmSource, const std::string& expectedVmBlock)
+VmStep::AssembleResult VmStep::Assemble(std::string_view asmSource)
 {
-    Result res;
-    ZN_PROFILE_SCOPE(&res.profile.totalTimeMs);
-
+    AssembleResult res;
     auto protoBlocks = SplitProtos(asmSource);
-
-    Module module;
-    uint8_t entryMaxRegs = 0;
+    auto mod = CreateRef<Module>();
     uint16_t entryId = 0;
 
     {
-        ZN_PROFILE_SCOPE(&res.profile.assembleTimeMs);
+        ZN_PROFILE_SCOPE(&res.timeMs);
         for (size_t i = 0; i < protoBlocks.size(); ++i)
         {
             ProtoBuilder builder;
@@ -115,33 +109,39 @@ VmStep::Result VmStep::RunAsm(std::string_view asmSource, const std::string& exp
                 res.errorMessage = "Assembler error (Proto #" + std::to_string(i) + "): " + err;
                 return res;
             }
-            entryMaxRegs = builder.GetMaxRegs();
-            entryId = module.Add(builder);
+            entryId = mod->Add(builder);
         }
-        module.Freeze();
+        mod->SetEntry(entryId);
+        mod->Freeze();
     }
 
+    res.module = std::move(mod);
+    res.success = true;
+    return res;
+}
+
+VmStep::ExecResult VmStep::Execute(const Ref<const Module>& module, const std::string& expectedVmBlock)
+{
+    ExecResult res;
+    if (!module || !module->HasEntry())
     {
-        ZN_PROFILE_SCOPE(&res.profile.disasmTimeMs);
-        std::ostringstream disasmOut;
-        for (uint16_t id = 0; id < module.GetNumProtos(); ++id)
-        {
-            if (id > 0) disasmOut << "\n";
-            Disassembler::Dump(module, id, disasmOut);
-        }
-        res.actualDisasm = Diff::Trim(disasmOut.str());
+        res.success = false;
+        res.errorMessage = "VM execution error: no entry proto in module";
+        return res;
     }
 
-    auto sharedModule = CreateRef<const Module>(std::move(module));
-    State state;
-    state.SetModule(sharedModule);
-    state.Prepare(entryId);
+    uint16_t entryId = module->GetEntry();
+    uint8_t entryMaxRegs = module->GetProto(entryId).MaxRegs;
+
+    m_State.Reset();
+    m_State.SetModule(module);
+    m_State.Prepare(entryId);
 
     bool ok = true;
     try
     {
-        ZN_PROFILE_SCOPE(&res.profile.executeTimeMs);
-        ok = Executor::Execute(state);
+        ZN_PROFILE_SCOPE(&res.timeMs);
+        ok = Executor::Execute(m_State);
     }
     catch (const std::exception& e)
     {
@@ -152,7 +152,7 @@ VmStep::Result VmStep::RunAsm(std::string_view asmSource, const std::string& exp
 
     if (!ok)
     {
-        const RuntimeError& err = state.GetError();
+        const RuntimeError& err = m_State.GetError();
         std::ostringstream trapOut;
         trapOut << "TRAP: " << RuntimeErrorToString(err.code)
                 << " at Proto#" << err.proto_id << "[" << err.pc << "]";
@@ -168,7 +168,7 @@ VmStep::Result VmStep::RunAsm(std::string_view asmSource, const std::string& exp
     {
         for (const auto& exp : expects)
         {
-            const Value& v = state.Reg(exp.regIndex);
+            const Value& v = m_State.Reg(exp.regIndex);
             vmOut << "R" << static_cast<int>(exp.regIndex) << " = ";
 
             if (exp.type == "I32")
@@ -183,6 +183,8 @@ VmStep::Result VmStep::RunAsm(std::string_view asmSource, const std::string& exp
                 vmOut << v.u64 << " (U64)\n";
             else if (exp.type == "F64")
                 vmOut << v.f64 << " (F64)\n";
+            else if (exp.type == "BOOL")
+                vmOut << (v.u64 != 0 ? "true" : "false") << " (BOOL)\n";
             else
             {
                 if (exp.expectedStr.find('.') != std::string::npos)
@@ -196,7 +198,7 @@ VmStep::Result VmStep::RunAsm(std::string_view asmSource, const std::string& exp
     {
         for (uint8_t i = 0; i < entryMaxRegs; ++i)
         {
-            const Value& v = state.Reg(i);
+            const Value& v = m_State.Reg(i);
             if (v.u64 != 0 || i == 0)
             {
                 vmOut << "R" << static_cast<int>(i) << " = " << v.i32 << " (I32)\n";

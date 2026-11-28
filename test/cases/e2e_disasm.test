@@ -1,0 +1,35 @@
+// === INPUT: SOURCE ===
+func add(a: i64, b: i64) -> i64 {
+    return a + b;
+}
+
+func main() -> i64 {
+    return add(20, 22);
+}
+
+// === EXPECTED VM ===
+R0 = 42 (I64)
+
+// === EXPECTED DISASM ===
+; === Proto #0 Header ===
+; Params:   2
+; Max Regs: 3
+; Children: offset=0, count=0
+
+; === Instruction Listing (3) ===
+  [0000] Add.U64       R2, R0, R1
+  [0001] Return        R2, 1
+  [0002] Return        R0, 0
+
+; === Proto #1 Header ===
+; Params:   0
+; Max Regs: 3
+; Children: offset=0, count=0
+
+; === Instruction Listing (6) ===
+  [0000] LoadImm       R1, 20
+  [0001] LoadImm       R2, 22
+  [0002] Call          R1, Proto#0
+  [0003] Mov           R0, R1
+  [0004] Return        R0, 1
+  [0005] Return        R0, 0

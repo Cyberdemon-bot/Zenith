@@ -1,0 +1,69 @@
+// === INPUT: SOURCE ===
+func fib(n: i64) -> i64 {
+    if n <= 1 {
+        return n;
+    }
+    return fib(n - 1) + fib(n - 2);
+}
+
+func gcd(a_in: i64, b_in: i64) -> i64 {
+    let mut a = a_in;
+    let mut b = b_in;
+    for b != 0 {
+        let t = a % b;
+        a = b;
+        b = t;
+    }
+    return a;
+}
+
+func fact(n: i64) -> i64 {
+    if n <= 1 {
+        return 1;
+    }
+    return n * fact(n - 1);
+}
+
+func is_prime(n: i64) -> bool {
+    if n < 2 {
+        return false;
+    }
+    let mut d: i64 = 2;
+    for d * d <= n {
+        if n % d == 0 {
+            return false;
+        }
+        d = d + 1;
+    }
+    return true;
+}
+
+func count_primes(limit: i64) -> i64 {
+    let mut count: i64 = 0;
+    let mut n: i64 = 2;
+    for n <= limit {
+        if is_prime(n) {
+            count = count + 1;
+        }
+        n = n + 1;
+    }
+    return count;
+}
+
+func noop() {
+    let unused = 123;
+    return;
+}
+
+func main() -> i64 {
+    noop();
+    let x = 10;
+    let shadowed = 's: {
+        let x = x + 5;
+        break 's x;
+    };
+    return fib(10) + gcd(48, 18) + fact(6) + count_primes(20) + shadowed;
+}
+
+// === EXPECTED VM ===
+R0 = 804 (I64)

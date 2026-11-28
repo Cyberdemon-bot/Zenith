@@ -1,0 +1,12 @@
+// === INPUT: SOURCE ===
+func div_min(d: i32) -> i32 {
+    let m: i32 = -2147483648;
+    return m / d;
+}
+
+func main() -> i64 {
+    return div_min(-1) as i64;
+}
+
+// === EXPECTED VM ===
+TRAP: Signed integer division overflow at Proto#0[1]

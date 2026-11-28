@@ -2,6 +2,8 @@
 
 #include "TestCase.h"
 
+#include "Zenith/Compiler/Parser.h"
+
 #include <string>
 #include <string_view>
 #include <vector>
@@ -9,19 +11,17 @@
 class AstStep
 {
 public:
-    struct ProfileData
-    {
-        float parseTimeMs = 0.0f;
-        float dumpTimeMs = 0.0f;
-        float totalTimeMs = 0.0f;
-    };
-
     struct Result
     {
-        std::string astTree;
+        Zenith::AstView ast{};
         std::vector<ErrorInfo> errors;
-        ProfileData profile;
+        bool hasErrors = false;
+        float timeMs = 0.0f;
     };
 
-    static Result Run(std::string_view source);
+    Result Run(std::string_view source);
+    static std::string Dump(Zenith::AstView ast, float* outTimeMs = nullptr);
+
+private:
+    Zenith::Parser m_Parser;
 };

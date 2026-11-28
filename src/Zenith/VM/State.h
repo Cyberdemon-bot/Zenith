@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Zenith/Core/Base.h"
-#include "Zenith/VM/Proto.h"
+#include "Zenith/VM/Value.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -10,6 +10,9 @@
 #include <vector>
 
 namespace Zenith {
+
+    class Module;
+    struct Instruction;
 
     enum class RuntimeErrorCode : uint8_t
     {

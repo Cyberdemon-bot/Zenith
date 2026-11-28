@@ -15,6 +15,7 @@ target("ZenithCore")
         set_optimize("fastest")   
     end
 
+    set_pcxxheader("src/znpch.h")
     add_files("src/Zenith/**.cpp")
     add_includedirs("src", {public = true})
 

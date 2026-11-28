@@ -2,27 +2,25 @@
 
 #include "TestCase.h"
 
+#include "Zenith/Compiler/TypeChecker.h"
+
 #include <string>
-#include <string_view>
 #include <vector>
 
 class TypeCheckerStep
 {
 public:
-    struct ProfileData
-    {
-        float parseTimeMs = 0.0f;
-        float checkTimeMs = 0.0f;
-        float dumpTimeMs = 0.0f;
-        float totalTimeMs = 0.0f;
-    };
-
     struct Result
     {
-        std::string typedAst;
+        Zenith::TypedAstView typed{};
         std::vector<ErrorInfo> errors;
-        ProfileData profile;
+        bool hasErrors = false;
+        float timeMs = 0.0f;
     };
 
-    static Result Run(std::string_view source);
+    Result Run(Zenith::AstView ast);
+    static std::string Dump(Zenith::TypedAstView typed, float* outTimeMs = nullptr);
+
+private:
+    Zenith::TypeChecker m_Checker;
 };

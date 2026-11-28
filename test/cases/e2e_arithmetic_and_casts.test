@@ -1,0 +1,16 @@
+// === INPUT: SOURCE ===
+func main() -> i64 {
+    let a: i8 = 100;
+    let b: i8 = 50;
+    let wrap_i8 = a + b;
+
+    let neg_i32: i32 = -42;
+    let neg_i8 = (-13.75 as i8) as i64;
+    let wrap_u8 = (260.9 as u8) as i64;
+    let b_int = ((neg_i32 != 0) as i64) * 10;
+
+    return (wrap_i8 as i64) + (neg_i32 as i64) + neg_i8 + wrap_u8 + b_int;
+}
+
+// === EXPECTED VM ===
+R0 = -147 (I64)

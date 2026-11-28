@@ -50,13 +50,13 @@ namespace Zenith {
 
     const Node& CodeGen::GetNode(uint32_t idx) const
     {
-        ZN_CORE_ASSERT(idx < m_Typed.ast.nodes.size(), "GetNode: index out of bounds");
+        ZN_CORE_ASSERT(idx < m_Typed.ast.nodes.size(), "Node index out of bounds");
         return m_Typed.ast.nodes[idx];
     }
 
     CTType CodeGen::TypeOf(uint32_t idx) const
     {
-        ZN_CORE_ASSERT(idx < m_Typed.node_types.size(), "TypeOf: index out of bounds");
+        ZN_CORE_ASSERT(idx < m_Typed.node_types.size(), "Node type index out of bounds");
         return m_Typed.node_types[idx];
     }
 
@@ -64,7 +64,7 @@ namespace Zenith {
     {
         std::string_view name;
         [[maybe_unused]] bool ok = Utils::GetName(m_Typed.ast, node, name);
-        ZN_CORE_ASSERT(ok, "GetName: expected valid Identifier or Label node");
+        ZN_CORE_ASSERT(ok, "Expected valid Identifier or Label node");
         return name;
     }
 
@@ -72,7 +72,7 @@ namespace Zenith {
     {
         uint32_t count = 0;
         [[maybe_unused]] bool ok = Utils::ListCount(m_Typed.ast, list_node, count);
-        ZN_CORE_ASSERT(ok, "ListCount: invalid list node");
+        ZN_CORE_ASSERT(ok, "Invalid list node");
         return count;
     }
 
@@ -80,7 +80,7 @@ namespace Zenith {
     {
         uint32_t item = 0;
         [[maybe_unused]] bool ok = Utils::ListItem(m_Typed.ast, list_node, i, item);
-        ZN_CORE_ASSERT(ok, "ListItem: invalid list node or index out of bounds");
+        ZN_CORE_ASSERT(ok, "Invalid list node or index out of bounds");
         return item;
     }
 
@@ -91,7 +91,7 @@ namespace Zenith {
 
     void CodeGen::PopScope()
     {
-        ZN_CORE_ASSERT(m_Context.depth > 0, "PopScope: Scope underflow");
+        ZN_CORE_ASSERT(m_Context.depth > 0, "Scope underflow");
         while (!m_Context.locals.empty() &&
                m_Context.locals.back().depth == m_Context.depth)
         {
@@ -134,7 +134,7 @@ namespace Zenith {
 
     void CodeGen::PopControl(uint32_t node)
     {
-        ZN_CORE_ASSERT(!m_Scopes.empty(), "PopControl: empty control stack");
+        ZN_CORE_ASSERT(!m_Scopes.empty(), "Control stack is empty");
         const uint32_t end_pc = m_Builder.GetCodeSize();
         for (uint32_t jmp_pc : m_Scopes.back().break_jmps)
         {
@@ -154,7 +154,7 @@ namespace Zenith {
             if (label == ERROR_NODE && scope.is_loop) return idx;
             if (label != ERROR_NODE && scope.label == name) return idx;
         }
-        ZN_CORE_ASSERT(false, "FindBreak: cannot find valid scope");
+        ZN_CORE_ASSERT(false, "Cannot find valid break target");
         return m_Scopes.size();
     }
 
@@ -167,7 +167,7 @@ namespace Zenith {
             const auto& scope = m_Scopes[idx];
             if (scope.is_loop && (label == ERROR_NODE || scope.label == name)) return idx;
         }
-        ZN_CORE_ASSERT(false, "FindContinue: cannot find valid scope");
+        ZN_CORE_ASSERT(false, "Cannot find valid continue target");
         return m_Scopes.size();
     }
 
@@ -228,7 +228,7 @@ namespace Zenith {
             case CTType::Kind::U32: v.SetAs<Type::U32>(static_cast<uint32_t>(val)); break;
             case CTType::Kind::I64: v.SetAs<Type::I64>(val); break;
             case CTType::Kind::U64: v.SetAs<Type::U64>(static_cast<uint64_t>(val)); break;
-            default: ZN_CORE_ASSERT(false, "EmitIntConst: unexpected type"); break;
+            default: ZN_CORE_ASSERT(false, "Unexpected integer constant type"); break;
         }
         EmitLoadConst(dst, v, node);
     }
@@ -243,9 +243,9 @@ namespace Zenith {
 
     uint8_t CodeGen::AddError(uint32_t node, DiagType diag)
     {
-        ZN_CORE_ASSERT(node < m_Typed.ast.nodes.size(), "AddError: invalid node index");
+        ZN_CORE_ASSERT(node < m_Typed.ast.nodes.size(), "Invalid node index");
         const uint32_t token = m_Typed.ast.nodes[node].start_token;
-        ZN_CORE_ASSERT(token < m_Typed.ast.tokens.size(), "AddError: invalid token index");
+        ZN_CORE_ASSERT(token < m_Typed.ast.tokens.size(), "Invalid token index");
 
         m_Errors.Push(Diagnostic
         {
@@ -263,7 +263,7 @@ namespace Zenith {
     uint32_t CodeGen::EmitJump(Opcode op, uint8_t reg)
     {
         ZN_CORE_ASSERT(op == Opcode::Jmp || op == Opcode::Jz || op == Opcode::Jnz,
-                       "EmitJump: expected jump opcode");
+                       "Expected jump opcode");
         return m_Builder.CommitInstruction(
             Instruction::Make<Format::iAsBx>(
                 op, reg, int16_t(0)));

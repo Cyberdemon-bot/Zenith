@@ -120,7 +120,7 @@ namespace Zenith {
                     AddError(type_node, { DiagType::UnsupportedFeature, "generic type arguments" });
                     return SetNodeType(type_node, CTType::Error());
                 }
-                ZN_CORE_ASSERT(nt.ident < m_Ast.tokens.size(), "NamedType: invalid token index");
+                ZN_CORE_ASSERT(nt.ident < m_Ast.tokens.size(), "Invalid token index for NamedType");
                 std::string_view name = m_Ast.tokens[nt.ident].literal;
                 if (name == "i8")   return SetNodeType(type_node, CTType::I8());
                 if (name == "i16")  return SetNodeType(type_node, CTType::I16());
@@ -190,7 +190,7 @@ namespace Zenith {
 
     void TypeChecker::CollectSignature()
     {
-        ZN_CORE_ASSERT(m_Ast.root < m_Ast.nodes.size(), "invalid root index");
+        ZN_CORE_ASSERT(m_Ast.root < m_Ast.nodes.size(), "Invalid root index");
         ZN_CORE_ASSERT(m_Ast.nodes[m_Ast.root].type == NodeType::Program,
                     "AST root must be Program");
 
@@ -250,9 +250,9 @@ namespace Zenith {
 
     void TypeChecker::AddError(uint32_t node, Error err)
     {
-        ZN_CORE_ASSERT(node < m_Ast.nodes.size(), "AddError: invalid node index");
+        ZN_CORE_ASSERT(node < m_Ast.nodes.size(), "Invalid node index");
         const uint32_t token = m_Ast.nodes[node].start_token;
-        ZN_CORE_ASSERT(token < m_Ast.tokens.size(), "AddError: invalid token index");
+        ZN_CORE_ASSERT(token < m_Ast.tokens.size(), "Invalid token index");
 
         m_Errors.Push(Diagnostic
         {
@@ -270,7 +270,7 @@ namespace Zenith {
     {
         std::string_view name;
         [[maybe_unused]] bool ok = Utils::GetName(m_Ast, node, name);
-        ZN_CORE_ASSERT(ok, "GetName: expected Identifier or Label node");
+        ZN_CORE_ASSERT(ok, "Expected Identifier or Label node");
         return name;
     }
 
@@ -278,7 +278,7 @@ namespace Zenith {
     {
         uint32_t count = 0;
         [[maybe_unused]] bool ok = Utils::ListCount(m_Ast, list_node, count);
-        ZN_CORE_ASSERT(ok, "ListCount: invalid list node");
+        ZN_CORE_ASSERT(ok, "Invalid list node");
         return count;
     }
 
@@ -286,7 +286,7 @@ namespace Zenith {
     {
         uint32_t item = 0;
         [[maybe_unused]] bool ok = Utils::ListItem(m_Ast, list_node, i, item);
-        ZN_CORE_ASSERT(ok, "ListItem: invalid list node or index out of bounds");
+        ZN_CORE_ASSERT(ok, "Invalid list node or index out of bounds");
         return item;
     }
 }

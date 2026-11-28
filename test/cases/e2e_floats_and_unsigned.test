@@ -1,0 +1,37 @@
+// === INPUT: SOURCE ===
+func main() -> i64 {
+    // Unsigned wrap & DivU/RemU
+    let u8_a: u8 = 250;
+    let u8_b: u8 = 10;
+    let u8_wrap = u8_a + u8_b; // 4
+
+    let big_u32: u32 = 3000000000;
+    let small_u32: u32 = 100;
+    let u_cmp = if big_u32 > small_u32 => 1 else => 0; // 1 (requires unsigned Lt.U32)
+    let u_div = (big_u32 / 1000000000) as i64;         // 3
+    let u_rem = ((25 as u32) % (7 as u32)) as i64;     // 4
+
+    // Large i64 constant (> int16_t) + constant pool deduplication
+    let big1: i64 = 100000;
+    let big2: i64 = 100000;
+    let diff = big1 - big2; // 0
+
+    // Float f32 / f64 arithmetic, unary neg, comparison
+    let f1: f64 = 12.5;
+    let f2: f64 = -2.5;
+    let f_div = f1 / (-f2);       // 5.0
+    let f_cmp = if f_div == 5.0 => 10 else => 0; // 10
+
+    let f3: f32 = 3.5;
+    let f4: f32 = 2.0;
+    let f32_res = (f3 * f4) as i64; // 7
+
+    // Destination aliasing check: x = 10 + x
+    let mut x: i64 = 5;
+    x = 10 + x; // 15
+
+    return (u8_wrap as i64) + u_cmp + u_div + u_rem + diff + f_cmp + f32_res + x;
+}
+
+// === EXPECTED VM ===
+R0 = 44 (I64)

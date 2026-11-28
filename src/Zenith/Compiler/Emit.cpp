@@ -10,10 +10,73 @@
 #include "Zenith/VM/Opcode.h"
 
 #include <algorithm>
+#include <optional>
 #include <string_view>
 #include <utility>
 
 namespace Zenith {
+
+    namespace {
+
+        constexpr Type ToVMType(CTType type) noexcept
+        {
+            switch (type.kind)
+            {
+                case CTType::Kind::I8:
+                case CTType::Kind::I16:
+                case CTType::Kind::I32:  return Type::I32;
+                case CTType::Kind::U8:
+                case CTType::Kind::U16:
+                case CTType::Kind::U32:  return Type::U32;
+                case CTType::Kind::I64:  return Type::I64;
+                case CTType::Kind::U64:
+                case CTType::Kind::Bool: return Type::U64;
+                case CTType::Kind::F32:  return Type::F32;
+                case CTType::Kind::F64:  return Type::F64;
+                default:                 return Type::None;
+            }
+        }
+
+        constexpr std::optional<CastKind> FindNumericCast(Type src, Type dst) noexcept
+        {
+            if (src == dst) return std::nullopt;
+
+            if (src == Type::I32 && (dst == Type::I64 || dst == Type::U64)) return CastKind::I32ToI64;
+            if ((src == Type::I64 || src == Type::U64) && (dst == Type::I32 || dst == Type::U32)) return CastKind::I64ToI32;
+
+            if (src == Type::I32) return (dst == Type::F32) ? std::optional(CastKind::I32ToF32) : (dst == Type::F64 ? std::optional(CastKind::I32ToF64) : std::nullopt);
+            if (src == Type::U32) return (dst == Type::F32) ? std::optional(CastKind::U32ToF32) : (dst == Type::F64 ? std::optional(CastKind::U32ToF64) : std::nullopt);
+            if (src == Type::I64) return (dst == Type::F32) ? std::optional(CastKind::I64ToF32) : (dst == Type::F64 ? std::optional(CastKind::I64ToF64) : std::nullopt);
+            if (src == Type::U64) return (dst == Type::F32) ? std::optional(CastKind::U64ToF32) : (dst == Type::F64 ? std::optional(CastKind::U64ToF64) : std::nullopt);
+
+            if (src == Type::F32)
+            {
+                switch (dst)
+                {
+                    case Type::I32: return CastKind::F32ToI32;
+                    case Type::U32: return CastKind::F32ToU32;
+                    case Type::I64: return CastKind::F32ToI64;
+                    case Type::U64: return CastKind::F32ToU64;
+                    case Type::F64: return CastKind::F32ToF64;
+                    default:        return std::nullopt;
+                }
+            }
+            if (src == Type::F64)
+            {
+                switch (dst)
+                {
+                    case Type::I32: return CastKind::F64ToI32;
+                    case Type::U32: return CastKind::F64ToU32;
+                    case Type::I64: return CastKind::F64ToI64;
+                    case Type::U64: return CastKind::F64ToU64;
+                    case Type::F32: return CastKind::F64ToF32;
+                    default:        return std::nullopt;
+                }
+            }
+            return std::nullopt;
+        }
+
+    }
 
     void CodeGen::CompileFunc(const FuncView& func)
     {
@@ -61,7 +124,7 @@ namespace Zenith {
                 Opcode::Return, uint8_t(0), uint8_t(0), uint8_t(0)));
 
         PopScope();
-        ZN_CORE_ASSERT(m_Context.depth == 0 && m_Scopes.empty(), "CompileFunc: unbalanced scope after function");
+        ZN_CORE_ASSERT(m_Context.depth == 0 && m_Scopes.empty(), "Unbalanced scope after function");
 
         m_Builder.SetNumParams(static_cast<uint8_t>(func.params.size()));
         m_Builder.SetNumReturn(func.ret_type == CTType::Unit() ? 0 : 1);
@@ -78,7 +141,9 @@ namespace Zenith {
             case NodeType::LetStmt:
             {
                 const auto& ls = n.data.let;
-                const uint32_t ident_node = GetNode(ls.target).data.typed_ident.ident;
+                const uint32_t ident_node = (GetNode(ls.target).type == NodeType::TypedIdentifier)
+                                          ? GetNode(ls.target).data.typed_ident.ident
+                                          : ls.target;
                 CTType var_type = TypeOf(node);
                 uint8_t var_reg = (var_type == CTType::Unit()) ? 0 : AllocLocal(node);
 
@@ -102,7 +167,7 @@ namespace Zenith {
             {
                 const auto& as = n.data.assign;
                 const LocalVar* var = FindLocal(GetName(as.target));
-                ZN_CORE_ASSERT(var != nullptr, "CompileStmt: undefined local variable");
+                ZN_CORE_ASSERT(var != nullptr, "Undefined local variable");
                 CompileExpr(as.value, (var->type == CTType::Unit()) ? 0 : var->reg);
                 break;
             }
@@ -162,7 +227,7 @@ namespace Zenith {
                 }
                 break;
             }
-            default: ZN_CORE_ASSERT(false, "CompileStmt: unexpected statement node"); break;
+            default: ZN_CORE_ASSERT(false, "Unexpected statement node"); break;
         }
     }
 
@@ -286,7 +351,7 @@ namespace Zenith {
             case NodeType::Identifier:
             {
                 const auto* var = FindLocal(GetName(node));
-                ZN_CORE_ASSERT(var != nullptr, "CompileExpr: undefined local variable");
+                ZN_CORE_ASSERT(var != nullptr, "Undefined local variable");
                 if (var->type != CTType::Unit() && dst != var->reg)
                     m_Builder.CommitInstruction(
                         Instruction::Make<Format::iABC>(
@@ -295,7 +360,7 @@ namespace Zenith {
             }
             case NodeType::Tuple:
             {
-                ZN_CORE_ASSERT(ListCount(node) == 0, "tuple is unsupported");
+                ZN_CORE_ASSERT(ListCount(node) == 0, "Non-unit tuple is unsupported");
                 break;
             }
             case NodeType::Decimal:    EmitFloatConst(dst, n.data.f64, TypeOf(node), node); break;
@@ -318,11 +383,11 @@ namespace Zenith {
                     case NodeType::BlockExpr: CompileBlock(body, dst, label, true); break;
                     case NodeType::IfExpr:    CompileIf(body, dst, label); break;
                     case NodeType::ForExpr:   CompileFor(body, dst, label); break;
-                    default: ZN_CORE_ASSERT(false, "CompileExpr: invalid labeled target"); break;
+                    default: ZN_CORE_ASSERT(false, "Invalid labeled target"); break;
                 }
                 break;
             }
-            default: ZN_CORE_ASSERT(false, "CompileExpr: unexpected expression"); return;
+            default: ZN_CORE_ASSERT(false, "Unexpected expression node"); return;
         }
     }
 
@@ -342,7 +407,7 @@ namespace Zenith {
                 Instruction::Make<Format::iABC>(Opcode::Cast, dst, dst, static_cast<uint8_t>(CastKind::ToBool)));
             return;
         }
-        if (auto kind = Utils::FindNumericCast(Utils::ToVMType(src_ct), Utils::ToVMType(dst_ct)))
+        if (auto kind = FindNumericCast(ToVMType(src_ct), ToVMType(dst_ct)))
         {
             m_Builder.CommitInstruction(
                 Instruction::Make<Format::iABC>(Opcode::Cast, dst, dst, static_cast<uint8_t>(*kind)));
@@ -355,7 +420,7 @@ namespace Zenith {
         const auto& call = GetNode(node).data.call;
         std::string_view callee_name = GetName(call.callee);
         auto callee = m_Typed.signatures->Find(callee_name);
-        ZN_CORE_ASSERT(callee.has_value(), "CompileCall: Unknown function");
+        ZN_CORE_ASSERT(callee.has_value(), "Unknown function");
 
         const uint32_t arg_count = ListCount(call.args);
         const bool has_ret = (callee->ret_type != CTType::Unit());
@@ -415,7 +480,7 @@ namespace Zenith {
                 CTType ty = TypeOf(node);
                 m_Builder.CommitInstruction(
                     Instruction::Make<Format::iABC>(
-                        Opcode::Neg, Utils::ToVMType(ty), dst, dst, uint8_t(0)));
+                        Opcode::Neg, ToVMType(ty), dst, dst, uint8_t(0)));
                 EmitTruncIfNeeded(dst, ty);
                 break;
             }
@@ -457,7 +522,7 @@ namespace Zenith {
         if (m_Func.failed) return;
 
         CTType op_ct = TypeOf(bin.lhs);
-        Type vm_ty = Utils::ToVMType(op_ct);
+        Type vm_ty = ToVMType(op_ct);
         Opcode op = Opcode::Add;
         bool is_arith = true;
 
@@ -482,7 +547,7 @@ namespace Zenith {
             case Operator::Gt:  op = Opcode::Lt; std::swap(lhs, rhs); is_arith = false; break;
             case Operator::Gte: op = Opcode::Le; std::swap(lhs, rhs); is_arith = false; break;
 
-            default: ZN_CORE_ASSERT(false, "CompileBinary: unexpected operator"); return;
+            default: ZN_CORE_ASSERT(false, "Unexpected binary operator"); return;
         }
 
         m_Builder.CommitInstruction(
@@ -502,7 +567,7 @@ namespace Zenith {
         if (GetNode(expr).type == NodeType::Identifier)
         {
             const auto* var = FindLocal(GetName(expr));
-            ZN_CORE_ASSERT(var != nullptr, "CompileOperand: undefined local variable");
+            ZN_CORE_ASSERT(var != nullptr, "Undefined local variable");
             return var->reg;
         }
 

@@ -1023,7 +1023,7 @@ namespace Zenith {
 
     ListHeader Parser::CommitList(size_t marker)
     {
-        ZN_CORE_ASSERT(marker <= m_Scratch.size(), "CommitList: invalid marker");
+        ZN_CORE_ASSERT(marker <= m_Scratch.size(), "Invalid scratch marker");
         uint32_t count = static_cast<uint32_t>(m_Scratch.size() - marker);
         uint32_t start = static_cast<uint32_t>(m_Extra.size());
         m_Extra.insert(m_Extra.end(), m_Scratch.begin() + marker, m_Scratch.end());

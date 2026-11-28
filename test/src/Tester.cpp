@@ -1,16 +1,63 @@
 #include "Tester.h"
 #include "Diff.h"
-#include "Steps/AstStep.h"
-#include "Steps/TypeCheckerStep.h"
-#include "Steps/VmStep.h"
+#include "Pipeline.h"
 #include "Zenith/Core/ProfileTimer.h"
 
 #include <algorithm>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
-#include <map>
 #include <sstream>
+
+namespace {
+
+    std::string FormatTimings(float caseTimeMs, const std::vector<std::pair<std::string, float>>& timings)
+    {
+        std::ostringstream os;
+        os << std::fixed << std::setprecision(2) << " (" << caseTimeMs << "ms)";
+        if (!timings.empty())
+        {
+            os << " [";
+            for (size_t i = 0; i < timings.size(); ++i)
+            {
+                if (i > 0) os << ", ";
+                os << timings[i].first << ": " << timings[i].second << "ms";
+            }
+            os << "]";
+        }
+        return os.str();
+    }
+
+    bool CheckSection(
+        bool hasExpected,
+        const std::string& expected,
+        const std::map<std::string, std::string>& outputs,
+        std::string_view marker)
+    {
+        if (!hasExpected) return true;
+        auto it = outputs.find(std::string(marker));
+        std::string actual = (it != outputs.end()) ? it->second : "";
+        return actual == expected;
+    }
+
+    void PrintSectionDiff(
+        bool hasExpected,
+        const std::string& expected,
+        const std::map<std::string, std::string>& outputs,
+        std::string_view marker,
+        std::string_view label)
+    {
+        if (!hasExpected) return;
+        auto it = outputs.find(std::string(marker));
+        std::string actual = (it != outputs.end()) ? it->second : "";
+        if (actual != expected)
+        {
+            std::cout << "  " << label << " mismatch:\n";
+            Diff::PrintDiff(expected, actual);
+        }
+    }
+
+} // namespace
 
 std::vector<TestCase> Tester::LoadCases(const fs::path& dir, const std::string& filter)
 {
@@ -18,8 +65,7 @@ std::vector<TestCase> Tester::LoadCases(const fs::path& dir, const std::string& 
     for (const auto& entry : fs::recursive_directory_iterator(dir))
     {
         if (!entry.is_regular_file()) continue;
-        auto ext = entry.path().extension();
-        if (ext != ".test") continue;
+        if (entry.path().extension() != ".test") continue;
 
         TestCase tc = TestCaseLoader::LoadCase(entry.path(), dir);
         if (!filter.empty() && tc.name.find(filter) == std::string::npos) continue;
@@ -42,236 +88,103 @@ TestResult Tester::RunCase(const TestCase& tc, const Options& opt)
         return TestResult::Fail;
     }
 
-    std::map<std::string, std::string> actualOutputs;
-    std::vector<ErrorInfo> actualErrors;
-    bool allMatched = true;
-    std::string pipelineError;
-
+    static Pipeline pipeline;
+    PipelineResult res;
     float caseTimeMs = 0.0f;
-    AstStep::Result astResult;
-    TypeCheckerStep::Result tcResult;
-    VmStep::Result vmResult;
-    bool isTypeCheck = (tc.kind == InputKind::Source && tc.hasTypes);
 
     {
         ZN_PROFILE_SCOPE(&caseTimeMs);
-
         try
         {
-            if (isTypeCheck)
-            {
-                tcResult = TypeCheckerStep::Run(tc.inputSource);
-                if (!tcResult.typedAst.empty())
-                    actualOutputs[std::string(TestCaseLoader::kExpectedTypesMarker)] = tcResult.typedAst;
-                actualErrors = tcResult.errors;
-
-                if (tc.hasTypes)
-                {
-                    if (tcResult.typedAst != tc.expectedTypes)
-                        allMatched = false;
-                }
-
-                if (tc.hasErrors || !actualErrors.empty())
-                {
-                    std::string expectedErrStr = TestCaseLoader::RenderExpected(tc.expectedErrors, actualErrors);
-                    std::string actualErrStr = TestCaseLoader::RenderErrors(actualErrors);
-                    if (expectedErrStr != actualErrStr)
-                        allMatched = false;
-                }
-            }
-            else if (tc.kind == InputKind::Source)
-            {
-                astResult = AstStep::Run(tc.inputSource);
-                actualOutputs[std::string(TestCaseLoader::kExpectedAstMarker)] = astResult.astTree;
-                actualErrors = astResult.errors;
-
-                if (tc.hasAst)
-                {
-                    if (astResult.astTree != tc.expectedAst)
-                        allMatched = false;
-                }
-
-                if (tc.hasErrors || !actualErrors.empty())
-                {
-                    std::string expectedErrStr = TestCaseLoader::RenderExpected(tc.expectedErrors, actualErrors);
-                    std::string actualErrStr = TestCaseLoader::RenderErrors(actualErrors);
-                    if (expectedErrStr != actualErrStr)
-                        allMatched = false;
-                }
-            }
-            else if (tc.kind == InputKind::Asm)
-            {
-                vmResult = VmStep::RunAsm(tc.inputSource, tc.expectedVm);
-                if (!vmResult.success)
-                {
-                    pipelineError = vmResult.errorMessage;
-                    allMatched = false;
-                }
-                else
-                {
-                    actualOutputs[std::string(TestCaseLoader::kExpectedVmMarker)] = vmResult.actualVm;
-                    actualOutputs[std::string(TestCaseLoader::kExpectedDisasmMarker)] = vmResult.actualDisasm;
-
-                    if (tc.hasVm)
-                    {
-                        if (vmResult.actualVm != tc.expectedVm)
-                            allMatched = false;
-                    }
-                    if (tc.hasDisasm)
-                    {
-                        if (vmResult.actualDisasm != tc.expectedDisasm)
-                            allMatched = false;
-                    }
-                }
-            }
+            res = pipeline.Run(tc, opt.update || opt.dump);
         }
         catch (const std::exception& e)
         {
-            pipelineError = "Exception in test pipeline: " + std::string(e.what());
-            allMatched = false;
+            res.fatalError = "Exception in test pipeline: " + std::string(e.what());
         }
     }
 
-    std::ostringstream timeStr;
-    timeStr << std::fixed << std::setprecision(2);
-    timeStr << " (" << caseTimeMs << "ms)";
-    if (isTypeCheck)
-    {
-        timeStr << " [Parse: " << tcResult.profile.parseTimeMs
-                << "ms, Check: " << tcResult.profile.checkTimeMs
-                << "ms, Dump: " << tcResult.profile.dumpTimeMs << "ms]";
-    }
-    else if (tc.kind == InputKind::Source)
-    {
-        timeStr << " [Parse: " << astResult.profile.parseTimeMs
-                << "ms, Dump: " << astResult.profile.dumpTimeMs << "ms]";
-    }
-    else if (tc.kind == InputKind::Asm && vmResult.success)
-    {
-        timeStr << " [Asm: " << vmResult.profile.assembleTimeMs
-                << "ms, Exec: " << vmResult.profile.executeTimeMs << "ms]";
-        if (tc.hasDisasm)
-            timeStr << " [Disasm: " << vmResult.profile.disasmTimeMs << "ms]";
-    }
+    std::string timeStr = FormatTimings(caseTimeMs, res.timings);
 
     if (opt.dump)
     {
         std::cout << "--- " << tc.name << " ---\n";
-        std::cout << "Execution Time: " << caseTimeMs << "ms\n";
-        if (isTypeCheck)
-        {
-            std::cout << "  - Parse: " << tcResult.profile.parseTimeMs << "ms\n";
-            std::cout << "  - Check: " << tcResult.profile.checkTimeMs << "ms\n";
-            std::cout << "  - Dump:  " << tcResult.profile.dumpTimeMs << "ms\n";
-        }
-        else if (tc.kind == InputKind::Source)
-        {
-            std::cout << "  - Parse: " << astResult.profile.parseTimeMs << "ms\n";
-            std::cout << "  - Dump:  " << astResult.profile.dumpTimeMs << "ms\n";
-        }
-        else if (tc.kind == InputKind::Asm && vmResult.success)
-        {
-            std::cout << "  - Assemble: " << vmResult.profile.assembleTimeMs << "ms\n";
-            std::cout << "  - Execute:  " << vmResult.profile.executeTimeMs << "ms\n";
-            std::cout << "  - Disasm:   " << vmResult.profile.disasmTimeMs << "ms\n";
-        }
+        std::cout << "Execution Time: " << std::fixed << std::setprecision(2) << caseTimeMs << "ms\n";
+        for (const auto& [stageName, ms] : res.timings)
+            std::cout << "  - " << stageName << ": " << ms << "ms\n";
         std::cout << "\n";
-        if (!actualErrors.empty())
-            std::cout << TestCaseLoader::RenderErrors(actualErrors) << "\n\n";
-        for (const auto& [tag, content] : actualOutputs)
-        {
+        if (!res.errors.empty())
+            std::cout << TestCaseLoader::RenderErrors(res.errors) << "\n\n";
+        for (const auto& [tag, content] : res.outputs)
             std::cout << tag << "\n" << content << "\n\n";
-        }
     }
 
     bool hasAnyExpectation = tc.hasAst || tc.hasTypes || tc.hasErrors || tc.hasVm || tc.hasDisasm;
 
     if (!hasAnyExpectation && !opt.update)
     {
-        std::cout << Diff::Paint("31", "[FAIL]") << " " << tc.name << timeStr.str()
+        std::cout << Diff::Paint("31", "[FAIL]") << " " << tc.name << timeStr
                   << "\n  No expectations found; add expected section or run with --update\n";
         return TestResult::Fail;
     }
 
-    if (!pipelineError.empty())
+    if (!res.fatalError.empty())
     {
-        std::cout << Diff::Paint("31", "[FAIL]") << " " << tc.name << timeStr.str()
-                  << "\n  " << pipelineError << "\n";
+        std::cout << Diff::Paint("31", "[FAIL]") << " " << tc.name << timeStr
+                  << "\n  " << res.fatalError << "\n";
         return TestResult::Fail;
+    }
+
+    bool allMatched = true;
+    allMatched &= CheckSection(tc.hasAst, tc.expectedAst, res.outputs, TestCaseLoader::kExpectedAstMarker);
+    allMatched &= CheckSection(tc.hasTypes, tc.expectedTypes, res.outputs, TestCaseLoader::kExpectedTypesMarker);
+    allMatched &= CheckSection(tc.hasDisasm, tc.expectedDisasm, res.outputs, TestCaseLoader::kExpectedDisasmMarker);
+    allMatched &= CheckSection(tc.hasVm, tc.expectedVm, res.outputs, TestCaseLoader::kExpectedVmMarker);
+
+    if (tc.hasErrors || !res.errors.empty())
+    {
+        std::string expectedErrStr = TestCaseLoader::RenderExpected(tc.expectedErrors, res.errors);
+        std::string actualErrStr = TestCaseLoader::RenderErrors(res.errors);
+        if (expectedErrStr != actualErrStr)
+            allMatched = false;
     }
 
     if (hasAnyExpectation && allMatched)
     {
-        std::cout << Diff::Paint("32", "[PASS]") << " " << tc.name << timeStr.str() << "\n";
+        std::cout << Diff::Paint("32", "[PASS]") << " " << tc.name << timeStr << "\n";
         return TestResult::Pass;
     }
 
     if (opt.update)
     {
-        std::string updated = TestCaseLoader::UpdatedContent(tc, actualOutputs, actualErrors);
+        std::string updated = TestCaseLoader::UpdatedContent(tc, res.outputs, res.errors);
         std::ofstream file(tc.path, std::ios::binary);
         if (!file)
         {
-            std::cout << Diff::Paint("31", "[FAIL]") << " " << tc.name << timeStr.str()
+            std::cout << Diff::Paint("31", "[FAIL]") << " " << tc.name << timeStr
                       << "\n  Cannot write to " << tc.path << "\n";
             return TestResult::Fail;
         }
         file << updated;
-        std::cout << Diff::Paint("33", "[UPDATED]") << " " << tc.name << timeStr.str() << "\n";
+        std::cout << Diff::Paint("33", "[UPDATED]") << " " << tc.name << timeStr << "\n";
         return TestResult::Updated;
     }
 
-    std::cout << Diff::Paint("31", "[FAIL]") << " " << tc.name << timeStr.str() << "\n";
-    if (tc.hasErrors || !actualErrors.empty())
+    std::cout << Diff::Paint("31", "[FAIL]") << " " << tc.name << timeStr << "\n";
+    if (tc.hasErrors || !res.errors.empty())
     {
-        std::string expectedErrStr = TestCaseLoader::RenderExpected(tc.expectedErrors, actualErrors);
-        std::string actualErrStr = TestCaseLoader::RenderErrors(actualErrors);
+        std::string expectedErrStr = TestCaseLoader::RenderExpected(tc.expectedErrors, res.errors);
+        std::string actualErrStr = TestCaseLoader::RenderErrors(res.errors);
         if (expectedErrStr != actualErrStr)
         {
             std::cout << "  Errors mismatch:\n";
             Diff::PrintDiff(expectedErrStr, actualErrStr);
         }
     }
-    if (tc.hasAst)
-    {
-        auto it = actualOutputs.find(std::string(TestCaseLoader::kExpectedAstMarker));
-        std::string actualAst = (it != actualOutputs.end()) ? it->second : "";
-        if (actualAst != tc.expectedAst)
-        {
-            std::cout << "  AST mismatch:\n";
-            Diff::PrintDiff(tc.expectedAst, actualAst);
-        }
-    }
-    if (tc.hasTypes)
-    {
-        auto it = actualOutputs.find(std::string(TestCaseLoader::kExpectedTypesMarker));
-        std::string actualTypes = (it != actualOutputs.end()) ? it->second : "";
-        if (actualTypes != tc.expectedTypes)
-        {
-            std::cout << "  Types mismatch:\n";
-            Diff::PrintDiff(tc.expectedTypes, actualTypes);
-        }
-    }
-    if (tc.hasVm)
-    {
-        auto it = actualOutputs.find(std::string(TestCaseLoader::kExpectedVmMarker));
-        std::string actualVm = (it != actualOutputs.end()) ? it->second : "";
-        if (actualVm != tc.expectedVm)
-        {
-            std::cout << "  VM mismatch:\n";
-            Diff::PrintDiff(tc.expectedVm, actualVm);
-        }
-    }
-    if (tc.hasDisasm)
-    {
-        auto it = actualOutputs.find(std::string(TestCaseLoader::kExpectedDisasmMarker));
-        std::string actualDisasm = (it != actualOutputs.end()) ? it->second : "";
-        if (actualDisasm != tc.expectedDisasm)
-        {
-            std::cout << "  Disasm mismatch:\n";
-            Diff::PrintDiff(tc.expectedDisasm, actualDisasm);
-        }
-    }
+    PrintSectionDiff(tc.hasAst, tc.expectedAst, res.outputs, TestCaseLoader::kExpectedAstMarker, "AST");
+    PrintSectionDiff(tc.hasTypes, tc.expectedTypes, res.outputs, TestCaseLoader::kExpectedTypesMarker, "Types");
+    PrintSectionDiff(tc.hasDisasm, tc.expectedDisasm, res.outputs, TestCaseLoader::kExpectedDisasmMarker, "Disasm");
+    PrintSectionDiff(tc.hasVm, tc.expectedVm, res.outputs, TestCaseLoader::kExpectedVmMarker, "VM");
 
     return TestResult::Fail;
 }

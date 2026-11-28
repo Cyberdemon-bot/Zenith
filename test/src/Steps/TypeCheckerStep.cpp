@@ -1,70 +1,31 @@
 #include "TypeCheckerStep.h"
 #include "Diff.h"
-#include "Zenith/Compiler/Diagnostic.h"
+#include "StepUtils.h"
+
 #include "Zenith/Compiler/Dumper.h"
-#include "Zenith/Compiler/Parser.h"
-#include "Zenith/Compiler/TypeChecker.h"
 #include "Zenith/Core/ProfileTimer.h"
 
-namespace {
-
-    void AppendTokenLocation(Zenith::AstView ast, uint32_t token_idx, uint32_t& line, uint32_t& col)
-    {
-        if (ast.tokens.empty())
-        {
-            line = 0;
-            col = 0;
-            return;
-        }
-        if (token_idx >= ast.tokens.size())
-            token_idx = static_cast<uint32_t>(ast.tokens.size()) - 1;
-        line = ast.tokens[token_idx].line;
-        col = ast.tokens[token_idx].column;
-    }
-
-}
-
-TypeCheckerStep::Result TypeCheckerStep::Run(std::string_view source)
+TypeCheckerStep::Result TypeCheckerStep::Run(Zenith::AstView ast)
 {
     Result res;
-    ZN_PROFILE_SCOPE(&res.profile.totalTimeMs);
-
-    Zenith::Parser parser;
-    Zenith::AstView ast;
     {
-        ZN_PROFILE_SCOPE(&res.profile.parseTimeMs);
-        ast = parser.ParseProgram(source);
-        if (parser.HasErrors())
-        {
-            for (const auto& diag : parser.Diagnostics())
-            {
-                uint32_t line = 0, col = 0;
-                AppendTokenLocation(ast, diag.token, line, col);
-                res.errors.push_back({ line, col, Zenith::FormatDiagnostic(diag) });
-            }
-            return res;
-        }
+        ZN_PROFILE_SCOPE(&res.timeMs);
+        res.typed = m_Checker.Validate(ast);
     }
+    res.hasErrors = m_Checker.HasErrors();
+    res.errors = StepUtils::CollectDiagnostics(ast, m_Checker.Diagnostics());
+    return res;
+}
 
-    Zenith::TypeChecker checker;
-    auto typed = [&]()
+std::string TypeCheckerStep::Dump(Zenith::TypedAstView typed, float* outTimeMs)
+{
+    float elapsed = 0.0f;
+    std::string dumped;
     {
-        ZN_PROFILE_SCOPE(&res.profile.checkTimeMs);
-        auto view = checker.Validate(ast);
-        for (const auto& diag : checker.Diagnostics())
-        {
-            uint32_t line = 0, col = 0;
-            AppendTokenLocation(ast, diag.token, line, col);
-            res.errors.push_back({ line, col, Zenith::FormatDiagnostic(diag) });
-        }
-        return view;
-    }();
-
-    {
-        ZN_PROFILE_SCOPE(&res.profile.dumpTimeMs);
-        res.typedAst = Diff::Trim(Diff::NormalizeNewlines(
+        ZN_PROFILE_SCOPE(&elapsed);
+        dumped = Diff::Trim(Diff::NormalizeNewlines(
             Zenith::Dumper::DumpTypedAst(typed.ast, typed.node_types)));
     }
-
-    return res;
+    if (outTimeMs) *outTimeMs = elapsed;
+    return dumped;
 }
