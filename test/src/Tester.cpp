@@ -11,21 +11,57 @@
 
 namespace {
 
-    std::string FormatTimings(float caseTimeMs, const std::vector<std::pair<std::string, float>>& timings)
+    constexpr size_t kStatusWidth = 9; // "[UPDATED]"
+    constexpr size_t kTimeWidth   = 8; // "999.99ms"
+
+    std::string FormatStages(const std::vector<std::pair<std::string, float>>& timings)
+    {
+        if (timings.empty()) return "";
+        std::ostringstream os;
+        os << std::fixed << std::setprecision(2) << "[";
+        for (size_t i = 0; i < timings.size(); ++i)
+        {
+            if (i > 0) os << ", ";
+            os << timings[i].first << ": " << timings[i].second << "ms";
+        }
+        os << "]";
+        return os.str();
+    }
+
+    std::string FormatTotalTime(float caseTimeMs)
     {
         std::ostringstream os;
-        os << std::fixed << std::setprecision(2) << " (" << caseTimeMs << "ms)";
-        if (!timings.empty())
-        {
-            os << " [";
-            for (size_t i = 0; i < timings.size(); ++i)
-            {
-                if (i > 0) os << ", ";
-                os << timings[i].first << ": " << timings[i].second << "ms";
-            }
-            os << "]";
-        }
+        os << std::fixed << std::setprecision(2) << caseTimeMs << "ms";
         return os.str();
+    }
+
+    std::string FormatStatusCell(const char* colorCode, std::string_view tag)
+    {
+        std::string cell = Diff::Paint(colorCode, std::string(tag));
+        if (tag.size() < kStatusWidth)
+            cell.append(kStatusWidth - tag.size(), ' ');
+        return cell;
+    }
+
+    void PrintRow(
+        const char* colorCode,
+        std::string_view tag,
+        std::string_view name,
+        size_t nameWidth,
+        float caseTimeMs,
+        const std::vector<std::pair<std::string, float>>& timings,
+        bool showTime = true)
+    {
+        size_t colWidth = std::max(nameWidth, name.size());
+        std::string timeCell = showTime ? FormatTotalTime(caseTimeMs) : "-";
+        std::string stagesCell = showTime ? FormatStages(timings) : "";
+
+        std::cout << FormatStatusCell(colorCode, tag) << "  "
+                  << std::left << std::setw(static_cast<int>(colWidth)) << name << "  "
+                  << std::right << std::setw(static_cast<int>(kTimeWidth)) << timeCell;
+        if (!stagesCell.empty())
+            std::cout << "  " << stagesCell;
+        std::cout << std::left << "\n";
     }
 
     bool CheckSection(
@@ -75,16 +111,18 @@ std::vector<TestCase> Tester::LoadCases(const fs::path& dir, const std::string& 
     return cases;
 }
 
-TestResult Tester::RunCase(const TestCase& tc, const Options& opt)
+TestResult Tester::RunCase(const TestCase& tc, const Options& opt, size_t nameWidth)
 {
     if (!tc.loadError.empty())
     {
-        std::cout << Diff::Paint("31", "[FAIL]") << " " << tc.name << "\n  " << tc.loadError << "\n";
+        PrintRow("31", "[FAIL]", tc.name, nameWidth, 0.0f, {}, false);
+        std::cout << "  " << tc.loadError << "\n";
         return TestResult::Fail;
     }
     if (Diff::Trim(tc.inputSource).empty())
     {
-        std::cout << Diff::Paint("31", "[FAIL]") << " " << tc.name << "\n  No input source before expected markers\n";
+        PrintRow("31", "[FAIL]", tc.name, nameWidth, 0.0f, {}, false);
+        std::cout << "  No input source before expected markers\n";
         return TestResult::Fail;
     }
 
@@ -104,8 +142,6 @@ TestResult Tester::RunCase(const TestCase& tc, const Options& opt)
         }
     }
 
-    std::string timeStr = FormatTimings(caseTimeMs, res.timings);
-
     if (opt.dump)
     {
         std::cout << "--- " << tc.name << " ---\n";
@@ -123,15 +159,15 @@ TestResult Tester::RunCase(const TestCase& tc, const Options& opt)
 
     if (!hasAnyExpectation && !opt.update)
     {
-        std::cout << Diff::Paint("31", "[FAIL]") << " " << tc.name << timeStr
-                  << "\n  No expectations found; add expected section or run with --update\n";
+        PrintRow("31", "[FAIL]", tc.name, nameWidth, caseTimeMs, res.timings);
+        std::cout << "  No expectations found; add expected section or run with --update\n";
         return TestResult::Fail;
     }
 
     if (!res.fatalError.empty())
     {
-        std::cout << Diff::Paint("31", "[FAIL]") << " " << tc.name << timeStr
-                  << "\n  " << res.fatalError << "\n";
+        PrintRow("31", "[FAIL]", tc.name, nameWidth, caseTimeMs, res.timings);
+        std::cout << "  " << res.fatalError << "\n";
         return TestResult::Fail;
     }
 
@@ -151,7 +187,7 @@ TestResult Tester::RunCase(const TestCase& tc, const Options& opt)
 
     if (hasAnyExpectation && allMatched)
     {
-        std::cout << Diff::Paint("32", "[PASS]") << " " << tc.name << timeStr << "\n";
+        PrintRow("32", "[PASS]", tc.name, nameWidth, caseTimeMs, res.timings);
         return TestResult::Pass;
     }
 
@@ -161,16 +197,16 @@ TestResult Tester::RunCase(const TestCase& tc, const Options& opt)
         std::ofstream file(tc.path, std::ios::binary);
         if (!file)
         {
-            std::cout << Diff::Paint("31", "[FAIL]") << " " << tc.name << timeStr
-                      << "\n  Cannot write to " << tc.path << "\n";
+            PrintRow("31", "[FAIL]", tc.name, nameWidth, caseTimeMs, res.timings);
+            std::cout << "  Cannot write to " << tc.path << "\n";
             return TestResult::Fail;
         }
         file << updated;
-        std::cout << Diff::Paint("33", "[UPDATED]") << " " << tc.name << timeStr << "\n";
+        PrintRow("33", "[UPDATED]", tc.name, nameWidth, caseTimeMs, res.timings);
         return TestResult::Updated;
     }
 
-    std::cout << Diff::Paint("31", "[FAIL]") << " " << tc.name << timeStr << "\n";
+    PrintRow("31", "[FAIL]", tc.name, nameWidth, caseTimeMs, res.timings);
     if (tc.hasErrors || !res.errors.empty())
     {
         std::string expectedErrStr = TestCaseLoader::RenderExpected(tc.expectedErrors, res.errors);
@@ -204,7 +240,16 @@ int Tester::Run(const Options& opt)
         return 2;
     }
 
+    size_t nameWidth = 10; // "TEST CASE"
+    for (const auto& tc : cases)
+        nameWidth = std::max(nameWidth, tc.name.size());
+
     std::cout << "Running " << cases.size() << " test cases" << (opt.update ? " [UPDATE MODE]" : "") << "\n\n";
+    std::cout << std::left << std::setw(static_cast<int>(kStatusWidth)) << "STATUS" << "  "
+              << std::setw(static_cast<int>(nameWidth)) << "TEST CASE" << "  "
+              << std::right << std::setw(static_cast<int>(kTimeWidth)) << "TIME" << "  "
+              << std::left << "PIPELINE\n";
+    std::cout << std::string(kStatusWidth + nameWidth + kTimeWidth + 24, '-') << "\n";
 
     float totalSuiteTimeMs = 0.0f;
     int passed = 0, updated = 0;
@@ -214,7 +259,7 @@ int Tester::Run(const Options& opt)
         ZN_PROFILE_SCOPE(&totalSuiteTimeMs);
         for (const auto& tc : cases)
         {
-            switch (RunCase(tc, opt))
+            switch (RunCase(tc, opt, nameWidth))
             {
                 case TestResult::Pass:    ++passed; break;
                 case TestResult::Updated: ++updated; break;

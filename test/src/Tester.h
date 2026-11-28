@@ -27,7 +27,7 @@ class Tester
 {
 public:
     static int Run(const Options& opt);
-    static TestResult RunCase(const TestCase& tc, const Options& opt);
+    static TestResult RunCase(const TestCase& tc, const Options& opt, size_t nameWidth = 0);
     static std::vector<TestCase> LoadCases(const fs::path& dir, const std::string& filter);
     static void PrintUsage();
 };
